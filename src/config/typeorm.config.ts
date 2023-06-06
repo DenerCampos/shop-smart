@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from '@nestjs/typeorm';
 import { AppConfig } from './app.config';
+import 'dotenv/config';
 
 @Injectable()
 export class TypeOrmConfig implements TypeOrmOptionsFactory {
@@ -10,13 +11,14 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
 
     return {
       type: 'mysql',
-      host: host,
-      port: port,
-      username: user,
-      password: pass,
-      database: name,
+      host: host ?? process.env.API_DB_HOST,
+      port: port ?? Number(process.env.API_DB_PORT),
+      username: user ?? process.env.API_DB_USER,
+      password: pass ?? process.env.API_DB_PASS,
+      database: name ?? process.env.API_DB_NAME,
       entities: ['dist/**/*.entity.js'],
-      synchronize: appConfig.isDevelopment(),
+      migrations: ['dist/db/migrations/*.js'],
+      // synchronize: appConfig.isDevelopment(),
     };
   }
 }
