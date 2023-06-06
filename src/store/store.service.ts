@@ -2,32 +2,40 @@ import { Injectable } from '@nestjs/common';
 import { StoreRepository } from './store.repository';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
+import { StoreModel } from './model/store.model';
 
 @Injectable()
 export class StoreService {
   constructor(private storeRepository: StoreRepository) {}
 
-  create(createStoreDto: CreateStoreDto) {
-    return this.storeRepository.create(createStoreDto);
+  async create(createStoreDto: CreateStoreDto): Promise<StoreModel> {
+    const { id, name } = await this.storeRepository.create(createStoreDto);
+    return new StoreModel({ id, name });
   }
 
-  findAll() {
-    return this.storeRepository.findAll();
+  async findAll(): Promise<StoreModel[]> {
+    const stores = await this.storeRepository.findAll();
+    return stores.map(({ id, name }) => new StoreModel({ id, name }));
   }
 
-  find(id: string) {
-    return this.storeRepository.find(id);
+  async find(storeId: number): Promise<StoreModel> {
+    const { id, name } = await this.storeRepository.find(storeId);
+    return new StoreModel({ id, name });
   }
 
-  findOne(id: string) {
-    return this.storeRepository.find(id);
+  async update(
+    storeId: number,
+    updateStoreDto: UpdateStoreDto,
+  ): Promise<StoreModel> {
+    const { id, name } = await this.storeRepository.update(
+      storeId,
+      updateStoreDto,
+    );
+    return new StoreModel({ id, name });
   }
 
-  update(id: string, updateStoreDto: UpdateStoreDto) {
-    return this.storeRepository.update(id, updateStoreDto);
-  }
-
-  remove(id: string) {
-    return this.storeRepository.remove(id);
+  async remove(storeId: number): Promise<StoreModel> {
+    const { id, name } = await this.storeRepository.remove(storeId);
+    return new StoreModel({ id, name });
   }
 }

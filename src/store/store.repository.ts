@@ -5,22 +5,28 @@ import { IStoreRepository } from './contracts/store.repository.interface';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 
-@Injectable() //transforma em um provider no nest
+@Injectable()
 export class StoreRepository implements IStoreRepository {
   constructor(private storeEntity: Repository<Store>) {}
-  async create(createStoreDto: CreateStoreDto): Promise<any> {
-    throw new Error('Method not implemented.');
+  async create(createStoreDto: CreateStoreDto): Promise<Store> {
+    const store = this.storeEntity.create(createStoreDto);
+
+    return this.storeEntity.save(store);
   }
-  async findAll(): Promise<any> {
+  async findAll(): Promise<Store[]> {
     return this.storeEntity.find();
   }
-  async find(id: string): Promise<any> {
-    throw new Error('Method not implemented.');
+  async find(id: number): Promise<Store> {
+    return this.storeEntity.findOneBy({ id });
   }
-  async update(id: string, updateStoreDto: UpdateStoreDto): Promise<any> {
-    throw new Error('Method not implemented.');
+  async update(id: number, updateStoreDto: UpdateStoreDto): Promise<Store> {
+    const store = await this.storeEntity.findOneBy({ id });
+
+    return this.storeEntity.save({ ...store, ...updateStoreDto });
   }
-  async remove(id: string): Promise<any> {
-    throw new Error('Method not implemented.');
+  async remove(id: number): Promise<Store> {
+    const store = await this.storeEntity.findOneBy({ id });
+
+    return this.storeEntity.remove(store);
   }
 }
