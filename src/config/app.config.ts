@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 
 interface IDatabase {
   host: string;
-  port: string;
+  port: number;
   user: string;
   pass: string;
   name: string;
@@ -10,12 +10,12 @@ interface IDatabase {
 
 interface IApi {
   host: string;
-  port: string;
+  port: number;
 }
 
 interface ICache {
   host: string;
-  port: string;
+  port: number;
 }
 
 export class AppConfig {
@@ -33,7 +33,7 @@ export class AppConfig {
   getDatabase(): IDatabase {
     return {
       host: this.configService.get<string>('API_DB_HOST'),
-      port: this.configService.get<string>('API_DB_PORT'),
+      port: Number(this.configService.get<string>('API_DB_PORT')),
       user: this.configService.get<string>('API_DB_USER'),
       pass: this.configService.get<string>('API_DB_PASS'),
       name: this.configService.get<string>('API_DB_NAME'),
@@ -43,14 +43,14 @@ export class AppConfig {
   getApi(): IApi {
     return {
       host: this.configService.get<string>('API_HOST'),
-      port: this.configService.get<string>('API_PORT'),
+      port: Number(this.configService.get<string>('API_PORT')),
     };
   }
 
   getCache(): ICache {
     return {
       host: this.configService.get<string>('API_REDIS_HOST'),
-      port: this.configService.get<string>('API_REDIS_PORT'),
+      port: Number(this.configService.get<string>('API_REDIS_PORT')),
     };
   }
 }
