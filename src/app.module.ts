@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmConfig } from './config/typeorm.config';
 import { StoreModule } from './store/store.module';
 import { GroupModule } from './group/group.module';
+import { ItemModule } from './item/item.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { GroupModule } from './group/group.module';
     }),
     StoreModule,
     GroupModule,
+    ItemModule,
   ],
   controllers: [],
   providers: [],
