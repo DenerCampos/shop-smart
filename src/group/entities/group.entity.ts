@@ -1,8 +1,10 @@
+import { Item } from 'src/item/entities/item.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -23,4 +25,7 @@ export class Group {
 
   @DeleteDateColumn()
   deletedAt: Date;
+
+  @OneToMany(() => Item, (item) => item.group)
+  items: Item[];
 }
