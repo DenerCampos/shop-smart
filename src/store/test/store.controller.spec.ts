@@ -16,7 +16,7 @@ describe('StoreController', () => {
 
   describe('root', () => {
     it('should return "Hello World!"', () => {
-      expect(storeController.getTest()).toBe('Hello World!');
+      expect(storeController.findAll()).toBe([]);
     });
   });
 });

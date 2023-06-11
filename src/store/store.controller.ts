@@ -40,7 +40,7 @@ export class StoreController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number): Promise<StoreModel> {
-    return this.storeService.remove(id);
+  delete(@Param('id') id: number): Promise<boolean> {
+    return this.storeService.delete(id);
   }
 }

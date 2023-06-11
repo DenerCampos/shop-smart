@@ -34,8 +34,7 @@ export class StoreService {
     return new StoreModel({ id, name });
   }
 
-  async remove(storeId: number): Promise<StoreModel> {
-    const { id, name } = await this.storeRepository.remove(storeId);
-    return new StoreModel({ id, name });
+  async delete(storeId: number): Promise<boolean> {
+    return this.storeRepository.delete(storeId);
   }
 }

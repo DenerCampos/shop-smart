@@ -1,0 +1,46 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { GroupService } from './group.service';
+import { UpdateGroupDto } from './dto/update-group.dto';
+import { CreateGroupDto } from './dto/create-group.dto';
+import { GroupModel } from './model/group.model';
+
+@Controller('/group')
+export class GroupController {
+  constructor(private readonly groupService: GroupService) {}
+
+  @Post()
+  create(@Body() createStoreDto: CreateGroupDto): Promise<GroupModel> {
+    return this.groupService.create(createStoreDto);
+  }
+
+  @Get()
+  findAll(): Promise<GroupModel[]> {
+    return this.groupService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: number): Promise<GroupModel> {
+    return this.groupService.find(id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: number,
+    @Body() updateStoreDto: UpdateGroupDto,
+  ): Promise<GroupModel> {
+    return this.groupService.update(id, updateStoreDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: number): Promise<GroupModel> {
+    return this.groupService.remove(id);
+  }
+}

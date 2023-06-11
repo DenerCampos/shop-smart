@@ -6,4 +6,5 @@ export interface IStoreRepository {
   find(id: number): Promise<Store>;
   update(id: number, updateStore: Store): Promise<Store>;
   remove(id: number): Promise<Store>;
+  delete(id: number): Promise<boolean>;
 }
