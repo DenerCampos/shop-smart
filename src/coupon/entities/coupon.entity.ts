@@ -1,21 +1,24 @@
-import { Item } from 'src/coupon/entities/item.entity';
+import { Store } from 'src/store/entities/store.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Item } from './item.entity';
 
 @Entity()
-export class Group {
+export class Coupon {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
-  name: string;
+  number: string;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -26,6 +29,11 @@ export class Group {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Item, (item) => item.group)
+  @ManyToOne(() => Store, (store) => store.coupons)
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
+
+  @OneToMany(() => Item, (item) => item.coupon)
+  @JoinColumn()
   items: Item[];
 }

@@ -1,5 +1,4 @@
 import { Group } from 'src/group/entities/group.entity';
-import { Store } from 'src/store/entities/store.entity';
 import {
   Column,
   CreateDateColumn,
@@ -10,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Coupon } from './coupon.entity';
 
 @Entity()
 export class Item {
@@ -46,11 +46,11 @@ export class Item {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @ManyToOne(() => Store, (store) => store.items)
-  @JoinColumn({ name: 'store_id' })
-  store: Store;
-
   @ManyToOne(() => Group, (group) => group.items)
   @JoinColumn({ name: 'group_id' })
   group: Group;
+
+  @ManyToOne(() => Coupon, (coupon) => coupon.items)
+  @JoinColumn({ name: 'coupon_id' })
+  coupon: Coupon;
 }
