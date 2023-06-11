@@ -38,4 +38,8 @@ export class GroupService {
     const { id, name } = await this.groupRepository.remove(groupId);
     return new GroupModel({ id, name });
   }
+
+  async delete(groupId: number): Promise<boolean> {
+    return await this.groupRepository.delete(groupId);
+  }
 }

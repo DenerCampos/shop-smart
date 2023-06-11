@@ -6,4 +6,5 @@ export interface IGroupRepository {
   find(id: number): Promise<Group>;
   update(id: number, updateGroup: Group): Promise<Group>;
   remove(id: number): Promise<Group>;
+  delete(id: number): Promise<boolean>;
 }

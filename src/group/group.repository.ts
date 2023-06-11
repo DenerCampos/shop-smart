@@ -29,4 +29,10 @@ export class GroupRepository implements IGroupRepository {
 
     return this.groupEntity.remove(group);
   }
+
+  async delete(id: number): Promise<boolean> {
+    const result = await this.groupEntity.softDelete({ id });
+
+    return result.affected === 1 ? true : false;
+  }
 }

@@ -40,7 +40,7 @@ export class GroupController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number): Promise<GroupModel> {
-    return this.groupService.remove(id);
+  remove(@Param('id') id: number): Promise<boolean> {
+    return this.groupService.delete(id);
   }
 }
