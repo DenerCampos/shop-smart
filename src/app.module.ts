@@ -5,6 +5,7 @@ import { TypeOrmConfig } from './config/typeorm.config';
 import { StoreModule } from './store/store.module';
 import { GroupModule } from './group/group.module';
 import { CouponModule } from './coupon/coupon.module';
+import { CouponReaderModule } from './coupon-reader/group.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CouponModule } from './coupon/coupon.module';
     StoreModule,
     GroupModule,
     CouponModule,
+    CouponReaderModule,
   ],
   controllers: [],
   providers: [],
