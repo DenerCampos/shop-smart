@@ -20,6 +20,9 @@ export class Coupon {
   @Column()
   number: string;
 
+  @Column({ nullable: true })
+  url: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

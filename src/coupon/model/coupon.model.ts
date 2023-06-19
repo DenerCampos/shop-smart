@@ -4,6 +4,7 @@ import { Item } from '../entities/item.entity';
 export class CouponModel {
   id: string | number;
   number: string;
+  url: string;
   store: Store;
   items: Item[];
 

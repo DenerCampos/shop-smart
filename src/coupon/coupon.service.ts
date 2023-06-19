@@ -9,8 +9,9 @@ export class CouponService {
   constructor(private couponRepository: CouponRepository) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
-    const { id } = await this.couponRepository.create(createCouponDto);
-    return new CouponModel({ id });
+    const coupon = await this.couponRepository.create(createCouponDto);
+
+    return new CouponModel({ id: coupon.id });
   }
 
   async findAll(): Promise<CouponModel[]> {

@@ -5,6 +5,7 @@ import { CouponRepository } from './coupon.repository';
 import { DataSource } from 'typeorm';
 import { Coupon } from './entities/coupon.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
+import { Item } from './entities/item.entity';
 
 @Module({
   imports: [],
@@ -13,7 +14,11 @@ import { getDataSourceToken } from '@nestjs/typeorm';
     {
       provide: CouponRepository,
       useFactory: (dataSource: DataSource) => {
-        return new CouponRepository(dataSource.getRepository(Coupon));
+        return new CouponRepository(
+          dataSource,
+          dataSource.getRepository(Coupon),
+          dataSource.getRepository(Item),
+        );
       },
       inject: [getDataSourceToken()],
     },

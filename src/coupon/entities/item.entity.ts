@@ -28,13 +28,13 @@ export class Item {
   @Column()
   unit: string;
 
-  @Column({ type: 'float' })
+  @Column({ type: 'decimal' })
   value: number;
 
-  @Column({ type: 'float' })
+  @Column({ type: 'decimal' })
   total: number;
 
-  @Column()
+  @Column({ default: () => 'CURRENT_TIMESTAMP' })
   purchaseDate: Date;
 
   @CreateDateColumn()
