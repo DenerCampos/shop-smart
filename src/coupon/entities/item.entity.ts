@@ -28,10 +28,10 @@ export class Item {
   @Column()
   unit: string;
 
-  @Column({ type: 'decimal' })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   value: number;
 
-  @Column({ type: 'decimal' })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
   @Column({ default: () => 'CURRENT_TIMESTAMP' })

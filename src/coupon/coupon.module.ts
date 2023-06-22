@@ -6,6 +6,8 @@ import { DataSource } from 'typeorm';
 import { Coupon } from './entities/coupon.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { Item } from './entities/item.entity';
+import { Store } from 'src/store/entities/store.entity';
+import { Group } from 'src/group/entities/group.entity';
 
 @Module({
   imports: [],
@@ -18,6 +20,8 @@ import { Item } from './entities/item.entity';
           dataSource,
           dataSource.getRepository(Coupon),
           dataSource.getRepository(Item),
+          dataSource.getRepository(Store),
+          dataSource.getRepository(Group),
         );
       },
       inject: [getDataSourceToken()],

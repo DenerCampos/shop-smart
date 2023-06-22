@@ -5,6 +5,8 @@ import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { CreateCouponDto } from './dto/create-coupan.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { Item } from './entities/item.entity';
+import { Store } from 'src/store/entities/store.entity';
+import { Group } from 'src/group/entities/group.entity';
 
 @Injectable()
 export class CouponRepository implements ICouponRepository {
@@ -12,6 +14,8 @@ export class CouponRepository implements ICouponRepository {
     private dataSource: DataSource,
     private couponEntity: Repository<Coupon>,
     private itemEntity: Repository<Item>,
+    private storeEntity: Repository<Store>,
+    private groupEntity: Repository<Group>,
   ) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<Coupon> {
@@ -20,15 +24,36 @@ export class CouponRepository implements ICouponRepository {
     await queryRunner.startTransaction();
 
     try {
-      const { items, ...couponData } = createCouponDto;
+      const { items, store, ...couponData } = createCouponDto;
+
+      const storeDb = await this.storeEntity.findOneBy({
+        id: store,
+      });
+      if (storeDb === null) {
+        //cria novo store
+        throw new Error('store not found');
+      }
+
       const coupon = this.couponEntity.create(couponData);
+      coupon.store = storeDb;
 
       await queryRunner.manager.save(coupon);
 
       const savedItems: Item[] = [];
       for (const item of items) {
-        const newItem = this.itemEntity.create(item);
+        const { groupId, ...itemData } = item;
+
+        const group = await this.groupEntity.findOneBy({
+          id: groupId,
+        });
+        if (group === null) {
+          throw new Error('group not found');
+        }
+
+        const newItem = this.itemEntity.create(itemData);
         newItem.coupon = coupon;
+        newItem.group = group;
+
         await queryRunner.manager.save(newItem);
         savedItems.push(newItem);
       }
@@ -44,17 +69,34 @@ export class CouponRepository implements ICouponRepository {
       throw new Error(error.message);
     }
   }
+
   async findAll(): Promise<Coupon[]> {
     return this.couponEntity.find();
   }
+
   async find(id: number): Promise<Coupon> {
     return this.couponEntity.findOneBy({ id });
   }
+
   async update(id: number, updateCouponDto: UpdateCouponDto): Promise<Coupon> {
     const coupon = await this.couponEntity.findOneBy({ id });
 
-    return this.couponEntity.save({ ...coupon, ...updateCouponDto });
+    const { items, store, ...updateCouponData } = updateCouponDto;
+
+    if (store !== undefined) {
+      const storeDb = await this.storeEntity.findOneBy({
+        id: store,
+      });
+      if (storeDb === null) {
+        //cria novo store
+        throw new Error('store not found');
+      }
+      coupon.store = storeDb;
+    }
+
+    return this.couponEntity.save({ ...coupon, ...updateCouponData });
   }
+
   async remove(id: number): Promise<Coupon> {
     const coupon = await this.couponEntity.findOneBy({ id });
 

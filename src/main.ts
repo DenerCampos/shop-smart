@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/app.config';
+import { ValidationPipe } from '@nestjs/common';
+import { useContainer } from 'class-validator';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +15,17 @@ async function bootstrap() {
     console.log('HOST: ', host);
     console.log('PORT: ', port);
   }
+
+  // Validações
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true, //ignora tudo que não esta no DTO
+      forbidNonWhitelisted: false, // lançar um erro se mandar dado que nao esta no DTO
+    }),
+  );
+
+  useContainer(app.select(AppModule), { fallbackOnErrors: true }); // class-validator resolve dependencias igual o nest
 
   await app.listen(port, host);
 }
