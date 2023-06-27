@@ -8,8 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { GroupService } from './group.service';
-import { UpdateGroupDto } from './dto/update-group.dto';
-import { CreateGroupDto } from './dto/create-group.dto';
+import { UpdateGroupDto } from './dto/updateGroup.dto';
+import { CreateGroupDto } from './dto/createGroup.dto';
 import { GroupModel } from './model/group.model';
 
 @Controller('/group')

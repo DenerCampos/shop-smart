@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CouponRepository } from './coupon.repository';
-import { CreateCouponDto } from './dto/create-coupan.dto';
-import { UpdateCouponDto } from './dto/update-coupon.dto';
+import { CreateCouponDto } from './dto/createCoupan.dto';
+import { UpdateCouponDto } from './dto/updateCoupon.dto';
 import { CouponModel } from './model/coupon.model';
 
 @Injectable()

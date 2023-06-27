@@ -1,10 +1,12 @@
-import { Store } from '../entities/store.entity';
+import { CreateStoreDto } from '../dto/createStore.dto';
+import { UpdateStoreDto } from '../dto/updateStore.dto';
+import { StoreModel } from '../model/store.model';
 
 export interface IStoreRepository {
-  create(newStore: Store): Promise<Store>;
-  findAll(): Promise<Store[]>;
-  find(id: number): Promise<Store>;
-  update(id: number, updateStore: Store): Promise<Store>;
-  remove(id: number): Promise<Store>;
+  create(newStore: CreateStoreDto): Promise<StoreModel>;
+  findAll(): Promise<StoreModel[]>;
+  find(id: number): Promise<StoreModel>;
+  update(id: number, updateStore: UpdateStoreDto): Promise<StoreModel>;
+  remove(id: number): Promise<StoreModel>;
   delete(id: number): Promise<boolean>;
 }

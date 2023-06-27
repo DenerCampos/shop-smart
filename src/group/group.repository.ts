@@ -1,30 +1,73 @@
 import { Injectable } from '@nestjs/common';
 import { Group } from './entities/group.entity';
-import { Repository } from 'typeorm';
+import { Equal, ILike, Not, Repository } from 'typeorm';
 import { IGroupRepository } from './contracts/group.repository.interface';
-import { CreateGroupDto } from './dto/create-group.dto';
-import { UpdateGroupDto } from './dto/update-group.dto';
+import { CreateGroupDto } from './dto/createGroup.dto';
+import { UpdateGroupDto } from './dto/updateGroup.dto';
+import { GroupModel } from './model/group.model';
+import { UpdateException } from 'src/Exception/updateException';
+import { AlreadyExistsException } from 'src/Exception/alreadyExistsException copy';
 
 @Injectable()
 export class GroupRepository implements IGroupRepository {
   constructor(private groupEntity: Repository<Group>) {}
-  async create(createGroupDto: CreateGroupDto): Promise<Group> {
-    const group = this.groupEntity.create(createGroupDto);
 
-    return this.groupEntity.save(group);
+  async create(createGroupDto: CreateGroupDto): Promise<GroupModel> {
+    const group = await this.groupEntity.findOne({
+      where: {
+        name: ILike(`%${createGroupDto.name}%`),
+      },
+    });
+
+    if (group) {
+      return new GroupModel(group);
+    } else {
+      const newGroup = this.groupEntity.create(createGroupDto);
+
+      const savedStore = await this.groupEntity.save(newGroup);
+      return new GroupModel(savedStore);
+    }
   }
-  async findAll(): Promise<Group[]> {
-    return this.groupEntity.find();
+  async findAll(): Promise<GroupModel[]> {
+    const groups = await this.groupEntity.find();
+
+    return groups.map(({ id, name }) => new GroupModel({ id, name }));
   }
-  async find(id: number): Promise<Group> {
-    return this.groupEntity.findOneBy({ id });
-  }
-  async update(id: number, updateGroupDto: UpdateGroupDto): Promise<Group> {
+  async find(id: number): Promise<GroupModel> {
     const group = await this.groupEntity.findOneBy({ id });
 
-    return this.groupEntity.save({ ...group, ...updateGroupDto });
+    return new GroupModel(group);
   }
-  async remove(id: number): Promise<Group> {
+  async update(
+    id: number,
+    updateGroupDto: UpdateGroupDto,
+  ): Promise<GroupModel> {
+    const updateGroup = await this.groupEntity.findOneBy({ id });
+
+    if (!updateGroup) {
+      throw new UpdateException();
+    }
+
+    const existGroup = await this.groupEntity.findOne({
+      where: {
+        name: ILike(`%${updateGroupDto.name}%`),
+        id: Not(Equal(updateGroup.id)),
+      },
+    });
+
+    if (existGroup) {
+      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
+      throw new AlreadyExistsException();
+    }
+
+    const store = await this.groupEntity.save({
+      ...updateGroup,
+      ...updateGroupDto,
+    });
+
+    return new GroupModel(store);
+  }
+  async remove(id: number): Promise<GroupModel> {
     const group = await this.groupEntity.findOneBy({ id });
 
     return this.groupEntity.remove(group);

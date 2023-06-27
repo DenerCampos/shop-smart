@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { itemType } from '../types/itemType';
-import { CreateItemDto } from './create-item.dto';
+import { CreateItemDto } from './createItem.dto';
 import { Store } from 'src/store/entities/store.entity';
 
 export class CreateCouponDto {

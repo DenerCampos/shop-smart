@@ -8,8 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { CouponService } from './coupon.service';
-import { UpdateCouponDto } from './dto/update-coupon.dto';
-import { CreateCouponDto } from './dto/create-coupan.dto';
+import { UpdateCouponDto } from './dto/updateCoupon.dto';
+import { CreateCouponDto } from './dto/createCoupan.dto';
 import { CouponModel } from './model/coupon.model';
 
 @Controller('/coupon')

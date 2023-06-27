@@ -1,5 +1,5 @@
-import { CreateCouponDto } from '../dto/create-coupan.dto';
-import { UpdateCouponDto } from '../dto/update-coupon.dto';
+import { CreateCouponDto } from '../dto/createCoupan.dto';
+import { UpdateCouponDto } from '../dto/updateCoupon.dto';
 import { Coupon } from '../entities/coupon.entity';
 
 export interface ICouponRepository {
