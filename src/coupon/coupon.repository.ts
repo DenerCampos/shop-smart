@@ -37,7 +37,7 @@ export class CouponRepository implements ICouponRepository {
         savedStore = storeDb;
       } else {
         const newStore = this.storeEntity.create(store);
-        savedStore = await this.storeEntity.save(newStore);
+        savedStore = await queryRunner.manager.save(newStore);
       }
 
       const coupon = this.couponEntity.create(couponData);
@@ -60,7 +60,7 @@ export class CouponRepository implements ICouponRepository {
           savedGroup = groupDb;
         } else {
           const newGroup = this.groupEntity.create(group);
-          savedGroup = await this.groupEntity.save(newGroup);
+          savedGroup = await queryRunner.manager.save(newGroup);
         }
 
         const newItem = this.itemEntity.create(itemData);
