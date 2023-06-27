@@ -1,11 +1,14 @@
+import { Type } from 'class-transformer';
 import {
   IsDateString,
-  IsEmpty,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
+import { CreateGroupDto } from 'src/group/dto/createGroup.dto';
+import { groupType } from 'src/group/types/groupType';
 
 export class CreateItemDto {
   @IsNotEmpty()
@@ -36,6 +39,7 @@ export class CreateItemDto {
   @IsOptional()
   purchaseDate: Date;
 
-  @IsEmpty()
-  groupId: number;
+  @ValidateNested()
+  @Type(() => CreateGroupDto)
+  group: groupType;
 }

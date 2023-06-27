@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Coupon } from './entities/coupon.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, ILike, Repository } from 'typeorm';
 import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { CreateCouponDto } from './dto/createCoupan.dto';
 import { UpdateCouponDto } from './dto/updateCoupon.dto';
@@ -26,33 +26,46 @@ export class CouponRepository implements ICouponRepository {
     try {
       const { items, store, ...couponData } = createCouponDto;
 
-      const storeDb = await this.storeEntity.findOneBy({
-        id: store,
+      const storeDb = await this.storeEntity.findOne({
+        where: {
+          name: ILike(`%${store.name}%`),
+        },
       });
-      if (storeDb === null) {
-        //cria novo store
-        throw new Error('store not found');
+
+      let savedStore: Store;
+      if (storeDb) {
+        savedStore = storeDb;
+      } else {
+        const newStore = this.storeEntity.create(store);
+        savedStore = await this.storeEntity.save(newStore);
       }
 
       const coupon = this.couponEntity.create(couponData);
-      coupon.store = storeDb;
+      coupon.store = savedStore;
 
       await queryRunner.manager.save(coupon);
 
       const savedItems: Item[] = [];
       for (const item of items) {
-        const { groupId, ...itemData } = item;
+        const { group, ...itemData } = item;
 
-        const group = await this.groupEntity.findOneBy({
-          id: groupId,
+        const groupDb = await this.groupEntity.findOne({
+          where: {
+            name: ILike(`%${group.name}%`),
+          },
         });
-        if (group === null) {
-          throw new Error('group not found');
+
+        let savedGroup: Group;
+        if (groupDb) {
+          savedGroup = groupDb;
+        } else {
+          const newGroup = this.groupEntity.create(group);
+          savedGroup = await this.groupEntity.save(newGroup);
         }
 
         const newItem = this.itemEntity.create(itemData);
         newItem.coupon = coupon;
-        newItem.group = group;
+        newItem.group = savedGroup;
 
         await queryRunner.manager.save(newItem);
         savedItems.push(newItem);
@@ -85,7 +98,7 @@ export class CouponRepository implements ICouponRepository {
 
     if (store !== undefined) {
       const storeDb = await this.storeEntity.findOneBy({
-        id: store,
+        id: store.id,
       });
       if (storeDb === null) {
         //cria novo store
