@@ -3,6 +3,7 @@ export class GroupModel {
   name: string;
 
   constructor(data: Partial<GroupModel>) {
-    Object.assign(this, data);
+    this.id = data.id;
+    this.name = data.name;
   }
 }
