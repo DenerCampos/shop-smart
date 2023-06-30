@@ -8,8 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { CouponService } from './coupon.service';
-import { UpdateCouponDto } from './dto/update-coupon.dto';
-import { CreateCouponDto } from './dto/create-coupan.dto';
+import { UpdateCouponDto } from './dto/updateCoupon.dto';
+import { CreateCouponDto } from './dto/createCoupan.dto';
 import { CouponModel } from './model/coupon.model';
 
 @Controller('/coupon')
@@ -40,7 +40,9 @@ export class CouponController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number): Promise<boolean> {
-    return this.couponService.delete(id);
+  async remove(@Param('id') id: number): Promise<object> {
+    const deleted = await this.couponService.delete(id);
+
+    return { deleted };
   }
 }

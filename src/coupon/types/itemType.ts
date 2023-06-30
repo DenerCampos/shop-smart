@@ -1,3 +1,5 @@
+import { groupType } from 'src/group/types/groupType';
+
 export type itemType = {
   id?: number;
   code: string;
@@ -10,5 +12,5 @@ export type itemType = {
   createdAt?: Date;
   updatedAt?: Date;
   deletedAt?: Date;
-  groupId?: number;
+  group?: groupType;
 };

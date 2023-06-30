@@ -1,5 +1,4 @@
-import { Group } from 'src/group/entities/group.entity';
-import { Coupon } from '../entities/coupon.entity';
+import { GroupModel } from 'src/group/model/group.model';
 
 export class ItemModel {
   id: string | number;
@@ -9,10 +8,20 @@ export class ItemModel {
   unit: string;
   value: number;
   purchaseDate: Date;
-  group: Group;
-  coupon: Coupon;
+  group: GroupModel;
+  couponId?: string | number;
 
   constructor(data: Partial<ItemModel>) {
-    Object.assign(this, data);
+    const { group, ...item } = data;
+
+    this.id = item.id;
+    this.code = item.code;
+    this.name = item.name;
+    this.quantity = item.quantity;
+    this.unit = item.unit;
+    this.value = item.value;
+    this.purchaseDate = item.purchaseDate;
+    this.group = new GroupModel(group);
+    this.couponId = item.couponId;
   }
 }

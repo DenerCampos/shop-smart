@@ -8,8 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { GroupService } from './group.service';
-import { UpdateGroupDto } from './dto/update-group.dto';
-import { CreateGroupDto } from './dto/create-group.dto';
+import { UpdateGroupDto } from './dto/updateGroup.dto';
+import { CreateGroupDto } from './dto/createGroup.dto';
 import { GroupModel } from './model/group.model';
 
 @Controller('/group')
@@ -40,7 +40,9 @@ export class GroupController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number): Promise<boolean> {
-    return this.groupService.delete(id);
+  async remove(@Param('id') id: number): Promise<object> {
+    const deleted = await this.groupService.delete(id);
+
+    return { deleted };
   }
 }

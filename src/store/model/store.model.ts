@@ -3,6 +3,7 @@ export class StoreModel {
   name: string;
 
   constructor(data: Partial<StoreModel>) {
-    Object.assign(this, data);
+    this.id = data?.id;
+    this.name = data?.name;
   }
 }

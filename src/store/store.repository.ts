@@ -1,37 +1,95 @@
 import { Injectable } from '@nestjs/common';
 import { Store } from './entities/store.entity';
-import { Repository } from 'typeorm';
+import { Equal, ILike, Not, Repository } from 'typeorm';
 import { IStoreRepository } from './contracts/store.repository.interface';
-import { CreateStoreDto } from './dto/create-store.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+import { CreateStoreDto } from './dto/createStore.dto';
+import { UpdateStoreDto } from './dto/updateStore.dto';
+import { StoreModel } from './model/store.model';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { RemoveException } from 'src/exception/removeException';
 
 @Injectable()
 export class StoreRepository implements IStoreRepository {
   constructor(private storeEntity: Repository<Store>) {}
-  async create(createStoreDto: CreateStoreDto): Promise<Store> {
-    const store = this.storeEntity.create(createStoreDto);
 
-    return this.storeEntity.save(store);
+  async create(createStoreDto: CreateStoreDto): Promise<StoreModel> {
+    const store = await this.storeEntity.findOne({
+      where: {
+        name: ILike(`%${createStoreDto.name}%`),
+      },
+    });
+
+    if (store) {
+      return new StoreModel(store);
+    } else {
+      const newStore = this.storeEntity.create(createStoreDto);
+
+      const savedStore = await this.storeEntity.save(newStore);
+      return new StoreModel(savedStore);
+    }
   }
 
-  async findAll(): Promise<Store[]> {
-    return this.storeEntity.find();
+  async findAll(): Promise<StoreModel[] | []> {
+    const stores = await this.storeEntity.find();
+
+    if (stores) {
+      return stores.map((store) => new StoreModel(store));
+    }
+
+    return [];
   }
 
-  async find(id: number): Promise<Store> {
-    return this.storeEntity.findOneBy({ id });
-  }
-
-  async update(id: number, updateStoreDto: UpdateStoreDto): Promise<Store> {
+  async find(id: number): Promise<StoreModel | null> {
     const store = await this.storeEntity.findOneBy({ id });
 
-    return this.storeEntity.save({ ...store, ...updateStoreDto });
+    if (store) {
+      return new StoreModel(store);
+    }
+
+    return store;
   }
 
-  async remove(id: number): Promise<Store> {
+  async update(
+    id: number,
+    updateStoreDto: UpdateStoreDto,
+  ): Promise<StoreModel> {
+    const updateStore = await this.storeEntity.findOneBy({ id });
+
+    if (!updateStore) {
+      throw new UpdateException();
+    }
+
+    const existStore = await this.storeEntity.findOne({
+      where: {
+        name: ILike(`%${updateStoreDto.name}%`),
+        id: Not(Equal(updateStore.id)),
+      },
+    });
+
+    if (existStore) {
+      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
+      throw new AlreadyExistsException();
+    }
+
+    const store = await this.storeEntity.save({
+      ...updateStore,
+      ...updateStoreDto,
+    });
+
+    return new StoreModel(store);
+  }
+
+  async remove(id: number): Promise<StoreModel> {
     const store = await this.storeEntity.findOneBy({ id });
 
-    return this.storeEntity.remove(store);
+    if (store) {
+      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
+      throw new RemoveException();
+    }
+
+    await this.storeEntity.remove(store);
+    return new StoreModel(store);
   }
 
   async delete(id: number): Promise<boolean> {

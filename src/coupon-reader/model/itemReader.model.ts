@@ -5,9 +5,13 @@ export class ItemReaderModel {
   unit: string;
   value: string;
   total: string;
-  date: Date;
 
   constructor(data: Partial<ItemReaderModel>) {
-    Object.assign(this, data);
+    this.code = data.code;
+    this.name = data.name;
+    this.quantity = data.quantity;
+    this.unit = data.unit;
+    this.value = data.value;
+    this.total = data.total;
   }
 }
