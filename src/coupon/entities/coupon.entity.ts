@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Item } from './item.entity';
+import { Payment } from 'src/payment/entities/payment.entity';
 
 @Entity()
 export class Coupon {
@@ -41,4 +42,8 @@ export class Coupon {
   })
   @JoinColumn()
   items: Item[];
+
+  @ManyToOne(() => Payment, (payment) => payment.coupons)
+  @JoinColumn({ name: 'payment_id' })
+  payment: Payment;
 }

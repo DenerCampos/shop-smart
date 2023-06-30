@@ -1,5 +1,6 @@
 import { StoreModel } from 'src/store/model/store.model';
 import { ItemModel } from './item.model';
+import { PaymentModel } from 'src/payment/model/payment.model';
 
 export class CouponModel {
   id: string | number;
@@ -7,9 +8,10 @@ export class CouponModel {
   url: string;
   store?: StoreModel;
   items?: ItemModel[];
+  payment?: PaymentModel;
 
   constructor(data: Partial<CouponModel>) {
-    const { store, items, ...coupon } = data;
+    const { store, items, payment, ...coupon } = data;
 
     this.id = coupon.id;
     this.number = coupon.number;
@@ -19,6 +21,13 @@ export class CouponModel {
       this.store = new StoreModel({
         id: store.id,
         name: store.name,
+      });
+    }
+
+    if (payment) {
+      this.payment = new PaymentModel({
+        id: payment.id,
+        name: payment.name,
       });
     }
 

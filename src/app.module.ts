@@ -6,6 +6,7 @@ import { StoreModule } from './store/store.module';
 import { GroupModule } from './group/group.module';
 import { CouponModule } from './coupon/coupon.module';
 import { CouponReaderModule } from './coupon-reader/group.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CouponReaderModule } from './coupon-reader/group.module';
     GroupModule,
     CouponModule,
     CouponReaderModule,
+    PaymentModule,
   ],
   controllers: [],
   providers: [],

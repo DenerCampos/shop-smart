@@ -8,6 +8,7 @@ import { Item } from './entities/item.entity';
 import { Store } from 'src/store/entities/store.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { CouponModel } from './model/coupon.model';
+import { Payment } from 'src/payment/entities/payment.entity';
 
 @Injectable()
 export class CouponRepository implements ICouponRepository {
@@ -17,6 +18,7 @@ export class CouponRepository implements ICouponRepository {
     private itemEntity: Repository<Item>,
     private storeEntity: Repository<Store>,
     private groupEntity: Repository<Group>,
+    private paymentEntity: Repository<Payment>,
   ) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
@@ -25,8 +27,9 @@ export class CouponRepository implements ICouponRepository {
     await queryRunner.startTransaction();
 
     try {
-      const { items, store, ...couponData } = createCouponDto;
+      const { items, store, payment, ...couponData } = createCouponDto;
 
+      // Store create
       const storeDb = await this.storeEntity.findOne({
         where: {
           name: ILike(`%${store.name}%`),
@@ -41,8 +44,24 @@ export class CouponRepository implements ICouponRepository {
         savedStore = await queryRunner.manager.save(newStore);
       }
 
+      // Payment create
+      const paymentDb = await this.paymentEntity.findOne({
+        where: {
+          name: ILike(`%${payment.name}%`),
+        },
+      });
+
+      let savedPayment: Payment;
+      if (paymentDb) {
+        savedPayment = paymentDb;
+      } else {
+        const newPayment = this.paymentEntity.create(payment);
+        savedPayment = await queryRunner.manager.save(newPayment);
+      }
+
       const coupon = this.couponEntity.create(couponData);
       coupon.store = savedStore;
+      coupon.payment = savedPayment;
 
       await queryRunner.manager.save(coupon);
 
@@ -98,7 +117,11 @@ export class CouponRepository implements ICouponRepository {
         'store',
         'store.deletedAt IS NOT NULL OR store.deletedAt IS NULL',
       )
-      .andWhere('group.deletedAt IS NOT NULL OR group.deletedAt IS NULL')
+      .leftJoinAndSelect(
+        'coupon.payment',
+        'payment',
+        'payment.deletedAt IS NOT NULL OR payment.deletedAt IS NULL',
+      )
       .getMany();
 
     if (coupons) {
@@ -122,6 +145,11 @@ export class CouponRepository implements ICouponRepository {
         'store',
         'store.deletedAt IS NOT NULL OR store.deletedAt IS NULL',
       )
+      .leftJoinAndSelect(
+        'coupon.payment',
+        'payment',
+        'payment.deletedAt IS NOT NULL OR payment.deletedAt IS NULL',
+      )
       .where('coupon.id = :id', { id })
       .getOne();
 
@@ -132,6 +160,7 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
+  // fazer o update
   async update(
     id: number,
     updateCouponDto: UpdateCouponDto,
@@ -143,14 +172,16 @@ export class CouponRepository implements ICouponRepository {
     try {
       const coupon = await this.couponEntity.findOneBy({ id });
 
-      const { items, store, ...updateCouponData } = updateCouponDto;
+      const { items, store, payment, ...updateCouponData } = updateCouponDto;
 
       // console.log('store: ', store);
 
       // update our create new store
       if (store !== undefined) {
-        const storeDb = await this.storeEntity.findOneBy({
-          id: store.id,
+        const storeDb = await this.storeEntity.findOne({
+          where: {
+            name: ILike(`%${store.name}%`),
+          },
         });
 
         let updateStore: Store;
@@ -162,6 +193,28 @@ export class CouponRepository implements ICouponRepository {
           updateStore = await queryRunner.manager.save(newStore);
         }
         coupon.store = updateStore;
+      }
+
+      // update our create new payment
+      if (payment !== undefined) {
+        const paymentDb = await this.paymentEntity.findOne({
+          where: {
+            name: ILike(`%${payment.name}%`),
+          },
+        });
+
+        let updatePayment: Payment;
+        if (paymentDb) {
+          updatePayment = this.paymentEntity.create({
+            ...paymentDb,
+            ...payment,
+          });
+          updatePayment = await queryRunner.manager.save(updatePayment);
+        } else {
+          const newPayment = this.paymentEntity.create(payment);
+          updatePayment = await queryRunner.manager.save(newPayment);
+        }
+        coupon.payment = updatePayment;
       }
 
       // console.log('coupon: ', coupon);
@@ -188,10 +241,10 @@ export class CouponRepository implements ICouponRepository {
           // console.log('itemData: ', itemData);
 
           if (itemData !== undefined) {
-            console.log(
-              'itemData.id === undefined -> ',
-              itemData.id === undefined,
-            );
+            // console.log(
+            //   'itemData.id === undefined -> ',
+            //   itemData.id === undefined,
+            // );
             if (itemData.id === undefined) {
               const newItem = this.itemEntity.create(itemData);
               newItem.coupon = coupon;
