@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { StoreRepository } from './store.repository';
-import { CreateStoreDto } from './dto/create-store.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+import { CreateStoreDto } from './dto/createStore.dto';
+import { UpdateStoreDto } from './dto/updateStore.dto';
 import { StoreModel } from './model/store.model';
 
 @Injectable()
@@ -9,33 +9,25 @@ export class StoreService {
   constructor(private storeRepository: StoreRepository) {}
 
   async create(createStoreDto: CreateStoreDto): Promise<StoreModel> {
-    const { id, name } = await this.storeRepository.create(createStoreDto);
-    return new StoreModel({ id, name });
+    return this.storeRepository.create(createStoreDto);
   }
 
-  async findAll(): Promise<StoreModel[]> {
-    const stores = await this.storeRepository.findAll();
-    return stores.map(({ id, name }) => new StoreModel({ id, name }));
+  async findAll(): Promise<StoreModel[] | []> {
+    return this.storeRepository.findAll();
   }
 
-  async find(storeId: number): Promise<StoreModel> {
-    const { id, name } = await this.storeRepository.find(storeId);
-    return new StoreModel({ id, name });
+  async find(storeId: number): Promise<StoreModel | null> {
+    return this.storeRepository.find(storeId);
   }
 
   async update(
     storeId: number,
     updateStoreDto: UpdateStoreDto,
   ): Promise<StoreModel> {
-    const { id, name } = await this.storeRepository.update(
-      storeId,
-      updateStoreDto,
-    );
-    return new StoreModel({ id, name });
+    return this.storeRepository.update(storeId, updateStoreDto);
   }
 
-  async remove(storeId: number): Promise<StoreModel> {
-    const { id, name } = await this.storeRepository.remove(storeId);
-    return new StoreModel({ id, name });
+  async delete(storeId: number): Promise<boolean> {
+    return this.storeRepository.delete(storeId);
   }
 }

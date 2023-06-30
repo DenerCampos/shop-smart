@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 
 @Entity()
-export class Store {
+export class Payment {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -26,6 +26,6 @@ export class Store {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Coupon, (coupon) => coupon.store)
+  @OneToMany(() => Coupon, (coupon) => coupon.payment)
   coupons: Coupon[];
 }

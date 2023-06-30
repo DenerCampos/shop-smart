@@ -1,4 +1,4 @@
-import { Coupon } from 'src/coupon/entities/coupon.entity';
+import { Item } from 'src/coupon/entities/item.entity';
 import {
   Column,
   CreateDateColumn,
@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 
 @Entity()
-export class Store {
+export class Group {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -26,6 +26,6 @@ export class Store {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Coupon, (coupon) => coupon.store)
-  coupons: Coupon[];
+  @OneToMany(() => Item, (item) => item.group)
+  items: Item[];
 }
