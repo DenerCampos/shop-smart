@@ -3,7 +3,7 @@ export class GroupModel {
   name: string;
 
   constructor(data: Partial<GroupModel>) {
-    this.id = data.id;
-    this.name = data.name;
+    this.id = data?.id;
+    this.name = data?.name;
   }
 }

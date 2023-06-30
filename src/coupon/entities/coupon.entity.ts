@@ -36,7 +36,9 @@ export class Coupon {
   @JoinColumn({ name: 'store_id' })
   store: Store;
 
-  @OneToMany(() => Item, (item) => item.coupon)
+  @OneToMany(() => Item, (item) => item.coupon, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn()
   items: Item[];
 }

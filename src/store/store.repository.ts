@@ -5,8 +5,9 @@ import { IStoreRepository } from './contracts/store.repository.interface';
 import { CreateStoreDto } from './dto/createStore.dto';
 import { UpdateStoreDto } from './dto/updateStore.dto';
 import { StoreModel } from './model/store.model';
-import { UpdateException } from 'src/Exception/updateException';
-import { AlreadyExistsException } from 'src/Exception/alreadyExistsException copy';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { RemoveException } from 'src/exception/removeException';
 
 @Injectable()
 export class StoreRepository implements IStoreRepository {
@@ -29,16 +30,24 @@ export class StoreRepository implements IStoreRepository {
     }
   }
 
-  async findAll(): Promise<StoreModel[]> {
+  async findAll(): Promise<StoreModel[] | []> {
     const stores = await this.storeEntity.find();
 
-    return stores.map(({ id, name }) => new StoreModel({ id, name }));
+    if (stores) {
+      return stores.map((store) => new StoreModel(store));
+    }
+
+    return [];
   }
 
-  async find(id: number): Promise<StoreModel> {
+  async find(id: number): Promise<StoreModel | null> {
     const store = await this.storeEntity.findOneBy({ id });
 
-    return new StoreModel(store);
+    if (store) {
+      return new StoreModel(store);
+    }
+
+    return store;
   }
 
   async update(
@@ -74,7 +83,13 @@ export class StoreRepository implements IStoreRepository {
   async remove(id: number): Promise<StoreModel> {
     const store = await this.storeEntity.findOneBy({ id });
 
-    return this.storeEntity.remove(store);
+    if (store) {
+      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
+      throw new RemoveException();
+    }
+
+    await this.storeEntity.remove(store);
+    return new StoreModel(store);
   }
 
   async delete(id: number): Promise<boolean> {

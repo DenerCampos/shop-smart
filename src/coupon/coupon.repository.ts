@@ -88,14 +88,23 @@ export class CouponRepository implements ICouponRepository {
     const coupons = await this.couponEntity
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.items', 'items')
-      .leftJoinAndSelect('items.group', 'group')
-      .leftJoinAndSelect('coupon.store', 'store')
+      .leftJoinAndSelect(
+        'items.group',
+        'group',
+        'group.deletedAt IS NOT NULL OR group.deletedAt IS NULL',
+      )
+      .leftJoinAndSelect(
+        'coupon.store',
+        'store',
+        'store.deletedAt IS NOT NULL OR store.deletedAt IS NULL',
+      )
+      .andWhere('group.deletedAt IS NOT NULL OR group.deletedAt IS NULL')
       .getMany();
 
     if (coupons) {
       return coupons.map((coupon) => new CouponModel(coupon));
     } else {
-      return null;
+      return [];
     }
   }
 
@@ -103,8 +112,16 @@ export class CouponRepository implements ICouponRepository {
     const coupon = await this.couponEntity
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.items', 'items')
-      .leftJoinAndSelect('items.group', 'group')
-      .leftJoinAndSelect('coupon.store', 'store')
+      .leftJoinAndSelect(
+        'items.group',
+        'group',
+        'group.deletedAt IS NOT NULL OR group.deletedAt IS NULL',
+      )
+      .leftJoinAndSelect(
+        'coupon.store',
+        'store',
+        'store.deletedAt IS NOT NULL OR store.deletedAt IS NULL',
+      )
       .where('coupon.id = :id', { id })
       .getOne();
 
@@ -227,10 +244,6 @@ export class CouponRepository implements ICouponRepository {
 
                   let updateGroup: Group;
                   if (groupDb) {
-                    // updateGroup = this.groupEntity.create({
-                    //   ...groupDb,
-                    //   ...group,
-                    // });
                     updateGroup = groupDb;
                   } else {
                     const newGroup = this.groupEntity.create(group);
@@ -275,6 +288,7 @@ export class CouponRepository implements ICouponRepository {
   }
 
   async delete(id: number): Promise<boolean> {
+    // TODO: o cascade delete não esta funcionado. verificar
     const result = await this.couponEntity.softDelete({ id });
 
     return result.affected === 1 ? true : false;

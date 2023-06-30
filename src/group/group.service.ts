@@ -12,11 +12,11 @@ export class GroupService {
     return this.groupRepository.create(createGroupDto);
   }
 
-  async findAll(): Promise<GroupModel[]> {
+  async findAll(): Promise<GroupModel[] | []> {
     return this.groupRepository.findAll();
   }
 
-  async find(groupId: number): Promise<GroupModel> {
+  async find(groupId: number): Promise<GroupModel | null> {
     return this.groupRepository.find(groupId);
   }
 

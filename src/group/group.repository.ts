@@ -5,8 +5,9 @@ import { IGroupRepository } from './contracts/group.repository.interface';
 import { CreateGroupDto } from './dto/createGroup.dto';
 import { UpdateGroupDto } from './dto/updateGroup.dto';
 import { GroupModel } from './model/group.model';
-import { UpdateException } from 'src/Exception/updateException';
-import { AlreadyExistsException } from 'src/Exception/alreadyExistsException copy';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { RemoveException } from 'src/exception/removeException';
 
 @Injectable()
 export class GroupRepository implements IGroupRepository {
@@ -21,23 +22,33 @@ export class GroupRepository implements IGroupRepository {
 
     if (group) {
       return new GroupModel(group);
-    } else {
-      const newGroup = this.groupEntity.create(createGroupDto);
-
-      const savedStore = await this.groupEntity.save(newGroup);
-      return new GroupModel(savedStore);
     }
+
+    const newGroup = this.groupEntity.create(createGroupDto);
+    const savedStore = await this.groupEntity.save(newGroup);
+    return new GroupModel(savedStore);
   }
-  async findAll(): Promise<GroupModel[]> {
+
+  async findAll(): Promise<GroupModel[] | []> {
     const groups = await this.groupEntity.find();
 
-    return groups.map(({ id, name }) => new GroupModel({ id, name }));
+    if (groups) {
+      return groups.map((group) => new GroupModel(group));
+    }
+
+    return [];
   }
-  async find(id: number): Promise<GroupModel> {
+
+  async find(id: number): Promise<GroupModel | null> {
     const group = await this.groupEntity.findOneBy({ id });
 
-    return new GroupModel(group);
+    if (group) {
+      return new GroupModel(group);
+    }
+
+    return null;
   }
+
   async update(
     id: number,
     updateGroupDto: UpdateGroupDto,
@@ -67,10 +78,17 @@ export class GroupRepository implements IGroupRepository {
 
     return new GroupModel(store);
   }
+
   async remove(id: number): Promise<GroupModel> {
     const group = await this.groupEntity.findOneBy({ id });
 
-    return this.groupEntity.remove(group);
+    if (group) {
+      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
+      throw new RemoveException();
+    }
+
+    await this.groupEntity.remove(group);
+    return new GroupModel(group);
   }
 
   async delete(id: number): Promise<boolean> {

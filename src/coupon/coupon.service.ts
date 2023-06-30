@@ -14,12 +14,12 @@ export class CouponService {
     return coupon;
   }
 
-  async findAll(): Promise<CouponModel[]> {
+  async findAll(): Promise<CouponModel[] | []> {
     const coupons = await this.couponRepository.findAll();
     return coupons;
   }
 
-  async find(couponId: number): Promise<CouponModel> {
+  async find(couponId: number): Promise<CouponModel | null> {
     return await this.couponRepository.find(couponId);
   }
 

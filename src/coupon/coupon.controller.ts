@@ -40,7 +40,9 @@ export class CouponController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number): Promise<boolean> {
-    return this.couponService.delete(id);
+  async remove(@Param('id') id: number): Promise<object> {
+    const deleted = await this.couponService.delete(id);
+
+    return { deleted };
   }
 }

@@ -12,11 +12,11 @@ export class StoreService {
     return this.storeRepository.create(createStoreDto);
   }
 
-  async findAll(): Promise<StoreModel[]> {
+  async findAll(): Promise<StoreModel[] | []> {
     return this.storeRepository.findAll();
   }
 
-  async find(storeId: number): Promise<StoreModel> {
+  async find(storeId: number): Promise<StoreModel | null> {
     return this.storeRepository.find(storeId);
   }
 

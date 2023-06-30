@@ -40,7 +40,9 @@ export class StoreController {
   }
 
   @Delete(':id')
-  delete(@Param('id') id: number): Promise<boolean> {
-    return this.storeService.delete(id);
+  async delete(@Param('id') id: number): Promise<object> {
+    const deleted = await this.storeService.delete(id);
+
+    return { deleted };
   }
 }
