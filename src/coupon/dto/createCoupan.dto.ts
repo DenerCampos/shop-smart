@@ -1,4 +1,10 @@
-import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsNotEmpty,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { itemType } from '../types/itemType';
 import { CreateItemDto } from './createItem.dto';
@@ -19,6 +25,10 @@ export class CreateCouponDto {
 
   @IsString()
   url: string;
+
+  @IsNotEmpty()
+  @IsDateString()
+  date: Date;
 
   @ValidateNested()
   @IsArray()
