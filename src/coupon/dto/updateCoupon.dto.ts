@@ -1,4 +1,10 @@
-import { IsArray, IsOptional, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { CreateCouponDto } from './createCoupan.dto';
 import { PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -13,8 +19,13 @@ export class UpdateCouponDto extends PartialType(CreateCouponDto) {
   @IsOptional()
   number: string;
 
+  @IsString()
   @IsOptional()
   url: string;
+
+  @IsDateString()
+  @IsOptional()
+  date: Date;
 
   @ValidateNested()
   @Type(() => UpdateStoreDto)

@@ -24,6 +24,12 @@ export class Coupon {
   @Column({ nullable: true })
   url: string;
 
+  @Column({
+    type: 'datetime',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  date: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 
