@@ -3,8 +3,8 @@ export class ItemReaderModel {
   name: string;
   quantity: number;
   unit: string;
-  value: string;
-  total: string;
+  value: number;
+  total: number;
 
   constructor(data: Partial<ItemReaderModel>) {
     this.code = data.code;
