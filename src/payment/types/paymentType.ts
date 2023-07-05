@@ -1,4 +1,4 @@
 export type paymentType = {
-  id?: number;
+  id?: string;
   name: string;
 };

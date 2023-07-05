@@ -15,8 +15,8 @@ import { Payment } from 'src/payment/entities/payment.entity';
 
 @Entity()
 export class Coupon {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column()
   number: string;

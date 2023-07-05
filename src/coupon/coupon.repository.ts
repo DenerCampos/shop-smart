@@ -131,7 +131,7 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async find(id: number): Promise<CouponModel | null> {
+  async find(id: string): Promise<CouponModel | null> {
     const coupon = await this.couponEntity
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.items', 'items')
@@ -162,7 +162,7 @@ export class CouponRepository implements ICouponRepository {
 
   // fazer o update
   async update(
-    id: number,
+    id: string,
     updateCouponDto: UpdateCouponDto,
   ): Promise<CouponModel | null> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -329,7 +329,7 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async remove(id: number): Promise<CouponModel | null> {
+  async remove(id: string): Promise<CouponModel | null> {
     const coupon = await this.couponEntity.findOneBy({ id });
 
     if (coupon) {
@@ -340,7 +340,7 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     // TODO: o cascade delete não esta funcionado. verificar
     const result = await this.couponEntity.softDelete({ id });
 

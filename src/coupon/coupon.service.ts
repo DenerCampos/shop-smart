@@ -19,22 +19,22 @@ export class CouponService {
     return coupons;
   }
 
-  async find(couponId: number): Promise<CouponModel | null> {
+  async find(couponId: string): Promise<CouponModel | null> {
     return await this.couponRepository.find(couponId);
   }
 
   async update(
-    couponId: number,
+    couponId: string,
     updateCouponDto: UpdateCouponDto,
   ): Promise<CouponModel> {
     return await this.couponRepository.update(couponId, updateCouponDto);
   }
 
-  async remove(couponId: number): Promise<CouponModel> {
+  async remove(couponId: string): Promise<CouponModel> {
     return await this.couponRepository.remove(couponId);
   }
 
-  async delete(couponId: number): Promise<boolean> {
+  async delete(couponId: string): Promise<boolean> {
     return await this.couponRepository.delete(couponId);
   }
 }

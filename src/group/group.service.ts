@@ -16,22 +16,22 @@ export class GroupService {
     return this.groupRepository.findAll();
   }
 
-  async find(groupId: number): Promise<GroupModel | null> {
+  async find(groupId: string): Promise<GroupModel | null> {
     return this.groupRepository.find(groupId);
   }
 
   async update(
-    groupId: number,
+    groupId: string,
     updateGroupDto: UpdateGroupDto,
   ): Promise<GroupModel> {
     return this.groupRepository.update(groupId, updateGroupDto);
   }
 
-  async remove(groupId: number): Promise<GroupModel> {
+  async remove(groupId: string): Promise<GroupModel> {
     return this.groupRepository.remove(groupId);
   }
 
-  async delete(groupId: number): Promise<boolean> {
+  async delete(groupId: string): Promise<boolean> {
     return this.groupRepository.delete(groupId);
   }
 }

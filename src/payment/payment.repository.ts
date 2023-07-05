@@ -40,7 +40,7 @@ export class PaymentRepository implements IPaymentRepository {
     return [];
   }
 
-  async find(id: number): Promise<PaymentModel | null> {
+  async find(id: string): Promise<PaymentModel | null> {
     const payment = await this.paymentEntity.findOneBy({ id });
 
     if (payment) {
@@ -51,7 +51,7 @@ export class PaymentRepository implements IPaymentRepository {
   }
 
   async update(
-    id: number,
+    id: string,
     updatePaymentDto: UpdatePaymentDto,
   ): Promise<PaymentModel> {
     const updatePayment = await this.paymentEntity.findOneBy({ id });
@@ -80,7 +80,7 @@ export class PaymentRepository implements IPaymentRepository {
     return new PaymentModel(payment);
   }
 
-  async remove(id: number): Promise<PaymentModel> {
+  async remove(id: string): Promise<PaymentModel> {
     const payment = await this.paymentEntity.findOneBy({ id });
 
     if (payment) {
@@ -92,7 +92,7 @@ export class PaymentRepository implements IPaymentRepository {
     return new PaymentModel(payment);
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     const result = await this.paymentEntity.softDelete({ id });
 
     return result.affected === 1 ? true : false;
