@@ -39,7 +39,7 @@ export class GroupRepository implements IGroupRepository {
     return [];
   }
 
-  async find(id: number): Promise<GroupModel | null> {
+  async find(id: string): Promise<GroupModel | null> {
     const group = await this.groupEntity.findOneBy({ id });
 
     if (group) {
@@ -50,7 +50,7 @@ export class GroupRepository implements IGroupRepository {
   }
 
   async update(
-    id: number,
+    id: string,
     updateGroupDto: UpdateGroupDto,
   ): Promise<GroupModel> {
     const updateGroup = await this.groupEntity.findOneBy({ id });
@@ -79,7 +79,7 @@ export class GroupRepository implements IGroupRepository {
     return new GroupModel(store);
   }
 
-  async remove(id: number): Promise<GroupModel> {
+  async remove(id: string): Promise<GroupModel> {
     const group = await this.groupEntity.findOneBy({ id });
 
     if (group) {
@@ -91,7 +91,7 @@ export class GroupRepository implements IGroupRepository {
     return new GroupModel(group);
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     const result = await this.groupEntity.softDelete({ id });
 
     return result.affected === 1 ? true : false;

@@ -1,7 +1,7 @@
 import { groupType } from 'src/group/types/groupType';
 
 export type itemType = {
-  id?: number;
+  id?: string;
   code: string;
   name: string;
   quantity: number;

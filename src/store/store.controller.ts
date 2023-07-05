@@ -27,20 +27,20 @@ export class StoreController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: number): Promise<StoreModel> {
+  findOne(@Param('id') id: string): Promise<StoreModel> {
     return this.storeService.find(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updateStoreDto: UpdateStoreDto,
   ): Promise<StoreModel> {
     return this.storeService.update(id, updateStoreDto);
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: number): Promise<object> {
+  async delete(@Param('id') id: string): Promise<object> {
     const deleted = await this.storeService.delete(id);
 
     return { deleted };

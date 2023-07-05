@@ -27,20 +27,20 @@ export class GroupController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: number): Promise<GroupModel> {
+  findOne(@Param('id') id: string): Promise<GroupModel> {
     return this.groupService.find(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updateStoreDto: UpdateGroupDto,
   ): Promise<GroupModel> {
     return this.groupService.update(id, updateStoreDto);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: number): Promise<object> {
+  async remove(@Param('id') id: string): Promise<object> {
     const deleted = await this.groupService.delete(id);
 
     return { deleted };

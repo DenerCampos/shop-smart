@@ -16,18 +16,18 @@ export class StoreService {
     return this.storeRepository.findAll();
   }
 
-  async find(storeId: number): Promise<StoreModel | null> {
+  async find(storeId: string): Promise<StoreModel | null> {
     return this.storeRepository.find(storeId);
   }
 
   async update(
-    storeId: number,
+    storeId: string,
     updateStoreDto: UpdateStoreDto,
   ): Promise<StoreModel> {
     return this.storeRepository.update(storeId, updateStoreDto);
   }
 
-  async delete(storeId: number): Promise<boolean> {
+  async delete(storeId: string): Promise<boolean> {
     return this.storeRepository.delete(storeId);
   }
 }

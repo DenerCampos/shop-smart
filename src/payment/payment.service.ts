@@ -16,18 +16,18 @@ export class PaymentService {
     return this.paymentRepository.findAll();
   }
 
-  async find(paymentId: number): Promise<PaymentModel | null> {
+  async find(paymentId: string): Promise<PaymentModel | null> {
     return this.paymentRepository.find(paymentId);
   }
 
   async update(
-    paymentId: number,
+    paymentId: string,
     updatePaymentDto: UpdatePaymentDto,
   ): Promise<PaymentModel> {
     return this.paymentRepository.update(paymentId, updatePaymentDto);
   }
 
-  async delete(paymentId: number): Promise<boolean> {
+  async delete(paymentId: string): Promise<boolean> {
     return this.paymentRepository.delete(paymentId);
   }
 }

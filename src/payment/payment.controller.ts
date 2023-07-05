@@ -27,20 +27,20 @@ export class PaymentController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: number): Promise<PaymentModel> {
+  findOne(@Param('id') id: string): Promise<PaymentModel> {
     return this.paymentService.find(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
   ): Promise<PaymentModel> {
     return this.paymentService.update(id, updatePaymentDto);
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: number): Promise<object> {
+  async delete(@Param('id') id: string): Promise<object> {
     const deleted = await this.paymentService.delete(id);
 
     return { deleted };

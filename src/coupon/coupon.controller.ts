@@ -27,20 +27,20 @@ export class CouponController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: number): Promise<CouponModel> {
+  findOne(@Param('id') id: string): Promise<CouponModel> {
     return this.couponService.find(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @Body() updateStoreDto: UpdateCouponDto,
   ): Promise<CouponModel> {
     return this.couponService.update(id, updateStoreDto);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: number): Promise<object> {
+  async remove(@Param('id') id: string): Promise<object> {
     const deleted = await this.couponService.delete(id);
 
     return { deleted };

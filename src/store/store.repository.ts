@@ -40,7 +40,7 @@ export class StoreRepository implements IStoreRepository {
     return [];
   }
 
-  async find(id: number): Promise<StoreModel | null> {
+  async find(id: string): Promise<StoreModel | null> {
     const store = await this.storeEntity.findOneBy({ id });
 
     if (store) {
@@ -51,7 +51,7 @@ export class StoreRepository implements IStoreRepository {
   }
 
   async update(
-    id: number,
+    id: string,
     updateStoreDto: UpdateStoreDto,
   ): Promise<StoreModel> {
     const updateStore = await this.storeEntity.findOneBy({ id });
@@ -80,7 +80,7 @@ export class StoreRepository implements IStoreRepository {
     return new StoreModel(store);
   }
 
-  async remove(id: number): Promise<StoreModel> {
+  async remove(id: string): Promise<StoreModel> {
     const store = await this.storeEntity.findOneBy({ id });
 
     if (store) {
@@ -92,7 +92,7 @@ export class StoreRepository implements IStoreRepository {
     return new StoreModel(store);
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     const result = await this.storeEntity.softDelete({ id });
 
     return result.affected === 1 ? true : false;

@@ -1,4 +1,4 @@
 export type storeType = {
-  id?: number;
+  id?: string;
   name: string;
 };

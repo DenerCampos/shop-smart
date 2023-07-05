@@ -11,8 +11,8 @@ import {
 
 @Entity()
 export class Group {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column()
   name: string;
