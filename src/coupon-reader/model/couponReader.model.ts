@@ -10,19 +10,32 @@ interface IDescriptionAndCode {
 export class CouponReaderModel {
   url: string;
   name?: string;
+  date?: Date;
   items: ItemReaderModel[] = [];
   baseUrl =
     'https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml?p=';
 
   constructor(url: string) {
     this.url = `${this.baseUrl}${url}`;
+    this.date = new Date();
   }
 
-  private extractDecimalValue(str: string): string | null {
+  private convertStringToDecimal(value: string): number {
+    const number = parseFloat(value.replace(',', '.'));
+    const formattedNumber = number.toFixed(2);
+    return parseFloat(formattedNumber);
+  }
+
+  private extractDecimalValue(str: string): number {
     const regex = /R\$\s*([\d,]+)/;
     const match = regex.exec(str);
 
-    return match ? match[1] : null;
+    const value = match ? match[1] : null;
+    if (value !== null) {
+      return this.convertStringToDecimal(value);
+    }
+
+    return 0;
   }
 
   private extractAfterColon(str: string): string | null {
@@ -56,10 +69,10 @@ export class CouponReaderModel {
     return result;
   }
 
-  private calculateUnitValue(quantity: number, totalValue: string): string {
-    const total = parseFloat(totalValue.replace(',', '.'));
+  private calculateUnitValue(quantity: number, totalValue: number): number {
+    const value = (totalValue / quantity).toFixed(2);
 
-    return (total / quantity).toFixed(2);
+    return this.convertStringToDecimal(value);
   }
 
   private getItems(elementHtml: any): ItemReaderModel {
@@ -70,8 +83,8 @@ export class CouponReaderModel {
       name: '',
       quantity: 0,
       unit: '',
-      total: '',
-      value: '',
+      total: 0,
+      value: 0,
     };
 
     $(elementHtml)
