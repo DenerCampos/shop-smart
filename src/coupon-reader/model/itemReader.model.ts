@@ -5,6 +5,10 @@ export class ItemReaderModel {
   unit: string;
   value: number;
   total: number;
+  group: {
+    name: string;
+  };
+  purchaseDate: Date;
 
   constructor(data: Partial<ItemReaderModel>) {
     this.code = data.code;
@@ -13,5 +17,9 @@ export class ItemReaderModel {
     this.unit = data.unit;
     this.value = data.value;
     this.total = data.total;
+    this.group = {
+      name: 'Alimentação',
+    };
+    this.purchaseDate = new Date();
   }
 }

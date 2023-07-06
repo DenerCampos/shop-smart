@@ -65,6 +65,8 @@ export class CouponRepository implements ICouponRepository {
 
       await queryRunner.manager.save(coupon);
 
+      //verifica se foi criado antes do commit do banco
+      const createGroups: Group[] = [];
       const savedItems: Item[] = [];
       for (const item of items) {
         const { group, ...itemData } = item;
@@ -79,8 +81,17 @@ export class CouponRepository implements ICouponRepository {
         if (groupDb) {
           savedGroup = groupDb;
         } else {
-          const newGroup = this.groupEntity.create(group);
-          savedGroup = await queryRunner.manager.save(newGroup);
+          //verifica se foi criado antes do commit do banco
+          const hasCreateGroup = createGroups.find(
+            (groupfind) => groupfind.name === group.name,
+          );
+          if (hasCreateGroup) {
+            savedGroup = hasCreateGroup;
+          } else {
+            const newGroup = this.groupEntity.create(group);
+            savedGroup = await queryRunner.manager.save(newGroup);
+            createGroups.push(savedGroup);
+          }
         }
 
         const newItem = this.itemEntity.create(itemData);
