@@ -43,7 +43,6 @@ export class CouponModel {
             quantity: item.quantity,
             unit: item.unit,
             value: item.value,
-            purchaseDate: item.purchaseDate,
             group: item.group,
             couponId: this.id,
           }),

@@ -34,9 +34,6 @@ export class Item {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
-  @Column({ default: () => 'CURRENT_TIMESTAMP' })
-  purchaseDate: Date;
-
   @CreateDateColumn()
   createdAt: Date;
 

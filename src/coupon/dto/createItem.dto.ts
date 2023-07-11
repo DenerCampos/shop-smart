@@ -35,10 +35,6 @@ export class CreateItemDto {
   @IsNumber()
   total: number;
 
-  @IsDateString()
-  @IsOptional()
-  purchaseDate: Date;
-
   @ValidateNested()
   @Type(() => CreateGroupDto)
   group: groupType;
