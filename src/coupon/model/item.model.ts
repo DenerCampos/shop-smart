@@ -7,7 +7,6 @@ export class ItemModel {
   quantity: number;
   unit: string;
   value: number;
-  purchaseDate: Date;
   group: GroupModel;
   couponId?: string | number;
 
@@ -20,7 +19,6 @@ export class ItemModel {
     this.quantity = item.quantity;
     this.unit = item.unit;
     this.value = item.value;
-    this.purchaseDate = item.purchaseDate;
     this.group = new GroupModel(group);
     this.couponId = item.couponId;
   }

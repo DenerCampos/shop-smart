@@ -8,7 +8,6 @@ export class ItemReaderModel {
   group: {
     name: string;
   };
-  purchaseDate: Date;
 
   constructor(data: Partial<ItemReaderModel>) {
     this.code = data.code;
@@ -20,6 +19,5 @@ export class ItemReaderModel {
     this.group = {
       name: 'Alimentação',
     };
-    this.purchaseDate = new Date();
   }
 }
