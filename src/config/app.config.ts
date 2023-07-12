@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 interface IDatabase {
@@ -17,7 +18,7 @@ interface ICache {
   host: string;
   port: number;
 }
-
+@Injectable()
 export class AppConfig {
   private configService = new ConfigService();
 
@@ -52,5 +53,10 @@ export class AppConfig {
       host: this.configService.get<string>('API_REDIS_HOST'),
       port: Number(this.configService.get<string>('API_REDIS_PORT')),
     };
+  }
+
+  getSaltEncryption(): number {
+    const saltOrRounds = Number(this.configService.get<number>('BCRYPT_SALT'));
+    return saltOrRounds ?? 10;
   }
 }
