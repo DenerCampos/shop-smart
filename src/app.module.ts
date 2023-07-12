@@ -8,6 +8,7 @@ import { CouponModule } from './coupon/coupon.module';
 import { CouponReaderModule } from './coupon-reader/group.module';
 import { PaymentModule } from './payment/payment.module';
 import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { UserModule } from './user/user.module';
     CouponReaderModule,
     PaymentModule,
     UserModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],

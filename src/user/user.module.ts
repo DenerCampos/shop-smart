@@ -30,5 +30,6 @@ import { AppConfig } from 'src/config/app.config';
       inject: [UserRepository, AppConfig],
     },
   ],
+  exports: [UserService],
 })
 export class UserModule {}
