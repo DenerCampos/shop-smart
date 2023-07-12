@@ -50,6 +50,31 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
+  async findByEmail(email: string): Promise<UserModel | null> {
+    const user = await this.userEntity.findOneBy({ email });
+
+    if (user) {
+      return new UserModel(user);
+    }
+
+    return user;
+  }
+
+  async saveToken(id: string, token: string): Promise<UserModel | null> {
+    const updateUser = await this.userEntity.findOneBy({ id });
+
+    if (!updateUser) {
+      throw new UpdateException();
+    }
+
+    const user = await this.userEntity.save({
+      ...updateUser,
+      token,
+    });
+
+    return new UserModel(user);
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserModel> {
     const updateUser = await this.userEntity.findOneBy({ id });
 

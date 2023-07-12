@@ -32,6 +32,14 @@ export class UserService {
     return this.userRepository.find(userId);
   }
 
+  async findByEmail(email: string): Promise<UserModel | undefined> {
+    return this.userRepository.findByEmail(email);
+  }
+
+  async saveToken(id: string, token: string): Promise<UserModel | undefined> {
+    return this.userRepository.saveToken(id, token);
+  }
+
   async update(
     userId: string,
     updateUserDto: UpdateUserDto,

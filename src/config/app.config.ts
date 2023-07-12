@@ -59,4 +59,9 @@ export class AppConfig {
     const saltOrRounds = Number(this.configService.get<number>('BCRYPT_SALT'));
     return saltOrRounds ?? 10;
   }
+
+  getJwtSecretKey(): string {
+    const jwtSecretKey = this.configService.get<string>('JWT_SECRET_KEY');
+    return jwtSecretKey ?? 'demos crest';
+  }
 }
