@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto } from './dto/createPayment.dto';
 import { UpdatePaymentDto } from './dto/updatePayment.dto';
 import { PaymentModel } from './model/payment.model';
+import { IPaymentRepository } from './contracts/payment.repository.interface';
 
 @Injectable()
 export class PaymentService {
-  constructor(private paymentRepository: PaymentRepository) {}
+  constructor(private paymentRepository: IPaymentRepository) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<PaymentModel> {
     return this.paymentRepository.create(createPaymentDto);

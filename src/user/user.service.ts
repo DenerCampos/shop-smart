@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { UserRepository } from './user.repository';
 import { CreateUserDto } from './dto/createUser.dto';
 import { UpdateUserDto } from './dto/updateUser.dto';
 import { UserModel } from './model/user.model';
 import { AppConfig } from './../config/app.config';
 import * as bcrypt from 'bcrypt';
+import { IUserRepository } from './contracts/user.repository.interface';
 
 @Injectable()
 export class UserService {
   private saltOrRounds: number;
 
   constructor(
-    private userRepository: UserRepository,
+    private userRepository: IUserRepository,
     private appConfig: AppConfig,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
