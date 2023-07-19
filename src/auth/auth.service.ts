@@ -15,6 +15,11 @@ export class AuthService {
 
   async signIn(signInDto: SignInDto): Promise<jwtTokenType> {
     const user = await this.usersService.findByEmail(signInDto.email);
+
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
     const isMatch = await bcrypt.compare(signInDto.password, user.password);
 
     if (!isMatch) {

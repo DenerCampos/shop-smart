@@ -9,4 +9,6 @@ export interface IUserRepository {
   update(id: string, updateUser: UpdateUserDto): Promise<UserModel>;
   remove(id: string): Promise<UserModel>;
   delete(id: string): Promise<boolean>;
+  findByEmail(email: string): Promise<UserModel | null>;
+  saveToken(id: string, token: string): Promise<UserModel | null>;
 }
