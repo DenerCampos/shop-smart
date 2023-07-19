@@ -1,13 +1,22 @@
+import { Exclude } from 'class-transformer';
 import { GroupModel } from 'src/group/model/group.model';
 
 export class ItemModel {
   id: string | number;
+
   code: string;
+
   name: string;
+
   quantity: number;
+
   unit: string;
+
   value: number;
+
   group: GroupModel;
+
+  @Exclude()
   couponId?: string | number;
 
   constructor(data: Partial<ItemModel>) {

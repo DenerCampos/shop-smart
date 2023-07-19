@@ -4,11 +4,17 @@ import { PaymentModel } from 'src/payment/model/payment.model';
 
 export class CouponModel {
   id: string | number;
+
   number: string;
+
   url: string;
+
   date: Date;
+
   store?: StoreModel;
+
   items?: ItemModel[];
+
   payment?: PaymentModel;
 
   constructor(data: Partial<CouponModel>) {

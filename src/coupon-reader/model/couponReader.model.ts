@@ -1,6 +1,7 @@
 import axios from 'axios';
 import cheerio from 'cheerio';
 import { ItemReaderModel } from './itemReader.model';
+import { Exclude } from 'class-transformer';
 
 interface IDescriptionAndCode {
   code: string;
@@ -8,15 +9,24 @@ interface IDescriptionAndCode {
 }
 
 export class CouponReaderModel {
+  @Exclude()
   url: string;
+
+  uri: string;
+
   name?: string;
+
   date?: Date;
+
   items: ItemReaderModel[] = [];
+
+  @Exclude()
   baseUrl =
     'https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml?p=';
 
   constructor(url: string) {
     this.url = `${this.baseUrl}${url}`;
+    this.uri = url;
     this.date = new Date();
   }
 

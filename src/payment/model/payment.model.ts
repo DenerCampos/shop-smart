@@ -1,5 +1,6 @@
 export class PaymentModel {
   id: string | number;
+
   name: string;
 
   constructor(data: Partial<PaymentModel>) {
