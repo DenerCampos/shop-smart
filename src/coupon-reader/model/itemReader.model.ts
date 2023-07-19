@@ -1,10 +1,16 @@
 export class ItemReaderModel {
   code: string;
+
   name: string;
+
   quantity: number;
+
   unit: string;
+
   value: number;
+
   total: number;
+
   group: {
     name: string;
   };
@@ -20,4 +26,6 @@ export class ItemReaderModel {
       name: 'Alimentação',
     };
   }
+
+  // TODO: criar uma função que busca o que melhor se adequa no grupo
 }
