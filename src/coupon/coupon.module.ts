@@ -9,6 +9,7 @@ import { Item } from './entities/item.entity';
 import { Store } from 'src/store/entities/store.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
+import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 
 @Module({
   imports: [],
@@ -18,7 +19,7 @@ import { Payment } from 'src/payment/entities/payment.entity';
       provide: CouponRepository,
       useFactory: (dataSource: DataSource) => {
         return new CouponRepository(
-          dataSource,
+          new QueryRunnerFactory(dataSource),
           dataSource.getRepository(Coupon),
           dataSource.getRepository(Item),
           dataSource.getRepository(Store),

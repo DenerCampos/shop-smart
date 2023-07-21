@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Coupon } from './entities/coupon.entity';
-import { DataSource, ILike, Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { CreateCouponDto } from './dto/createCoupan.dto';
 import { UpdateCouponDto } from './dto/updateCoupon.dto';
@@ -9,11 +9,12 @@ import { Store } from 'src/store/entities/store.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { CouponModel } from './model/coupon.model';
 import { Payment } from 'src/payment/entities/payment.entity';
+import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 
 @Injectable()
 export class CouponRepository implements ICouponRepository {
   constructor(
-    private dataSource: DataSource,
+    private queryRunner: QueryRunnerFactory,
     private couponEntity: Repository<Coupon>,
     private itemEntity: Repository<Item>,
     private storeEntity: Repository<Store>,
@@ -22,9 +23,7 @@ export class CouponRepository implements ICouponRepository {
   ) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await this.queryRunner.startTransaction();
 
     try {
       const { items, store, payment, ...couponData } = createCouponDto;
@@ -41,7 +40,7 @@ export class CouponRepository implements ICouponRepository {
         savedStore = storeDb;
       } else {
         const newStore = this.storeEntity.create(store);
-        savedStore = await queryRunner.manager.save(newStore);
+        savedStore = await this.queryRunner.manager.save(newStore);
       }
 
       // Payment create
@@ -56,14 +55,14 @@ export class CouponRepository implements ICouponRepository {
         savedPayment = paymentDb;
       } else {
         const newPayment = this.paymentEntity.create(payment);
-        savedPayment = await queryRunner.manager.save(newPayment);
+        savedPayment = await this.queryRunner.manager.save(newPayment);
       }
 
       const coupon = this.couponEntity.create(couponData);
       coupon.store = savedStore;
       coupon.payment = savedPayment;
 
-      await queryRunner.manager.save(coupon);
+      await this.queryRunner.manager.save(coupon);
 
       //verifica se foi criado antes do commit do banco
       const createGroups: Group[] = [];
@@ -89,7 +88,7 @@ export class CouponRepository implements ICouponRepository {
             savedGroup = hasCreateGroup;
           } else {
             const newGroup = this.groupEntity.create(group);
-            savedGroup = await queryRunner.manager.save(newGroup);
+            savedGroup = await this.queryRunner.manager.save(newGroup);
             createGroups.push(savedGroup);
           }
         }
@@ -98,18 +97,18 @@ export class CouponRepository implements ICouponRepository {
         newItem.coupon = coupon;
         newItem.group = savedGroup;
 
-        await queryRunner.manager.save(newItem);
+        await this.queryRunner.manager.save(newItem);
         savedItems.push(newItem);
       }
       coupon.items = savedItems;
 
-      await queryRunner.commitTransaction();
+      await this.queryRunner.commitTransaction();
 
       return new CouponModel(coupon);
     } catch (error) {
       console.log('error :', error);
 
-      await queryRunner.rollbackTransaction();
+      await this.queryRunner.rollbackTransaction();
       throw new Error(error.message);
     }
   }
@@ -176,9 +175,7 @@ export class CouponRepository implements ICouponRepository {
     id: string,
     updateCouponDto: UpdateCouponDto,
   ): Promise<CouponModel | null> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await this.queryRunner.startTransaction();
 
     try {
       const coupon = await this.couponEntity.findOneBy({ id });
@@ -198,10 +195,10 @@ export class CouponRepository implements ICouponRepository {
         let updateStore: Store;
         if (storeDb) {
           updateStore = this.storeEntity.create({ ...storeDb, ...store });
-          updateStore = await queryRunner.manager.save(updateStore);
+          updateStore = await this.queryRunner.manager.save(updateStore);
         } else {
           const newStore = this.storeEntity.create(store);
-          updateStore = await queryRunner.manager.save(newStore);
+          updateStore = await this.queryRunner.manager.save(newStore);
         }
         coupon.store = updateStore;
       }
@@ -220,10 +217,10 @@ export class CouponRepository implements ICouponRepository {
             ...paymentDb,
             ...payment,
           });
-          updatePayment = await queryRunner.manager.save(updatePayment);
+          updatePayment = await this.queryRunner.manager.save(updatePayment);
         } else {
           const newPayment = this.paymentEntity.create(payment);
-          updatePayment = await queryRunner.manager.save(newPayment);
+          updatePayment = await this.queryRunner.manager.save(newPayment);
         }
         coupon.payment = updatePayment;
       }
@@ -237,7 +234,7 @@ export class CouponRepository implements ICouponRepository {
       });
       // console.log('updateCoupon: ', updateCoupon);
 
-      await queryRunner.manager.save(updateCoupon);
+      await this.queryRunner.manager.save(updateCoupon);
 
       // console.log('items: ', items);
 
@@ -273,12 +270,12 @@ export class CouponRepository implements ICouponRepository {
                 updateGroup = groupDb;
               } else {
                 const newGroup = this.groupEntity.create(group);
-                updateGroup = await queryRunner.manager.save(newGroup);
+                updateGroup = await this.queryRunner.manager.save(newGroup);
               }
 
               newItem.group = updateGroup;
 
-              const savedItem = await queryRunner.manager.save(newItem);
+              const savedItem = await this.queryRunner.manager.save(newItem);
 
               // console.log('newItem: ', savedItem);
 
@@ -311,13 +308,13 @@ export class CouponRepository implements ICouponRepository {
                     updateGroup = groupDb;
                   } else {
                     const newGroup = this.groupEntity.create(group);
-                    updateGroup = await queryRunner.manager.save(newGroup);
+                    updateGroup = await this.queryRunner.manager.save(newGroup);
                   }
 
                   updateItem.group = updateGroup;
                 }
 
-                const savedItem = await queryRunner.manager.save(updateItem);
+                const savedItem = await this.queryRunner.manager.save(updateItem);
                 savedItems.push(savedItem);
               }
             }
@@ -329,13 +326,13 @@ export class CouponRepository implements ICouponRepository {
 
       // console.log('coupon saved: ', coupon);
 
-      await queryRunner.commitTransaction();
+      await this.queryRunner.commitTransaction();
 
       return new CouponModel(coupon);
     } catch (error) {
       console.log('error :', error);
 
-      await queryRunner.rollbackTransaction();
+      await this.queryRunner.rollbackTransaction();
       throw new Error(error.message);
     }
   }
