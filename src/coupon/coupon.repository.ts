@@ -10,9 +10,15 @@ import { Group } from 'src/group/entities/group.entity';
 import { CouponModel } from './model/coupon.model';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
+import { storeType } from 'src/store/types/storeType';
+import { paymentType } from 'src/payment/types/paymentType';
+import { groupType } from 'src/group/types/groupType';
 
 @Injectable()
 export class CouponRepository implements ICouponRepository {
+  private createGroups: Group[] = [];
+  private savedItems: Item[] = [];
+
   constructor(
     private queryRunner: QueryRunnerFactory,
     private couponEntity: Repository<Coupon>,
@@ -22,6 +28,142 @@ export class CouponRepository implements ICouponRepository {
     private paymentEntity: Repository<Payment>,
   ) {}
 
+  private resetControllers(): void {
+    this.createGroups = [];
+    this.savedItems = [];
+  }
+
+  private async getStore(name: string): Promise<Store | null> {
+    const store = await this.storeEntity.findOne({
+      where: {
+        name: ILike(`%${name}%`),
+      },
+    });
+
+    return store;
+  }
+
+  private async createStore(store: Store | storeType): Promise<Store> {
+    const storeDb = await this.getStore(store.name);
+
+    let savedStore: Store;
+    if (storeDb) {
+      savedStore = storeDb;
+    } else {
+      const newStore = this.storeEntity.create(store);
+      savedStore = await this.queryRunner.manager.save(newStore);
+    }
+
+    return savedStore;
+  }
+
+  private async updateStore(store: Store | storeType): Promise<Store> {
+    const storeDb = await this.getStore(store.name);
+
+    let updateStore: Store;
+    if (storeDb) {
+      updateStore = this.storeEntity.create({ ...storeDb, ...store });
+      updateStore = await this.queryRunner.manager.save(updateStore);
+    } else {
+      const newStore = this.storeEntity.create(store);
+      updateStore = await this.queryRunner.manager.save(newStore);
+    }
+
+    return updateStore;
+  }
+
+  private async getPayment(name: string): Promise<Payment | null> {
+    const payment = await this.paymentEntity.findOne({
+      where: {
+        name: ILike(`%${name}%`),
+      },
+    });
+
+    return payment;
+  }
+
+  private async createPayment(
+    payment: Payment | paymentType,
+  ): Promise<Payment> {
+    const paymentDb = await this.getPayment(payment.name);
+
+    let savedPayment: Payment;
+    if (paymentDb) {
+      savedPayment = paymentDb;
+    } else {
+      const newPayment = this.paymentEntity.create(payment);
+      savedPayment = await this.queryRunner.manager.save(newPayment);
+    }
+
+    return savedPayment;
+  }
+
+  private async updatePayment(
+    payment: Payment | paymentType,
+  ): Promise<Payment> {
+    const paymentDb = await this.getPayment(payment.name);
+
+    let updatePayment: Payment;
+    if (paymentDb) {
+      updatePayment = this.paymentEntity.create({
+        ...paymentDb,
+        ...payment,
+      });
+      updatePayment = await this.queryRunner.manager.save(updatePayment);
+    } else {
+      const newPayment = this.paymentEntity.create(payment);
+      updatePayment = await this.queryRunner.manager.save(newPayment);
+    }
+
+    return updatePayment;
+  }
+
+  private async getGroup(name: string): Promise<Group | null> {
+    const group = await this.groupEntity.findOne({
+      where: {
+        name: ILike(`%${name}%`),
+      },
+    });
+
+    return group;
+  }
+
+  private async createGroup(group: Group | groupType): Promise<Group> {
+    const groupDb = await this.getGroup(group.name);
+
+    let savedGroup: Group;
+    if (groupDb) {
+      savedGroup = groupDb;
+    } else {
+      //verifica se foi criado antes do commit do banco
+      const hasCreateGroup = this.createGroups.find(
+        (groupfind) => groupfind.name === group.name,
+      );
+      if (hasCreateGroup) {
+        savedGroup = hasCreateGroup;
+      } else {
+        const newGroup = this.groupEntity.create(group);
+        savedGroup = await this.queryRunner.manager.save(newGroup);
+        this.createGroups.push(savedGroup);
+      }
+    }
+
+    return savedGroup;
+  }
+
+  private async getItem(id: string): Promise<Item | null> {
+    const group = await this.itemEntity.findOne({
+      where: {
+        id: id,
+      },
+      relations: {
+        group: true,
+      },
+    });
+
+    return group;
+  }
+
   async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
     await this.queryRunner.startTransaction();
 
@@ -29,34 +171,10 @@ export class CouponRepository implements ICouponRepository {
       const { items, store, payment, ...couponData } = createCouponDto;
 
       // Store create
-      const storeDb = await this.storeEntity.findOne({
-        where: {
-          name: ILike(`%${store.name}%`),
-        },
-      });
-
-      let savedStore: Store;
-      if (storeDb) {
-        savedStore = storeDb;
-      } else {
-        const newStore = this.storeEntity.create(store);
-        savedStore = await this.queryRunner.manager.save(newStore);
-      }
+      const savedStore = await this.createStore(store);
 
       // Payment create
-      const paymentDb = await this.paymentEntity.findOne({
-        where: {
-          name: ILike(`%${payment.name}%`),
-        },
-      });
-
-      let savedPayment: Payment;
-      if (paymentDb) {
-        savedPayment = paymentDb;
-      } else {
-        const newPayment = this.paymentEntity.create(payment);
-        savedPayment = await this.queryRunner.manager.save(newPayment);
-      }
+      const savedPayment = await this.createPayment(payment);
 
       const coupon = this.couponEntity.create(couponData);
       coupon.store = savedStore;
@@ -64,52 +182,30 @@ export class CouponRepository implements ICouponRepository {
 
       await this.queryRunner.manager.save(coupon);
 
-      //verifica se foi criado antes do commit do banco
-      const createGroups: Group[] = [];
-      const savedItems: Item[] = [];
+      // Items create
       for (const item of items) {
         const { group, ...itemData } = item;
 
-        const groupDb = await this.groupEntity.findOne({
-          where: {
-            name: ILike(`%${group.name}%`),
-          },
-        });
-
-        let savedGroup: Group;
-        if (groupDb) {
-          savedGroup = groupDb;
-        } else {
-          //verifica se foi criado antes do commit do banco
-          const hasCreateGroup = createGroups.find(
-            (groupfind) => groupfind.name === group.name,
-          );
-          if (hasCreateGroup) {
-            savedGroup = hasCreateGroup;
-          } else {
-            const newGroup = this.groupEntity.create(group);
-            savedGroup = await this.queryRunner.manager.save(newGroup);
-            createGroups.push(savedGroup);
-          }
-        }
+        // Group create
+        const savedGroup = await this.createGroup(group);
 
         const newItem = this.itemEntity.create(itemData);
         newItem.coupon = coupon;
         newItem.group = savedGroup;
 
         await this.queryRunner.manager.save(newItem);
-        savedItems.push(newItem);
+        this.savedItems.push(newItem);
       }
-      coupon.items = savedItems;
+      coupon.items = this.savedItems;
 
       await this.queryRunner.commitTransaction();
 
       return new CouponModel(coupon);
     } catch (error) {
-      console.log('error :', error);
-
       await this.queryRunner.rollbackTransaction();
       throw new Error(error.message);
+    } finally {
+      this.resetControllers();
     }
   }
 
@@ -170,7 +266,6 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  // fazer o update
   async update(
     id: string,
     updateCouponDto: UpdateCouponDto,
@@ -182,113 +277,43 @@ export class CouponRepository implements ICouponRepository {
 
       const { items, store, payment, ...updateCouponData } = updateCouponDto;
 
-      // console.log('store: ', store);
-
       // update our create new store
       if (store !== undefined) {
-        const storeDb = await this.storeEntity.findOne({
-          where: {
-            name: ILike(`%${store.name}%`),
-          },
-        });
-
-        let updateStore: Store;
-        if (storeDb) {
-          updateStore = this.storeEntity.create({ ...storeDb, ...store });
-          updateStore = await this.queryRunner.manager.save(updateStore);
-        } else {
-          const newStore = this.storeEntity.create(store);
-          updateStore = await this.queryRunner.manager.save(newStore);
-        }
+        const updateStore = await this.updateStore(store);
         coupon.store = updateStore;
       }
 
       // update our create new payment
       if (payment !== undefined) {
-        const paymentDb = await this.paymentEntity.findOne({
-          where: {
-            name: ILike(`%${payment.name}%`),
-          },
-        });
-
-        let updatePayment: Payment;
-        if (paymentDb) {
-          updatePayment = this.paymentEntity.create({
-            ...paymentDb,
-            ...payment,
-          });
-          updatePayment = await this.queryRunner.manager.save(updatePayment);
-        } else {
-          const newPayment = this.paymentEntity.create(payment);
-          updatePayment = await this.queryRunner.manager.save(newPayment);
-        }
+        const updatePayment = await this.updatePayment(payment);
         coupon.payment = updatePayment;
       }
-
-      // console.log('coupon: ', coupon);
-      // console.log('update: ', updateCouponData);
 
       const updateCoupon = this.couponEntity.create({
         ...coupon,
         ...updateCouponData,
       });
-      // console.log('updateCoupon: ', updateCoupon);
 
       await this.queryRunner.manager.save(updateCoupon);
 
-      // console.log('items: ', items);
-
       // update our create news items
       if (items !== undefined) {
-        const savedItems: Item[] = [];
-
         for (const item of items) {
           const { group, ...itemData } = item;
 
-          // console.log('group: ', group);
-          // console.log('itemData: ', itemData);
-
           if (itemData !== undefined) {
-            // console.log(
-            //   'itemData.id === undefined -> ',
-            //   itemData.id === undefined,
-            // );
             if (itemData.id === undefined) {
               const newItem = this.itemEntity.create(itemData);
               newItem.coupon = coupon;
 
-              const groupDb = await this.groupEntity.findOne({
-                where: {
-                  name: ILike(`%${group.name}%`),
-                },
-              });
-
-              // console.log('groupDb: ', groupDb);
-
-              let updateGroup: Group;
-              if (groupDb) {
-                updateGroup = groupDb;
-              } else {
-                const newGroup = this.groupEntity.create(group);
-                updateGroup = await this.queryRunner.manager.save(newGroup);
-              }
-
-              newItem.group = updateGroup;
+              const createGroup = await this.createGroup(group);
+              newItem.group = createGroup;
 
               const savedItem = await this.queryRunner.manager.save(newItem);
 
-              // console.log('newItem: ', savedItem);
-
-              savedItems.push(savedItem);
+              this.savedItems.push(savedItem);
             } else {
-              const itemDb = await this.itemEntity.findOne({
-                where: {
-                  id: item.id,
-                },
-                relations: {
-                  group: true,
-                },
-              });
+              const itemDb = await this.getItem(item.id);
 
               if (itemDb) {
                 const updateItem = this.itemEntity.create({
@@ -297,43 +322,29 @@ export class CouponRepository implements ICouponRepository {
                 });
 
                 if (group !== undefined) {
-                  const groupDb = await this.groupEntity.findOne({
-                    where: {
-                      name: ILike(`%${group.name}%`),
-                    },
-                  });
-
-                  let updateGroup: Group;
-                  if (groupDb) {
-                    updateGroup = groupDb;
-                  } else {
-                    const newGroup = this.groupEntity.create(group);
-                    updateGroup = await this.queryRunner.manager.save(newGroup);
-                  }
-
+                  const updateGroup = await this.createGroup(group);
                   updateItem.group = updateGroup;
                 }
 
-                const savedItem = await this.queryRunner.manager.save(updateItem);
-                savedItems.push(savedItem);
+                const savedItem = await this.queryRunner.manager.save(
+                  updateItem,
+                );
+                this.savedItems.push(savedItem);
               }
             }
           }
         }
 
-        coupon.items = savedItems;
+        coupon.items = this.savedItems;
       }
-
-      // console.log('coupon saved: ', coupon);
-
       await this.queryRunner.commitTransaction();
 
       return new CouponModel(coupon);
     } catch (error) {
-      console.log('error :', error);
-
       await this.queryRunner.rollbackTransaction();
       throw new Error(error.message);
+    } finally {
+      this.resetControllers();
     }
   }
 
