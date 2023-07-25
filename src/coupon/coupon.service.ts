@@ -3,6 +3,7 @@ import { CreateCouponDto } from './dto/createCoupan.dto';
 import { UpdateCouponDto } from './dto/updateCoupon.dto';
 import { CouponModel } from './model/coupon.model';
 import { ICouponRepository } from './contracts/coupon.repository.interface';
+import { Paginations } from 'src/common/pagination/pagination';
 
 @Injectable()
 export class CouponService {
@@ -14,8 +15,23 @@ export class CouponService {
     return coupon;
   }
 
-  async findAll(): Promise<CouponModel[] | []> {
-    const coupons = await this.couponRepository.findAll();
+  async findAll(page: number, limit: number): Promise<CouponModel[] | []> {
+    const offset = (page - 1) * limit;
+    const coupons = await this.couponRepository.findAll(offset, limit);
+    const total = await this.couponRepository.countAll();
+    console.log('total', total);
+
+    const pagination = new Paginations({
+      baseUrl: 'dener.com',
+      dataLength: coupons.length,
+      totalItems: total,
+      limit,
+      page,
+    });
+
+    console.log('meta: ', pagination.getMeta());
+    console.log('total', pagination.getLinks());
+
     return coupons;
   }
 

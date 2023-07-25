@@ -18,6 +18,7 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
       database: name ?? process.env.API_DB_NAME,
       entities: ['dist/**/*.entity.js'],
       migrations: ['dist/db/migrations/*.js'],
+      logging: ['query', 'error'],
       // synchronize: appConfig.isDevelopment(),
     };
   }

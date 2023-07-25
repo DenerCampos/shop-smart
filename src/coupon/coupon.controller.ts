@@ -1,11 +1,14 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CouponService } from './coupon.service';
@@ -26,8 +29,11 @@ export class CouponController {
 
   @UseGuards(AuthGuard)
   @Get()
-  findAll(): Promise<CouponModel[]> {
-    return this.couponService.findAll();
+  findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ): Promise<CouponModel[]> {
+    return this.couponService.findAll(page, limit);
   }
 
   @UseGuards(AuthGuard)
