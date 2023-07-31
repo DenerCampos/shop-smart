@@ -10,9 +10,12 @@ import { Store } from 'src/store/entities/store.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
+import { Pagination } from 'src/common/pagination/pagination';
+import { AppConfig } from 'src/config/app.config';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
-  imports: [],
+  imports: [CommonModule],
   controllers: [CouponController],
   providers: [
     {
@@ -31,10 +34,14 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
     },
     {
       provide: CouponService,
-      useFactory: (gateway: CouponRepository) => {
-        return new CouponService(gateway);
+      useFactory: (
+        repository: CouponRepository,
+        pagination: Pagination,
+        appConfig: AppConfig,
+      ) => {
+        return new CouponService(repository, pagination, appConfig);
       },
-      inject: [CouponRepository],
+      inject: [CouponRepository, Pagination, AppConfig],
     },
   ],
 })

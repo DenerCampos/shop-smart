@@ -3,20 +3,41 @@ import { CreateCouponDto } from './dto/createCoupan.dto';
 import { UpdateCouponDto } from './dto/updateCoupon.dto';
 import { CouponModel } from './model/coupon.model';
 import { ICouponRepository } from './contracts/coupon.repository.interface';
+import { Pagination, paginationData } from 'src/common/pagination/pagination';
+import { AppConfig } from 'src/config/app.config';
 
 @Injectable()
 export class CouponService {
-  constructor(private couponRepository: ICouponRepository) {}
+  private url = `${this.appConfig.getBaseUrl()}/coupon`;
+
+  constructor(
+    private couponRepository: ICouponRepository,
+    private pagination: Pagination,
+    private appConfig: AppConfig,
+  ) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
-    const coupon = await this.couponRepository.create(createCouponDto);
-
-    return coupon;
+    return await this.couponRepository.create(createCouponDto);
   }
 
-  async findAll(): Promise<CouponModel[] | []> {
-    const coupons = await this.couponRepository.findAll();
-    return coupons;
+  async findAll(
+    page: number,
+    limit: number,
+  ): Promise<paginationData<CouponModel>> {
+    const offset = this.pagination.getOffset(page, limit);
+
+    const coupons = await this.couponRepository.findAll(offset, limit);
+    const total = await this.couponRepository.countAll();
+
+    const paginateData = this.pagination.paginateData<CouponModel>(
+      coupons,
+      page,
+      limit,
+      total,
+      this.url,
+    );
+
+    return paginateData;
   }
 
   async find(couponId: string): Promise<CouponModel | null> {

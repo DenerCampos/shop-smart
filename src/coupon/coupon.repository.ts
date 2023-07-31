@@ -209,8 +209,12 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async findAll(): Promise<CouponModel[] | []> {
-    const coupons = await this.couponEntity
+  async countAll(): Promise<number> {
+    return await this.couponEntity.count({ withDeleted: false });
+  }
+
+  async findAll(page: number, limit: number): Promise<CouponModel[] | []> {
+    const query = this.couponEntity
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.items', 'items')
       .leftJoinAndSelect(
@@ -228,7 +232,13 @@ export class CouponRepository implements ICouponRepository {
         'payment',
         'payment.deletedAt IS NOT NULL OR payment.deletedAt IS NULL',
       )
-      .getMany();
+      .orderBy('coupon.createdAt', 'ASC');
+
+    if (page !== undefined && limit !== undefined) {
+      query.skip(page).take(limit);
+    }
+
+    const coupons = await query.getMany();
 
     if (coupons) {
       return coupons.map((coupon) => new CouponModel(coupon));
