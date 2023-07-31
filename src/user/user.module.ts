@@ -6,9 +6,10 @@ import { DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { AppConfig } from 'src/config/app.config';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
-  imports: [],
+  imports: [CommonModule],
   controllers: [UserController],
   providers: [
     {
@@ -17,10 +18,6 @@ import { AppConfig } from 'src/config/app.config';
         return new UserRepository(dataSource.getRepository(User));
       },
       inject: [getDataSourceToken()],
-    },
-    {
-      provide: AppConfig, // Adicione o AppConfig como provedor
-      useClass: AppConfig, // Especifique a classe do AppConfig
     },
     {
       provide: UserService,

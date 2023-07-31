@@ -16,6 +16,7 @@ import { UpdateCouponDto } from './dto/updateCoupon.dto';
 import { CreateCouponDto } from './dto/createCoupan.dto';
 import { CouponModel } from './model/coupon.model';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/coupon')
 export class CouponController {
@@ -32,7 +33,7 @@ export class CouponController {
   findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  ): Promise<CouponModel[]> {
+  ): Promise<paginationData<CouponModel>> {
     return this.couponService.findAll(page, limit);
   }
 

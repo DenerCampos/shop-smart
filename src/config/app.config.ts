@@ -64,4 +64,12 @@ export class AppConfig {
     const jwtSecretKey = this.configService.get<string>('JWT_SECRET_KEY');
     return jwtSecretKey ?? 'demos crest';
   }
+
+  getBaseUrl(): string {
+    const apiHost = this.getApi();
+
+    if (this.isDevelopment()) return `http://${apiHost.host}:${apiHost.port}`;
+
+    return `https://${apiHost.host}:${apiHost.port}`;
+  }
 }

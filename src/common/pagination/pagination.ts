@@ -15,33 +15,20 @@ export type paginationLinks = {
   last: string;
 };
 
-export type paginationData = {
-  baseUrl: string;
-  dataLength: number;
-  totalItems: number;
-  limit: number;
-  page: number;
+export type paginationData<Model> = {
+  data: Model[];
+  meta: paginationMeta;
+  links: paginationLinks;
 };
 
 @Injectable()
-export class Paginations {
-  private meta: paginationMeta;
-  private baseUrl: string;
-  private links: paginationLinks;
-
-  constructor({
-    baseUrl,
-    dataLength,
-    totalItems,
-    limit,
-    page,
-  }: paginationData) {
-    this.baseUrl = baseUrl;
-    this.meta = this.createMeta(dataLength, totalItems, limit, page);
-    this.links = this.createLinks(limit, page);
-  }
-
-  private createMeta(dataLength, totalItems, limit, page): paginationMeta {
+export class Pagination {
+  private createMeta(
+    dataLength: number,
+    totalItems: number,
+    limit: number,
+    page: number,
+  ): paginationMeta {
     return {
       itemCount: dataLength,
       totalItems,
@@ -51,24 +38,40 @@ export class Paginations {
     };
   }
 
-  private createLinks(limit, page): paginationLinks {
+  private createLinks(
+    limit: number,
+    page: number,
+    totalPages: number,
+    baseUrl: string,
+  ): paginationLinks {
     return {
-      first: `${this.baseUrl}?limit=${limit}`,
-      previous:
-        page > 1 ? `${this.baseUrl}?page=${page - 1}&limit=${limit}` : null,
+      first: `${baseUrl}?limit=${limit}`,
+      previous: page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null,
       next:
-        page < this.meta.totalPages
-          ? `${this.baseUrl}?page=${page + 1}&limit=${limit}`
-          : null,
-      last: `${this.baseUrl}?page=${this.meta.totalPages}&limit=${limit}`,
+        page < totalPages ? `${baseUrl}?page=${page + 1}&limit=${limit}` : null,
+      last: `${baseUrl}?page=${totalPages}&limit=${limit}`,
     };
   }
 
-  getMeta() {
-    return this.meta;
+  paginateData<Model>(
+    queryResults: Model[],
+    page: number,
+    limit: number,
+    totalItems: number,
+    baseUrl: string,
+  ): paginationData<Model> {
+    const meta = this.createMeta(queryResults.length, totalItems, limit, page);
+
+    const links = this.createLinks(limit, page, meta.totalPages, baseUrl);
+
+    return {
+      data: queryResults,
+      meta,
+      links,
+    };
   }
 
-  getLinks() {
-    return this.links;
+  getOffset(page: number, limit: number): number {
+    return (page - 1) * limit;
   }
 }
