@@ -1,4 +1,4 @@
-import { AppConfig } from 'src/config/app.config';
+import { AppConfig } from 'src/common/app-config/app.config';
 
 const appConfig = new AppConfig();
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from '@nestjs/typeorm';
-import { AppConfig } from './app.config';
+import { AppConfig } from '../common/app-config/app.config';
 import 'dotenv/config';
 
 @Injectable()
