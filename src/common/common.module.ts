@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { Pagination } from './pagination/pagination';
-import { AppConfig } from '../config/app.config';
+import { AppConfig } from './app-config/app.config';
 
 @Module({
   providers: [Pagination, AppConfig],

@@ -4,7 +4,7 @@ import { UpdateCouponDto } from './dto/updateCoupon.dto';
 import { CouponModel } from './model/coupon.model';
 import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
-import { AppConfig } from 'src/config/app.config';
+import { AppConfig } from 'src/common/app-config/app.config';
 
 @Injectable()
 export class CouponService {

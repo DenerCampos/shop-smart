@@ -11,7 +11,7 @@ import { Group } from 'src/group/entities/group.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 import { Pagination } from 'src/common/pagination/pagination';
-import { AppConfig } from 'src/config/app.config';
+import { AppConfig } from 'src/common/app-config/app.config';
 import { CommonModule } from 'src/common/common.module';
 
 @Module({

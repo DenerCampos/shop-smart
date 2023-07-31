@@ -5,7 +5,7 @@ import { UserRepository } from './user.repository';
 import { DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { AppConfig } from 'src/config/app.config';
+import { AppConfig } from 'src/common/app-config/app.config';
 import { CommonModule } from 'src/common/common.module';
 
 @Module({
