@@ -1,6 +1,6 @@
 FROM node:18.10
 
-WORKDIR /
+WORKDIR /usr/src/app
 
 COPY package*.json ./
 
@@ -12,4 +12,6 @@ RUN npm run build
 
 # RUN npm run migration:run
 
-CMD [ "npm", "run", "start:dev" ]
+# CMD [ "npm", "run", "start:dev" ]
+
+CMD [ "node", "dist/main.js" ]
