@@ -19,6 +19,10 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
       entities: ['dist/**/*.entity.js'],
       migrations: ['dist/db/migrations/*.js'],
       logging: ['query', 'error'],
+      ssl: {
+        ca: process.env.SSL_CERT ?? null,
+        rejectUnauthorized: false,
+      },
       // synchronize: appConfig.isDevelopment(),
     };
   }
