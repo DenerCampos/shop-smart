@@ -13,9 +13,10 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
 import { Pagination } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { CommonModule } from 'src/common/common.module';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [CommonModule],
+  imports: [CommonModule, UserModule],
   controllers: [CouponController],
   providers: [
     {

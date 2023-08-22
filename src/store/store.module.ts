@@ -5,9 +5,10 @@ import { StoreRepository } from './store.repository';
 import { DataSource } from 'typeorm';
 import { Store } from './entities/store.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [],
+  imports: [UserModule],
   controllers: [StoreController],
   providers: [
     {

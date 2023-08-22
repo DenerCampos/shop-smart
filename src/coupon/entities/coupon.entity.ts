@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Item } from './item.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
+import { User } from 'src/user/entities/user.entity';
 
 @Entity()
 export class Coupon {
@@ -52,4 +53,8 @@ export class Coupon {
   @ManyToOne(() => Payment, (payment) => payment.coupons)
   @JoinColumn({ name: 'payment_id' })
   payment: Payment;
+
+  @ManyToOne(() => User, (user) => user.coupons)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 }

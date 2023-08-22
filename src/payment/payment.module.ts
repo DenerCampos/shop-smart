@@ -5,9 +5,10 @@ import { PaymentRepository } from './payment.repository';
 import { DataSource } from 'typeorm';
 import { Payment } from './entities/payment.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [],
+  imports: [UserModule],
   controllers: [PaymentController],
   providers: [
     {

@@ -13,6 +13,7 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
 import { storeType } from 'src/store/types/storeType';
 import { paymentType } from 'src/payment/types/paymentType';
 import { groupType } from 'src/group/types/groupType';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class CouponRepository implements ICouponRepository {
@@ -164,7 +165,10 @@ export class CouponRepository implements ICouponRepository {
     return group;
   }
 
-  async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
+  async create(
+    createCouponDto: CreateCouponDto,
+    user: User,
+  ): Promise<CouponModel> {
     await this.queryRunner.startTransaction();
 
     try {
@@ -179,6 +183,7 @@ export class CouponRepository implements ICouponRepository {
       const coupon = this.couponEntity.create(couponData);
       coupon.store = savedStore;
       coupon.payment = savedPayment;
+      coupon.user = user;
 
       await this.queryRunner.manager.save(coupon);
 
@@ -209,11 +214,18 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async countAll(): Promise<number> {
-    return await this.couponEntity.count({ withDeleted: false });
+  async countAll(user: User): Promise<number> {
+    return await this.couponEntity.count({
+      withDeleted: false,
+      where: { user: user },
+    });
   }
 
-  async findAll(page: number, limit: number): Promise<CouponModel[] | []> {
+  async findAll(
+    user: User,
+    page: number,
+    limit: number,
+  ): Promise<CouponModel[] | []> {
     const query = this.couponEntity
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.items', 'items')
@@ -232,6 +244,10 @@ export class CouponRepository implements ICouponRepository {
         'payment',
         'payment.deletedAt IS NOT NULL OR payment.deletedAt IS NULL',
       )
+      .leftJoinAndSelect('coupon.user', 'user')
+      .where({
+        user: user,
+      })
       .orderBy('coupon.createdAt', 'ASC');
 
     if (page !== undefined && limit !== undefined) {

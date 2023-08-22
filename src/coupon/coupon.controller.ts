@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { CouponService } from './coupon.service';
@@ -17,6 +18,7 @@ import { CreateCouponDto } from './dto/createCoupan.dto';
 import { CouponModel } from './model/coupon.model';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { paginationData } from 'src/common/pagination/pagination';
+import { RequestWithUser } from 'src/common/types/requestType';
 
 @Controller('/coupon')
 export class CouponController {
@@ -24,8 +26,13 @@ export class CouponController {
 
   @UseGuards(AuthGuard)
   @Post()
-  create(@Body() createStoreDto: CreateCouponDto): Promise<CouponModel> {
-    return this.couponService.create(createStoreDto);
+  create(
+    @Body() createStoreDto: CreateCouponDto,
+    @Req() req: RequestWithUser,
+  ): Promise<CouponModel> {
+    const user = req.user;
+
+    return this.couponService.create(createStoreDto, user);
   }
 
   @UseGuards(AuthGuard)
@@ -33,8 +40,11 @@ export class CouponController {
   findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Req() req: RequestWithUser,
   ): Promise<paginationData<CouponModel>> {
-    return this.couponService.findAll(page, limit);
+    const user = req.user;
+
+    return this.couponService.findAll(user, page, limit);
   }
 
   @UseGuards(AuthGuard)
