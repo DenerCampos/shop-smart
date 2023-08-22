@@ -5,9 +5,10 @@ import { GroupRepository } from './group.repository';
 import { DataSource } from 'typeorm';
 import { Group } from './entities/group.entity';
 import { getDataSourceToken } from '@nestjs/typeorm';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [],
+  imports: [UserModule],
   controllers: [GroupController],
   providers: [
     {

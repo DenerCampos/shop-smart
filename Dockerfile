@@ -14,4 +14,4 @@ RUN npm run build
 
 # CMD [ "npm", "run", "start:dev" ]
 
-CMD [ "node", "dist/main.js" ]
+CMD [ "node", "dist/src/main.js" ]

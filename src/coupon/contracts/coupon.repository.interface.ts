@@ -1,13 +1,14 @@
+import { User } from 'src/user/entities/user.entity';
 import { CreateCouponDto } from '../dto/createCoupan.dto';
 import { UpdateCouponDto } from '../dto/updateCoupon.dto';
 import { CouponModel } from '../model/coupon.model';
 
 export interface ICouponRepository {
-  create(data: CreateCouponDto): Promise<CouponModel>;
-  findAll(page: number, limit: number): Promise<CouponModel[] | []>;
+  create(data: CreateCouponDto, user: User): Promise<CouponModel>;
+  findAll(user: User, page: number, limit: number): Promise<CouponModel[] | []>;
   find(id: string): Promise<CouponModel | null>;
   update(id: string, data: UpdateCouponDto): Promise<CouponModel | null>;
   remove(id: string): Promise<CouponModel | null>;
   delete(id: string): Promise<boolean>;
-  countAll(): Promise<number>;
+  countAll(user: User): Promise<number>;
 }

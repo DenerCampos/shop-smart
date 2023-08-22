@@ -5,6 +5,7 @@ import { CouponModel } from './model/coupon.model';
 import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class CouponService {
@@ -16,18 +17,22 @@ export class CouponService {
     private appConfig: AppConfig,
   ) {}
 
-  async create(createCouponDto: CreateCouponDto): Promise<CouponModel> {
-    return await this.couponRepository.create(createCouponDto);
+  async create(
+    createCouponDto: CreateCouponDto,
+    user: User,
+  ): Promise<CouponModel> {
+    return await this.couponRepository.create(createCouponDto, user);
   }
 
   async findAll(
+    user: User,
     page: number,
     limit: number,
   ): Promise<paginationData<CouponModel>> {
     const offset = this.pagination.getOffset(page, limit);
 
-    const coupons = await this.couponRepository.findAll(offset, limit);
-    const total = await this.couponRepository.countAll();
+    const coupons = await this.couponRepository.findAll(user, offset, limit);
+    const total = await this.couponRepository.countAll(user);
 
     const paginateData = this.pagination.paginateData<CouponModel>(
       coupons,
