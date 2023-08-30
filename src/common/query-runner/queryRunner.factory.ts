@@ -19,6 +19,10 @@ export class QueryRunnerFactory implements QueryRunnerInterface {
       'startTransaction -> this.queryRunner.isReleased: ',
       this.queryRunner.isReleased,
     );
+    console.log(
+      'startTransaction -> this.queryRunner.isTransactionActive: ',
+      this.queryRunner.isTransactionActive,
+    );
     await this.queryRunner.connect();
     return this.queryRunner.startTransaction();
   }

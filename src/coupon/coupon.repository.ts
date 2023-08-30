@@ -170,8 +170,10 @@ export class CouponRepository implements ICouponRepository {
     user: User,
   ): Promise<CouponModel> {
     console.log('Create cupom');
-    
+
     await this.queryRunner.startTransaction();
+
+    console.log('Create cupom apos transação');
 
     try {
       const { items, store, payment, ...couponData } = createCouponDto;
