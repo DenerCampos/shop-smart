@@ -49,8 +49,13 @@ export class CouponController {
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<CouponModel> {
-    return this.couponService.find(id);
+  findOne(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ): Promise<CouponModel> {
+    const user = req.user;
+
+    return this.couponService.find(id, user);
   }
 
   @UseGuards(AuthGuard)
@@ -58,14 +63,22 @@ export class CouponController {
   update(
     @Param('id') id: string,
     @Body() updateStoreDto: UpdateCouponDto,
+    @Req() req: RequestWithUser,
   ): Promise<CouponModel> {
-    return this.couponService.update(id, updateStoreDto);
+    const user = req.user;
+
+    return this.couponService.update(id, updateStoreDto, user);
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<object> {
-    const deleted = await this.couponService.delete(id);
+  async remove(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ): Promise<object> {
+    const user = req.user;
+
+    const deleted = await this.couponService.delete(id, user);
 
     return { deleted };
   }

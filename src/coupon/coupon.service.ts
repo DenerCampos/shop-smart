@@ -45,22 +45,23 @@ export class CouponService {
     return paginateData;
   }
 
-  async find(couponId: string): Promise<CouponModel | null> {
-    return await this.couponRepository.find(couponId);
+  async find(couponId: string, user: User): Promise<CouponModel | null> {
+    return await this.couponRepository.find(couponId, user);
   }
 
   async update(
     couponId: string,
     updateCouponDto: UpdateCouponDto,
+    user: User,
   ): Promise<CouponModel> {
-    return await this.couponRepository.update(couponId, updateCouponDto);
+    return await this.couponRepository.update(couponId, updateCouponDto, user);
   }
 
-  async remove(couponId: string): Promise<CouponModel> {
-    return await this.couponRepository.remove(couponId);
+  async remove(couponId: string, user: User): Promise<CouponModel> {
+    return await this.couponRepository.remove(couponId, user);
   }
 
-  async delete(couponId: string): Promise<boolean> {
-    return await this.couponRepository.delete(couponId);
+  async delete(couponId: string, user: User): Promise<boolean> {
+    return await this.couponRepository.delete(couponId, user);
   }
 }

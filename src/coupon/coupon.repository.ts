@@ -169,11 +169,7 @@ export class CouponRepository implements ICouponRepository {
     createCouponDto: CreateCouponDto,
     user: User,
   ): Promise<CouponModel> {
-    console.log('Create cupom');
-
     await this.queryRunner.startTransaction();
-
-    console.log('Create cupom apos transação');
 
     try {
       const { items, store, payment, ...couponData } = createCouponDto;
@@ -267,7 +263,7 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async find(id: string): Promise<CouponModel | null> {
+  async find(id: string, user: User): Promise<CouponModel | null> {
     const coupon = await this.couponEntity
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.items', 'items')
@@ -286,7 +282,11 @@ export class CouponRepository implements ICouponRepository {
         'payment',
         'payment.deletedAt IS NOT NULL OR payment.deletedAt IS NULL',
       )
+      .leftJoinAndSelect('coupon.user', 'user')
       .where('coupon.id = :id', { id })
+      .andWhere({
+        user: user,
+      })
       .getOne();
 
     if (coupon) {
@@ -299,11 +299,14 @@ export class CouponRepository implements ICouponRepository {
   async update(
     id: string,
     updateCouponDto: UpdateCouponDto,
+    user: User,
   ): Promise<CouponModel | null> {
     await this.queryRunner.startTransaction();
 
     try {
-      const coupon = await this.couponEntity.findOneBy({ id });
+      const coupon = await this.couponEntity.findOneBy({ id, user });
+
+      if (!coupon) return null;
 
       const { items, store, payment, ...updateCouponData } = updateCouponDto;
 
@@ -378,8 +381,8 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async remove(id: string): Promise<CouponModel | null> {
-    const coupon = await this.couponEntity.findOneBy({ id });
+  async remove(id: string, user: User): Promise<CouponModel | null> {
+    const coupon = await this.couponEntity.findOneBy({ id, user });
 
     if (coupon) {
       const removeCoupon = await this.couponEntity.remove(coupon);
@@ -389,10 +392,10 @@ export class CouponRepository implements ICouponRepository {
     }
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, user: User): Promise<boolean> {
     // TODO: o cascade delete não esta funcionado. verificar
-    const result = await this.couponEntity.softDelete({ id });
+    const result = await this.couponEntity.softDelete({ id, user });
 
-    return result.affected === 1 ? true : false;
+    return result.affected === 1;
   }
 }
