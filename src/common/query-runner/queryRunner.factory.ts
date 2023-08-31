@@ -15,19 +15,16 @@ export class QueryRunnerFactory implements QueryRunnerInterface {
   }
 
   async startTransaction() {
-    console.log(
-      'startTransaction -> this.queryRunner.isReleased: ',
-      this.queryRunner.isReleased,
-    );
-    console.log(
-      'startTransaction -> this.queryRunner.isTransactionActive: ',
-      this.queryRunner.isTransactionActive,
-    );
+    // console.log(
+    //   'startTransaction -> this.queryRunner.isReleased: ',
+    //   this.queryRunner.isReleased,
+    // );
+    // console.log(
+    //   'startTransaction -> this.queryRunner.isTransactionActive: ',
+    //   this.queryRunner.isTransactionActive,
+    // );
 
     await this.queryRunner.connect();
-
-    console.log('conectado ao banco de dados');
-
     return this.queryRunner.startTransaction();
   }
 
