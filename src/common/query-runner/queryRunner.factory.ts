@@ -23,7 +23,11 @@ export class QueryRunnerFactory implements QueryRunnerInterface {
       'startTransaction -> this.queryRunner.isTransactionActive: ',
       this.queryRunner.isTransactionActive,
     );
+
     await this.queryRunner.connect();
+
+    console.log('conectado ao banco de dados');
+
     return this.queryRunner.startTransaction();
   }
 
