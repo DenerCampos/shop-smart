@@ -94,6 +94,28 @@ export class GroupRepository implements IGroupRepository {
   async delete(id: string): Promise<boolean> {
     const result = await this.groupEntity.softDelete({ id });
 
-    return result.affected === 1 ? true : false;
+    return result.affected === 1;
+  }
+
+  async findByItemIdOrName(
+    id: string,
+    name: string,
+  ): Promise<GroupModel | null> {
+    const group = await this.groupEntity
+      .createQueryBuilder('group')
+      .innerJoin('group.items', 'item')
+      .where('item.id = :id', { id })
+      .orWhere('LOWER(item.name) LIKE LOWER(:name)', {
+        name: `%${name}%`,
+      })
+      .orderBy('item.createdAt', 'DESC')
+      .limit(1)
+      .getOne();
+
+    if (group) {
+      return new GroupModel(group);
+    }
+
+    return null;
   }
 }
