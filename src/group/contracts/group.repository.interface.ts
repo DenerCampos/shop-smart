@@ -9,4 +9,5 @@ export interface IGroupRepository {
   update(id: string, updateGroup: UpdateGroupDto): Promise<GroupModel>;
   remove(id: string): Promise<GroupModel>;
   delete(id: string): Promise<boolean>;
+  findByItemIdOrName(id: string, name: string): Promise<GroupModel | null>;
 }
