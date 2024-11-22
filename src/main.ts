@@ -31,9 +31,7 @@ async function bootstrap() {
   // class-validator resolve dependencias igual o nest
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-  app.enableCors({
-    origin: '*',
-  });
+  app.enableCors();
 
   await app.listen(port, host);
 }
