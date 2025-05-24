@@ -7,6 +7,16 @@ export class UserModel {
 
   email: string;
 
+  family: string;
+
+  income: number;
+
+  expenses: number;
+
+  coins: number;
+
+  coatOfArms: string;
+
   @Exclude()
   password: string;
 
@@ -17,6 +27,11 @@ export class UserModel {
     this.id = data?.id;
     this.name = data?.name;
     this.email = data?.email;
+    this.family = data?.family;
+    this.income = data?.income;
+    this.expenses = data?.expenses;
+    this.coins = data?.coins;
+    this.coatOfArms = data?.coatOfArms;
     this.password = data?.password;
     this.token = data?.token;
   }

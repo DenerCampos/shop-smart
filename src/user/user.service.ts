@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/createUser.dto';
 import { UpdateUserDto } from './dto/updateUser.dto';
 import { UserModel } from './model/user.model';
 import { AppConfig } from '../common/app-config/app.config';
 import * as bcrypt from 'bcrypt';
 import { IUserRepository } from './contracts/user.repository.interface';
+import { ProfileDto } from './dto/profile.dto';
 
 @Injectable()
 export class UserService {
@@ -20,6 +21,14 @@ export class UserService {
   async create(createUserDto: CreateUserDto): Promise<UserModel> {
     const hash = await bcrypt.hash(createUserDto.password, this.saltOrRounds);
     createUserDto.password = hash;
+
+    if (createUserDto.family === undefined) {
+      createUserDto.family = createUserDto.name;
+    }
+
+    if (createUserDto.coatOfArms === undefined) {
+      createUserDto.coatOfArms = '/assets/images/coat_of_arms_solare.png';
+    }
 
     return this.userRepository.create(createUserDto);
   }
@@ -54,5 +63,18 @@ export class UserService {
 
   async delete(userId: string): Promise<boolean> {
     return this.userRepository.delete(userId);
+  }
+
+  async getProfile(userId: string): Promise<ProfileDto> {
+    const user = await this.userRepository.find(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return new ProfileDto({
+      ...user,
+      isFirstAccess: user.income.toString() === '0.00',
+    });
   }
 }

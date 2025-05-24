@@ -21,6 +21,21 @@ export class User {
   email: string;
 
   @Column()
+  family: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  income: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  expenses: number;
+
+  @Column({ default: 0 })
+  coins: number;
+
+  @Column()
+  coatOfArms: string;
+
+  @Column()
   password: string;
 
   @Column({ nullable: true })
