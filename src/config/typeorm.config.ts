@@ -18,7 +18,11 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
       database: name ?? process.env.API_DB_NAME,
       entities: ['dist/**/*.entity.js'],
       migrations: ['dist/db/migrations/*.js'],
-      logging: ['query', 'error'],
+      logging:
+        process.env.NODE_ENV === 'development'
+          ? ['query', 'error']
+          : ['error', 'warn'], // Em produção mostra apenas erros e warnings
+      maxQueryExecutionTime: 1000, // Loga queries lentas (>1s)
       ssl: {
         ca: process.env.SSL_CERT ?? null,
         rejectUnauthorized: false,

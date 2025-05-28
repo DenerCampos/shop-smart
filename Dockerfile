@@ -1,17 +1,18 @@
-FROM node:18.10
+FROM node:18.10-alpine
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm install
+# Instala apenas dependências de produção
+ENV NODE_ENV=production
+RUN npm ci --only=production
 
 COPY . .
 
 RUN npm run build
 
-# RUN npm run migration:run
+# CMD [ "node", "dist/src/main.js" ]
 
-# CMD [ "npm", "run", "start:dev" ]
-
-CMD [ "node", "dist/src/main.js" ]
+# Adicione este novo comando para limpar cache desnecessário:
+CMD node --v8-pool-size=1 --optimize-for-size --max-old-space-size=256 dist/src/main.js
