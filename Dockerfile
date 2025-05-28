@@ -2,17 +2,20 @@ FROM node:18.10-alpine
 
 WORKDIR /usr/src/app
 
-COPY package*.json ./
+# 1. Copia APENAS os arquivos necessários para instalação
+COPY package.json package-lock.json ./
 
-# Instala apenas dependências de produção
-ENV NODE_ENV=production
-RUN npm ci --only=production
+# 2. Instala dependências de DEV também (necessárias para o build)
+RUN npm ci
 
+# 3. Copia o restante do código
 COPY . .
 
+# 4. Executa o build
 RUN npm run build
 
-# CMD [ "node", "dist/src/main.js" ]
+# 5. Remove as devDependencies para reduzir tamanho da imagem
+RUN npm prune --production
 
-# Adicione este novo comando para limpar cache desnecessário:
-CMD node --v8-pool-size=1 --optimize-for-size --max-old-space-size=256 dist/src/main.js
+# 6. Comando de execução
+CMD [ "node", "dist/src/main.js" ]
