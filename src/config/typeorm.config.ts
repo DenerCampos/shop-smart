@@ -27,16 +27,20 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
         ca: process.env.SSL_CERT ?? null,
         rejectUnauthorized: false,
       },
-      // Adicionar configurações específicas do MySQL
-      extra: {
-        charset: 'utf8mb4_unicode_ci',
-      },
       // Configurações para evitar problemas com UUID e migrations
       migrationsTableName: 'migrations',
       migrationsRun: false,
       // Adicionar estas opções para maior controle
       dropSchema: false,
       // synchronize: appConfig.isDevelopment(),
+      // Configurações CRÍTICAS para plano free:
+      poolSize: 2, // Máximo de conexões simultâneas
+      extra: {
+        charset: 'utf8mb4_unicode_ci',
+        connectionLimit: 2, // Igual ao poolSize
+        idleTimeout: 30000, // Fecha conexões ociosas após 30s
+        enableKeepAlive: true, // Mantém conexões vivas
+      },
     };
   }
 }
