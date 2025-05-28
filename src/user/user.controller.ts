@@ -13,6 +13,8 @@ import { UpdateUserDto } from './dto/updateUser.dto';
 import { CreateUserDto } from './dto/createUser.dto';
 import { UserModel } from './model/user.model';
 import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { ProfileDto } from './dto/profile.dto';
 
 @Controller('/user')
 export class UserController {
@@ -21,6 +23,21 @@ export class UserController {
   @Post()
   create(@Body() createUserDto: CreateUserDto): Promise<UserModel> {
     return this.userService.create(createUserDto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  profile(@CurrentUser() user: UserModel): Promise<ProfileDto> {
+    return this.userService.getProfile(user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('complete-profile')
+  completeProfile(
+    @CurrentUser() user: UserModel,
+    @Body() UpdateUserDto: UpdateUserDto,
+  ): Promise<UserModel> {
+    return this.userService.update(user.id, UpdateUserDto);
   }
 
   @UseGuards(AuthGuard)

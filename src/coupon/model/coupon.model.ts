@@ -10,6 +10,8 @@ export class CouponModel {
 
   url: string;
 
+  value: number;
+
   date: Date;
 
   store?: StoreModel;
@@ -26,6 +28,7 @@ export class CouponModel {
     this.id = coupon.id;
     this.number = coupon.number;
     this.url = coupon.url;
+    this.value = coupon.value;
     this.date = coupon.date;
 
     if (user) {

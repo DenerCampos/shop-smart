@@ -5,13 +5,17 @@ import {
   DeleteDateColumn,
   Entity,
   OneToMany,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
 export class Store {
-  @PrimaryGeneratedColumn('uuid')
+  @Column({
+    type: 'varchar',
+    length: 36,
+    primary: true,
+    generated: 'uuid',
+  })
   id: string;
 
   @Column()

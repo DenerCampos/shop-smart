@@ -23,6 +23,15 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
         ca: process.env.SSL_CERT ?? null,
         rejectUnauthorized: false,
       },
+      // Adicionar configurações específicas do MySQL
+      extra: {
+        charset: 'utf8mb4_unicode_ci',
+      },
+      // Configurações para evitar problemas com UUID e migrations
+      migrationsTableName: 'migrations',
+      migrationsRun: false,
+      // Adicionar estas opções para maior controle
+      dropSchema: false,
       // synchronize: appConfig.isDevelopment(),
     };
   }

@@ -11,7 +11,12 @@ import {
 
 @Entity()
 export class User {
-  @PrimaryGeneratedColumn('uuid')
+  @Column({
+    type: 'varchar',
+    length: 36,
+    primary: true,
+    generated: 'uuid',
+  })
   id: string;
 
   @Column()
@@ -19,6 +24,21 @@ export class User {
 
   @Column()
   email: string;
+
+  @Column()
+  family: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  income: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  expenses: number;
+
+  @Column({ default: 0 })
+  coins: number;
+
+  @Column()
+  coatOfArms: string;
 
   @Column()
   password: string;
