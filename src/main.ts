@@ -5,7 +5,12 @@ import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger:
+      process.env.NODE_ENV === 'development'
+        ? ['log', 'debug', 'error', 'verbose', 'warn']
+        : ['error', 'warn'], // Em produção mostra apenas erros e warnings
+  });
 
   const appConfig = new AppConfig();
   const { host, port } = appConfig.getApi();
