@@ -6,6 +6,8 @@ import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { User } from 'src/user/entities/user.entity';
+import { UserService } from 'src/user/user.service';
+import { itemType } from './types/itemType';
 
 @Injectable()
 export class CouponService {
@@ -15,14 +17,38 @@ export class CouponService {
     private couponRepository: ICouponRepository,
     private pagination: Pagination,
     private appConfig: AppConfig,
+    private usersService: UserService,
   ) {}
 
   async create(
     createCouponDto: CreateCouponDto,
     user: User,
   ): Promise<CouponModel> {
-    return await this.couponRepository.create(createCouponDto, user);
+    createCouponDto.value = this.calculateTotalValue(createCouponDto.items);
+
+    const coupon = await this.couponRepository.create(createCouponDto, user);
+
+    if (coupon) {
+      await this.usersService.updateFinancialData(user.id, {
+        typeCoins: 'coupon',
+        expenses: coupon.value,
+      });
+    }
+
+    return coupon;
   }
+
+  private calculateTotalValue = (items: itemType[]): number => {
+    if (!items || items.length === 0) return 0;
+
+    const total = items.reduce((total, item) => {
+      const itemTotal =
+        typeof item.total === 'number' && !isNaN(item.total) ? item.total : 0;
+      return total + itemTotal;
+    }, 0);
+
+    return Number((Math.ceil(total * 100) / 100).toFixed(2));
+  };
 
   async findAll(
     user: User,

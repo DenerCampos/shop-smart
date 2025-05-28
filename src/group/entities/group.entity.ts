@@ -11,7 +11,12 @@ import {
 
 @Entity()
 export class Group {
-  @PrimaryGeneratedColumn('uuid')
+  @Column({
+    type: 'varchar',
+    length: 36,
+    primary: true,
+    generated: 'uuid',
+  })
   id: string;
 
   @Column()

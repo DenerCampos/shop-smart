@@ -14,3 +14,10 @@ export type profileType = {
   coatOfArms: string;
   isFirstAccess: boolean;
 };
+
+export type coinsType = 'coupon' | 'group' | 'payment' | 'store';
+
+export type financialDataType = {
+  expenses: number;
+  typeCoins: coinsType;
+};

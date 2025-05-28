@@ -16,7 +16,12 @@ import { User } from 'src/user/entities/user.entity';
 
 @Entity()
 export class Coupon {
-  @PrimaryGeneratedColumn('uuid')
+  @Column({
+    type: 'varchar',
+    length: 36,
+    primary: true,
+    generated: 'uuid',
+  })
   id: string;
 
   @Column()
@@ -24,6 +29,9 @@ export class Coupon {
 
   @Column({ nullable: true })
   url: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  value: number;
 
   @Column({
     type: 'datetime',

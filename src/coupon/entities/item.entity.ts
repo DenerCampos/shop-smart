@@ -13,7 +13,12 @@ import { Coupon } from './coupon.entity';
 
 @Entity()
 export class Item {
-  @PrimaryGeneratedColumn('uuid')
+  @Column({
+    type: 'varchar',
+    length: 36,
+    primary: true,
+    generated: 'uuid',
+  })
   id: string;
 
   @Column()

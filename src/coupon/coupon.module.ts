@@ -14,6 +14,7 @@ import { Pagination } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { CommonModule } from 'src/common/common.module';
 import { UserModule } from 'src/user/user.module';
+import { UserService } from 'src/user/user.service';
 
 @Module({
   imports: [CommonModule, UserModule],
@@ -39,10 +40,16 @@ import { UserModule } from 'src/user/user.module';
         repository: CouponRepository,
         pagination: Pagination,
         appConfig: AppConfig,
+        UserService: UserService,
       ) => {
-        return new CouponService(repository, pagination, appConfig);
+        return new CouponService(
+          repository,
+          pagination,
+          appConfig,
+          UserService,
+        );
       },
-      inject: [CouponRepository, Pagination, AppConfig],
+      inject: [CouponRepository, Pagination, AppConfig, UserService],
     },
   ],
 })

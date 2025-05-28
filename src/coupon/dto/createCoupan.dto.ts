@@ -2,6 +2,8 @@ import {
   IsArray,
   IsDateString,
   IsNotEmpty,
+  IsNumber,
+  IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -25,6 +27,10 @@ export class CreateCouponDto {
 
   @IsString()
   url: string;
+
+  @IsNumber()
+  @IsOptional()
+  value: number;
 
   @IsNotEmpty()
   @IsDateString()
