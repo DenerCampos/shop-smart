@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { RevenueController } from './revenue.controller';
 import { RevenueService } from './revenue.service';
 import { RevenueRepository } from './revenue.repository';
@@ -8,7 +8,7 @@ import { UserModule } from 'src/user/user.module';
 import { Revenue } from './entities/revenue.entity';
 
 @Module({
-  imports: [UserModule],
+  imports: [forwardRef(() => UserModule)],
   controllers: [RevenueController],
   providers: [
     {

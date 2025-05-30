@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ExpenseController } from './expense.controller';
 import { ExpenseService } from './expense.service';
 import { ExpenseRepository } from './expense.repository';
@@ -8,7 +8,7 @@ import { Expense } from './entities/expense.entity';
 import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [UserModule],
+  imports: [forwardRef(() => UserModule)],
   controllers: [ExpenseController],
   providers: [
     {

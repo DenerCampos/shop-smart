@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { CoinController } from './coin.controller';
 import { CoinService } from './coin.service';
 import { CoinRepository } from './coin.repository';
@@ -11,7 +11,7 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
 import { UserService } from 'src/user/user.service';
 
 @Module({
-  imports: [UserModule],
+  imports: [forwardRef(() => UserModule)],
   controllers: [CoinController],
   providers: [
     {

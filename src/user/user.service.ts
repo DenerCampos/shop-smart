@@ -7,6 +7,9 @@ import * as bcrypt from 'bcrypt';
 import { IUserRepository } from './contracts/user.repository.interface';
 import { ProfileDto } from './dto/profile.dto';
 import { coinsType, financialDataType } from './types/userType';
+import { ExpenseService } from 'src/expense/expense.service';
+import { CoinService } from 'src/coin/coin.service';
+import { RevenueService } from 'src/revenue/revenue.service';
 
 @Injectable()
 export class UserService {
@@ -15,6 +18,9 @@ export class UserService {
   constructor(
     private userRepository: IUserRepository,
     private appConfig: AppConfig,
+    private expenseService: ExpenseService,
+    private revenueService: RevenueService,
+    private coinService: CoinService,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
@@ -81,7 +87,8 @@ export class UserService {
     });
   }
 
-  async addCoins(userId: string, type: coinsType): Promise<void> { //remover
+  async addCoins(userId: string, type: coinsType): Promise<void> {
+    //remover
     const user = await this.userRepository.find(userId);
 
     if (!user) {
