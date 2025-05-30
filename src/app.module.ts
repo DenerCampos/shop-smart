@@ -9,6 +9,9 @@ import { CouponReaderModule } from './coupon-reader/couponReader.module';
 import { PaymentModule } from './payment/payment.module';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { RevenueModule } from './revenue/revenue.module';
+import { CoinModule } from './coin/coin.module';
+import { ExpenseModule } from './expense/expense.module';
 
 @Module({
   imports: [
@@ -23,6 +26,9 @@ import { AuthModule } from './auth/auth.module';
     PaymentModule,
     UserModule,
     AuthModule,
+    RevenueModule,
+    CoinModule,
+    ExpenseModule,
   ],
   controllers: [],
   providers: [],

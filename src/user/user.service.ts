@@ -73,13 +73,15 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
+    //adicionar a receita, gastos e moedas
+
     return new ProfileDto({
       ...user,
       isFirstAccess: user.income.toString() === '0.00',
     });
   }
 
-  async addCoins(userId: string, type: coinsType): Promise<void> {
+  async addCoins(userId: string, type: coinsType): Promise<void> { //remover
     const user = await this.userRepository.find(userId);
 
     if (!user) {
@@ -93,6 +95,7 @@ export class UserService {
   }
 
   private getValueCoinsByType(type: coinsType): number {
+    //remover
     const types = {
       coupon: 5,
       group: 2,
@@ -104,6 +107,7 @@ export class UserService {
   }
 
   async addExpenses(userId: string, value: number): Promise<void> {
+    //remover
     if (isNaN(value) || value < 0) {
       throw new Error('Valor inválido para adicionar às despesas');
     }
@@ -126,6 +130,7 @@ export class UserService {
     userId: string,
     data: financialDataType,
   ): Promise<void> {
+    //remover
     const results = await Promise.allSettled([
       this.addCoins(userId, data.typeCoins),
       this.addExpenses(userId, data.expenses),
