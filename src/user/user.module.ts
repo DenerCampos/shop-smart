@@ -17,9 +17,9 @@ import { CoinService } from 'src/coin/coin.service';
 @Module({
   imports: [
     CommonModule,
-    forwardRef(() => ExpenseModule),
-    forwardRef(() => RevenueModule),
+    forwardRef(() => ExpenseModule), //usado para corrigir dependencia circular. tentar mudar depois TODO
     forwardRef(() => CoinModule),
+    forwardRef(() => RevenueModule),
   ],
   controllers: [UserController],
   providers: [
@@ -47,9 +47,15 @@ import { CoinService } from 'src/coin/coin.service';
           coinService,
         );
       },
-      inject: [UserRepository, AppConfig],
+      inject: [
+        UserRepository,
+        AppConfig,
+        ExpenseService,
+        RevenueService,
+        CoinService,
+      ],
     },
   ],
-  exports: [UserService],
+  exports: [UserService, UserRepository],
 })
 export class UserModule {}

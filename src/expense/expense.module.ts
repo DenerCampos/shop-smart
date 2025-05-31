@@ -26,5 +26,6 @@ import { UserModule } from 'src/user/user.module';
       inject: [ExpenseRepository],
     },
   ],
+  exports: [ExpenseService, ExpenseRepository],
 })
 export class ExpenseModule {}

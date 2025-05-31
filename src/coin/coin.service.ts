@@ -8,7 +8,6 @@ import {
   coinType,
   TransactionType,
 } from './types/coinType';
-import { UserService } from 'src/user/user.service';
 import { CreateCoinTransactionDto } from './dto/createCoinTransaction.dto';
 import { UserModel } from 'src/user/model/user.model';
 import { AddCoinDto } from './dto/addCoin.dto';
@@ -18,10 +17,7 @@ import { InsufficientResourceException } from 'src/exception/insufficientResourc
 
 @Injectable()
 export class CoinService {
-  constructor(
-    private coinRepository: ICoinRepository,
-    private userService: UserService,
-  ) {}
+  constructor(private coinRepository: ICoinRepository) {}
 
   async create(
     user: UserModel,
@@ -196,5 +192,11 @@ export class CoinService {
       subtractCoinDto,
       subtractCoinTransactionDto,
     );
+  }
+
+  async getCoinsByUser(user: UserModel): Promise<number> {
+    const coin = await this.coinRepository.findByUserId(user.id);
+
+    return coin?.balance || 0;
   }
 }

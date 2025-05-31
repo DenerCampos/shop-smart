@@ -79,10 +79,15 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    //adicionar a receita, gastos e moedas
+    const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
+    const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
+    const coins = await this.coinService.getCoinsByUser(user);
 
     return new ProfileDto({
       ...user,
+      income: revenues.value,
+      expenses: expenses.value,
+      coins: coins,
       isFirstAccess: user.income.toString() === '0.00',
     });
   }

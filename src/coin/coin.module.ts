@@ -5,10 +5,9 @@ import { CoinRepository } from './coin.repository';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { Coin } from './entities/coin.entity';
-import { UserModule } from 'src/user/user.module';
 import { CoinTransaction } from './entities/coinTransaction.entity';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
-import { UserService } from 'src/user/user.service';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [forwardRef(() => UserModule)],
@@ -27,11 +26,12 @@ import { UserService } from 'src/user/user.service';
     },
     {
       provide: CoinService,
-      useFactory: (repository: CoinRepository, userService: UserService) => {
-        return new CoinService(repository, userService);
+      useFactory: (repository: CoinRepository) => {
+        return new CoinService(repository);
       },
-      inject: [CoinRepository, UserService],
+      inject: [CoinRepository],
     },
   ],
+  exports: [CoinService, CoinRepository],
 })
 export class CoinModule {}

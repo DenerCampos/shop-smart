@@ -4,8 +4,8 @@ import { RevenueService } from './revenue.service';
 import { RevenueRepository } from './revenue.repository';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { UserModule } from 'src/user/user.module';
 import { Revenue } from './entities/revenue.entity';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [forwardRef(() => UserModule)],
@@ -26,5 +26,6 @@ import { Revenue } from './entities/revenue.entity';
       inject: [RevenueRepository],
     },
   ],
+  exports: [RevenueService, RevenueRepository],
 })
 export class RevenueModule {}
