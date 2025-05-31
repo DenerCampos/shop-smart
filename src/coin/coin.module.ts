@@ -10,7 +10,7 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
 import { UserModule } from 'src/user/user.module';
 
 @Module({
-  imports: [forwardRef(() => UserModule)],
+  imports: [forwardRef(() => UserModule)], //user tem que estar aqui pq usa o auth nas rotas
   controllers: [CoinController],
   providers: [
     {
