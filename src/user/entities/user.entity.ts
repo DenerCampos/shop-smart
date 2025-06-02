@@ -5,7 +5,6 @@ import {
   DeleteDateColumn,
   Entity,
   OneToMany,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -27,15 +26,6 @@ export class User {
 
   @Column()
   family: string;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  income: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  expenses: number;
-
-  @Column({ default: 0 })
-  coins: number;
 
   @Column()
   coatOfArms: string;

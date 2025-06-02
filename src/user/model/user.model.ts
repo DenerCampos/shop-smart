@@ -9,12 +9,6 @@ export class UserModel {
 
   family: string;
 
-  income: number;
-
-  expenses: number;
-
-  coins: number;
-
   coatOfArms: string;
 
   @Exclude()
@@ -28,9 +22,6 @@ export class UserModel {
     this.name = data?.name;
     this.email = data?.email;
     this.family = data?.family;
-    this.income = data?.income;
-    this.expenses = data?.expenses;
-    this.coins = data?.coins;
     this.coatOfArms = data?.coatOfArms;
     this.password = data?.password;
     this.token = data?.token;
