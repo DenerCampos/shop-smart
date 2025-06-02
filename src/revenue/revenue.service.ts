@@ -44,7 +44,7 @@ export class RevenueService {
   async getAllByCurrentMonth(user: UserModel): Promise<RevenueModel[] | []> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
-    return this.revenueRepository.findByPeriodAndRepeatRaw(
+    return this.revenueRepository.findByPeriodAndRepeat(
       user.id,
       startDateString,
       endDateString,
@@ -56,7 +56,7 @@ export class RevenueService {
   ): Promise<GetValueRevenueCurrentDto> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
-    const revenues = await this.revenueRepository.findByPeriodAndRepeatRaw(
+    const revenues = await this.revenueRepository.findByPeriodAndRepeat(
       user.id,
       startDateString,
       endDateString,

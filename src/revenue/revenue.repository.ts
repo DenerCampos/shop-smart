@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IRevenueRepository } from './contracts/revenue.repository.interface';
-import { Equal, ILike, Not, Repository } from 'typeorm';
+import { Brackets, Equal, ILike, Not, Repository } from 'typeorm';
 import { Revenue } from './entities/revenue.entity';
 import { RevenueModel } from './model/revenue.model';
 import { CreateRevenueDto } from './dto/createRevenue.dto';
@@ -92,7 +92,7 @@ export class RevenueRepository implements IRevenueRepository {
     return result.affected === 1;
   }
 
-  async findByPeriodAndRepeatRaw(
+  async findByPeriodAndRepeat(
     userId: string,
     startDate: string,
     endDate: string,
@@ -103,21 +103,22 @@ export class RevenueRepository implements IRevenueRepository {
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
       .andWhere(
-        `
-        (DATE(revenue.createdAt) BETWEEN :startDate AND :endDate)
-        OR 
-        (revenue.repeat = true AND DATE(revenue.createdAt) <= :endDate)
-      `,
-        { startDate, endDate },
+        new Brackets((qb) => {
+          qb.where('DATE(revenue.createdAt) BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate,
+          }).orWhere(
+            '(revenue.repeat = true AND DATE(revenue.createdAt) <= :endDate)',
+            { endDate },
+          );
+        }),
       )
       .orderBy('revenue.createdAt', 'ASC');
 
     const revenues = await query.getMany();
 
-    if (revenues) {
-      return revenues.map((revenue) => new RevenueModel(revenue));
-    }
-
-    return [];
+    return revenues.length > 0
+      ? revenues.map((revenue) => new RevenueModel(revenue))
+      : [];
   }
 }

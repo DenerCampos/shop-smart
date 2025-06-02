@@ -9,6 +9,7 @@ import { ProfileDto } from './dto/profile.dto';
 import { ExpenseService } from 'src/expense/expense.service';
 import { CoinService } from 'src/coin/coin.service';
 import { RevenueService } from 'src/revenue/revenue.service';
+import { CompleteProfileDto } from './dto/completeProfile.dto';
 
 @Injectable()
 export class UserService {
@@ -87,7 +88,28 @@ export class UserService {
       income: revenues.value,
       expenses: expenses.value,
       coins: coins,
-      isFirstAccess: revenues.value.toString() === '0.00',
+      isFirstAccess: revenues.value === 0,
     });
+  }
+
+  async completeProfile(
+    user: UserModel,
+    completeProfileDto: CompleteProfileDto,
+  ): Promise<void> {
+    const revenue = await this.revenueService.create(user, {
+      name: completeProfileDto.name,
+      value: completeProfileDto.income,
+      repeat: completeProfileDto.repeatMonthly,
+    });
+
+    if (!revenue) {
+      throw new NotFoundException('Revenue not found');
+    }
+
+    await this.userRepository.update(user.id, {
+      family: completeProfileDto.family,
+    });
+
+    return;
   }
 }

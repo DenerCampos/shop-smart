@@ -15,6 +15,8 @@ import { UserModel } from './model/user.model';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ProfileDto } from './dto/profile.dto';
+import { CompleteNotification } from 'rxjs';
+import { CompleteProfileDto } from './dto/completeProfile.dto';
 
 @Controller('/user')
 export class UserController {
@@ -35,9 +37,9 @@ export class UserController {
   @Post('complete-profile')
   completeProfile(
     @CurrentUser() user: UserModel,
-    @Body() UpdateUserDto: UpdateUserDto,
-  ): Promise<UserModel> {
-    return this.userService.update(user.id, UpdateUserDto);
+    @Body() completeUserDto: CompleteProfileDto,
+  ): Promise<void> {
+    return this.userService.completeProfile(user, completeUserDto);
   }
 
   @UseGuards(AuthGuard)
