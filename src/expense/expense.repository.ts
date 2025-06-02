@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IExpenseRepository } from './contracts/expense.repository.interface';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { Expense } from './entities/expense.entity';
 import { ExpenseModel } from './model/expense.model';
 import { CreateExpenseDto } from './dto/createExpense.dto';
@@ -101,21 +101,22 @@ export class ExpenseRepository implements IExpenseRepository {
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
       .andWhere(
-        `
-          (DATE(expense.createdAt) BETWEEN :startDate AND :endDate)
-          OR 
-          (expense.repeat = true AND DATE(expense.createdAt) <= :endDate)
-        `,
-        { startDate, endDate },
+        new Brackets((qb) => {
+          qb.where('DATE(expense.createdAt) BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate,
+          }).orWhere(
+            '(expense.repeat = true AND DATE(expense.createdAt) <= :endDate)',
+            { endDate },
+          );
+        }),
       )
       .orderBy('expense.createdAt', 'ASC');
 
     const expenses = await query.getMany();
 
-    if (expenses) {
-      return expenses.map((expense) => new ExpenseModel(expense));
-    }
-
-    return [];
+    return expenses.length > 0
+      ? expenses.map((expense) => new ExpenseModel(expense))
+      : [];
   }
 }

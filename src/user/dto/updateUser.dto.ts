@@ -4,30 +4,18 @@ import { PartialType } from '@nestjs/swagger';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
-  name: string;
+  name?: string;
 
   @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 
   @IsOptional()
-  password: string;
+  password?: string;
 
   @IsOptional()
   @IsString()
   family?: string;
-
-  @IsOptional()
-  @IsNumber()
-  income?: number;
-
-  @IsOptional()
-  @IsNumber()
-  expenses?: number;
-
-  @IsOptional()
-  @IsNumber()
-  coins?: number;
 
   @IsOptional()
   @IsString()

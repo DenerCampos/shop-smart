@@ -12,7 +12,7 @@ export interface IRevenueRepository {
   update(id: string, updateRevenue: UpdateRevenueDto): Promise<RevenueModel>;
   remove(id: string): Promise<RevenueModel>;
   delete(id: string): Promise<boolean>;
-  findByPeriodAndRepeatRaw(
+  findByPeriodAndRepeat(
     userId: string,
     startDate: string,
     endDate: string,

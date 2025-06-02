@@ -25,18 +25,6 @@ export class CreateUserDto {
   family?: string;
 
   @IsOptional()
-  @IsNumber()
-  income?: number;
-
-  @IsOptional()
-  @IsNumber()
-  expenses?: number;
-
-  @IsOptional()
-  @IsNumber()
-  coins?: number;
-
-  @IsOptional()
   @IsString()
   coatOfArms?: string;
 }
