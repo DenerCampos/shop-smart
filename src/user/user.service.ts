@@ -87,7 +87,7 @@ export class UserService {
       income: revenues.value,
       expenses: expenses.value,
       coins: coins,
-      isFirstAccess: user.income.toString() === '0.00',
+      isFirstAccess: revenues.value.toString() === '0.00',
     });
   }
 }
