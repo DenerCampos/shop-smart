@@ -14,10 +14,15 @@ import { Pagination } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { CommonModule } from 'src/common/common.module';
 import { UserModule } from 'src/user/user.module';
-import { UserService } from 'src/user/user.service';
+import { CoinModule } from 'src/coin/coin.module';
+import { ExpenseModule } from 'src/expense/expense.module';
+import { RevenueModule } from 'src/revenue/revenue.module';
+import { RevenueService } from 'src/revenue/revenue.service';
+import { ExpenseService } from 'src/expense/expense.service';
+import { CoinService } from 'src/coin/coin.service';
 
 @Module({
-  imports: [CommonModule, UserModule],
+  imports: [CommonModule, UserModule, CoinModule, ExpenseModule, RevenueModule],
   controllers: [CouponController],
   providers: [
     {
@@ -40,16 +45,27 @@ import { UserService } from 'src/user/user.service';
         repository: CouponRepository,
         pagination: Pagination,
         appConfig: AppConfig,
-        UserService: UserService,
+        coinService: CoinService,
+        expenseService: ExpenseService,
+        revenueService: RevenueService,
       ) => {
         return new CouponService(
           repository,
           pagination,
           appConfig,
-          UserService,
+          coinService,
+          expenseService,
+          revenueService,
         );
       },
-      inject: [CouponRepository, Pagination, AppConfig, UserService],
+      inject: [
+        CouponRepository,
+        Pagination,
+        AppConfig,
+        CoinService,
+        ExpenseService,
+        RevenueService,
+      ],
     },
   ],
 })

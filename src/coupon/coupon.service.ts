@@ -6,8 +6,12 @@ import { ICouponRepository } from './contracts/coupon.repository.interface';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { User } from 'src/user/entities/user.entity';
-import { UserService } from 'src/user/user.service';
 import { itemType } from './types/itemType';
+import { CoinService } from 'src/coin/coin.service';
+import { ExpenseService } from 'src/expense/expense.service';
+import { RevenueService } from 'src/revenue/revenue.service';
+import { coinType } from 'src/coin/types/coinType';
+import { logResultsPromises, withTimeout } from 'src/common/utils/helpPromises';
 
 @Injectable()
 export class CouponService {
@@ -17,7 +21,9 @@ export class CouponService {
     private couponRepository: ICouponRepository,
     private pagination: Pagination,
     private appConfig: AppConfig,
-    private usersService: UserService,
+    private coinService: CoinService,
+    private expenseService: ExpenseService,
+    private revenueService: RevenueService,
   ) {}
 
   async create(
@@ -28,14 +34,39 @@ export class CouponService {
 
     const coupon = await this.couponRepository.create(createCouponDto, user);
 
-    if (coupon) {
-      await this.usersService.updateFinancialData(user.id, {
-        typeCoins: 'coupon',
-        expenses: coupon.value,
-      });
-    }
+    const results = await Promise.allSettled([
+      withTimeout(this.addCoins(user, 'coupon')),
+      withTimeout(this.addExpenses(user, coupon)),
+    ]);
+
+    //Log results promises
+    logResultsPromises(results, ['addCoins', 'addExpenses']);
 
     return coupon;
+  }
+
+  async addCoins(user: User, typeCoins: coinType): Promise<void> {
+    await this.coinService.addCoins(user, { type: typeCoins });
+  }
+
+  async addExpenses(user: User, coupon: CouponModel): Promise<void> {
+    await this.expenseService.create(user, {
+      name: coupon.store.name,
+      value: coupon.value,
+      repeat: false,
+    });
+  }
+
+  async addRevenues(
+    user: User,
+    coupon: CouponModel,
+    repeat: boolean,
+  ): Promise<void> {
+    await this.revenueService.create(user, {
+      name: coupon.store.name,
+      value: coupon.value,
+      repeat: repeat,
+    });
   }
 
   private calculateTotalValue = (items: itemType[]): number => {
