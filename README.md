@@ -58,6 +58,22 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+# Scripts Commands
+
+## 📋 Comandos Disponíveis
+
+### 🔨 Comandos de criação de modulos
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run generate:module` | Comando base que cria estrutura de pastas e arquivos default para o projeto |
+
+```bash
+# Cria estrutra de pastas e arquivos
+npm run generate:module nomeDoModulo
+
+```
+
 # TypeORM Commands
 
 Este projeto utiliza TypeORM para gerenciamento de banco de dados. Abaixo estão os comandos disponíveis para trabalhar com migrações e schema.

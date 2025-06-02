@@ -24,7 +24,8 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "migration:show": "npm run typeorm -- migration:show",
-    "migration:drop": "npm run typeorm -- schema:drop"
+    "migration:drop": "npm run typeorm -- schema:drop",
+    "generate:module": "./create-module.sh"
   },
   "dependencies": {
     "@nestjs/common": "^9.0.0",

@@ -1,0 +1,427 @@
+#!/bin/bash
+
+# Script para criar estrutura de módulo
+# Autor: Script Generator
+# Descrição: Cria estrutura de pastas e arquivos para um módulo
+
+echo "==================================="
+echo "  GERADOR DE ESTRUTURA DE MÓDULO  "
+echo "==================================="
+echo
+
+# Verifica se o nome foi passado como argumento
+if [ -n "$1" ]; then
+    module_name="$1"
+else
+    # Solicita o nome do módulo se não foi passado como argumento
+    read -p "Digite o nome do módulo: " module_name
+fi
+
+# Verifica se o nome foi informado
+if [ -z "$module_name" ]; then
+    echo "❌ Erro: Nome do módulo não pode estar vazio!"
+    exit 1
+fi
+
+# Converte para lowercase para padronização
+module_name=$(echo "$module_name" | tr '[:upper:]' '[:lower:]')
+
+echo
+echo "📁 Criando estrutura para o módulo: $module_name"
+echo
+
+# Cria o diretório src se não existir
+if [ ! -d "src" ]; then
+    mkdir src
+    echo "✅ Diretório 'src' criado"
+fi
+
+# Define o caminho base do módulo
+module_path="src/$module_name"
+
+# Verifica se o módulo já existe
+if [ -d "$module_path" ]; then
+    echo "⚠️  Módulo '$module_name' já existe!"
+    read -p "Deseja sobrescrever? (s/N): " overwrite
+    if [[ ! $overwrite =~ ^[Ss]$ ]]; then
+        echo "❌ Operação cancelada"
+        exit 1
+    fi
+    echo "🗑️  Removendo módulo existente..."
+    rm -rf "$module_path"
+fi
+
+# Cria a estrutura de diretórios
+echo "📂 Criando estrutura de diretórios..."
+mkdir -p "$module_path"/{contracts,dto,entities,model,test,types}
+
+# Cria os arquivos
+echo "📄 Criando arquivos..."
+
+# contracts/"nome".repository.interface.ts
+cat > "$module_path/contracts/$module_name.repository.interface.ts" << EOF
+import { Create${module_name^}Dto } from '../dto/create${module_name^}.dto';
+import { Update${module_name^}Dto } from '../dto/update${module_name^}.dto';
+import { ${module_name^}Model } from '../model/${module_name}.model';
+
+export interface I${module_name^}Repository {
+  create(new${module_name^}: Create${module_name^}Dto): Promise<${module_name^}Model>;
+  findAll(): Promise<${module_name^}Model[] | []>;
+  find(id: string): Promise<${module_name^}Model | null>;
+  update(id: string, update${module_name^}: Update${module_name^}Dto): Promise<${module_name^}Model>;
+  remove(id: string): Promise<${module_name^}Model>;
+  delete(id: string): Promise<boolean>;
+}
+EOF
+
+# entities/"nome".entity.ts
+cat > "$module_path/entities/$module_name.entity.ts" << EOF
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  UpdateDateColumn,
+} from 'typeorm';
+
+@Entity()
+export class ${module_name^} {
+  @Column({
+    type: 'varchar',
+    length: 36,
+    primary: true,
+    generated: 'uuid',
+  })
+  id: string;
+
+  // Defina aqui as propriedades da entidade
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
+}
+EOF
+
+# model/"nome".model.ts
+cat > "$module_path/model/$module_name.model.ts" << EOF
+export class ${module_name^}Model {
+  id: string | number;
+  // Defina aqui as propriedades do modelo
+
+  constructor(data: Partial<${module_name^}Model>) {
+    this.id = data.id;
+  }
+}
+EOF
+
+# test/"nome".controller.spec.ts
+cat > "$module_path/test/$module_name.controller.spec.ts" << EOF
+import { Test, TestingModule } from '@nestjs/testing';
+import { ${module_name^}Controller } from '../${module_name}.controller';
+
+describe('${module_name^}Controller', () => {
+  let controller: ${module_name^}Controller;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [${module_name^}Controller],
+    }).compile();
+
+    controller = module.get<${module_name^}Controller>(${module_name^}Controller);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});
+EOF
+
+# types/"nome"Type.ts
+cat > "$module_path/types/${module_name}Type.ts" << EOF
+export type ${module_name^}Type = {
+  // Defina aqui os tipos relacionados ao módulo
+};
+EOF
+
+# "nome".controller.ts
+cat > "$module_path/$module_name.controller.ts" << EOF
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from 'src/auth/auth.guard';
+import { ${module_name^}Model } from './model/${module_name}.model';
+import { ${module_name^}Service } from './${module_name}.service';
+import { Create${module_name^}Dto } from './dto/create${module_name^}.dto';
+import { Update${module_name^}Dto } from './dto/update${module_name^}.dto';
+
+
+@Controller('/${module_name}')
+export class ${module_name^}Controller {
+  // Implementar métodos do controller
+  constructor(private readonly ${module_name}Service: ${module_name^}Service) {}
+
+  @UseGuards(AuthGuard)
+  @Post()
+  create(@Body() create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}Model> {
+    return this.${module_name}Service.create(create${module_name^}Dto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get()
+  findAll(): Promise<${module_name^}Model[]> {
+    return this.${module_name}Service.findAll();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id')
+  findOne(@Param('id') id: string): Promise<${module_name^}Model> {
+    return this.${module_name}Service.find(id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() update${module_name^}Dto: Update${module_name^}Dto,
+  ): Promise<${module_name^}Model> {
+    return this.${module_name}Service.update(id, update${module_name^}Dto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  async remove(@Param('id') id: string): Promise<object> {
+    const deleted = await this.${module_name}Service.delete(id);
+
+    return { deleted };
+  }
+}
+EOF
+
+# "nome".module.ts
+cat > "$module_path/$module_name.module.ts" << EOF
+import { Module } from '@nestjs/common';
+import { ${module_name^}Controller } from './${module_name}.controller';
+import { ${module_name^}Service } from './${module_name}.service';
+import { ${module_name^}Repository } from './${module_name}.repository';
+import { DataSource } from 'typeorm';
+import { getDataSourceToken } from '@nestjs/typeorm';
+import { ${module_name^} } from './entities/${module_name}.entity';
+// import { UserModule } from 'src/user/user.module';
+
+@Module({
+  // imports: [UserModule], caso precise importar outro módulo
+  controllers: [${module_name^}Controller],
+  providers: [
+    {
+      provide: ${module_name^}Repository,
+      useFactory: (dataSource: DataSource) => {
+        return new ${module_name^}Repository(dataSource.getRepository(${module_name^}));
+      },
+      inject: [getDataSourceToken()],
+    },
+    {
+      provide: ${module_name^}Service,
+      useFactory: (gateway: ${module_name^}Repository) => {
+        return new ${module_name^}Service(gateway);
+      },
+      inject: [${module_name^}Repository],
+    },
+  ],
+})
+export class ${module_name^}Module {}
+EOF
+
+# "nome".repository.ts
+cat > "$module_path/$module_name.repository.ts" << EOF
+import { Injectable } from '@nestjs/common';
+import { I${module_name^}Repository } from './contracts/${module_name}.repository.interface';
+import { Repository } from 'typeorm';
+import { ${module_name^} } from './entities/${module_name}.entity';
+import { ${module_name^}Model } from './model/${module_name}.model';
+import { Create${module_name^}Dto } from './dto/create${module_name^}.dto';
+import { Update${module_name^}Dto } from './dto/update${module_name^}.dto';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { RemoveException } from 'src/exception/removeException';
+
+@Injectable()
+export class ${module_name^}Repository implements I${module_name^}Repository {
+  constructor(private ${module_name}Entity: Repository<${module_name^}>) {}
+
+  async create(create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}Model> {
+    // const ${module_name} = await this.${module_name}Entity.findOne({
+    //   where: {
+    //     name: ILike(`%${create${module_name^}Dto.name}%`),
+    //   },
+    // }); //Caso precise buscar pelo nome
+
+    // if (${module_name}) {
+    //  return new ${module_name^}Model(${module_name});
+    // } //Caso precise buscar pelo nome
+
+    const new${module_name^} = this.${module_name}Entity.create(create${module_name^}Dto);
+    const saved${module_name^} = await this.${module_name}Entity.save(new${module_name^});
+    return new ${module_name^}Model(saved${module_name^});
+  }
+
+  async findAll(): Promise<${module_name^}Model[] | []> {
+    const ${module_name}s = await this.${module_name}Entity.find();
+
+    if (${module_name}s) {
+      return ${module_name}s.map((${module_name}) => new ${module_name^}Model(${module_name}));
+    }
+
+    return [];
+  }
+
+  async find(id: string): Promise<${module_name^}Model | null> {
+    const ${module_name} = await this.${module_name}Entity.findOneBy({ id });
+
+    if (${module_name}) {
+      return new ${module_name^}Model(${module_name});
+    }
+
+    return null;
+  }
+
+  async update(
+    id: string,
+    update${module_name^}Dto: Update${module_name^}Dto,
+  ): Promise<${module_name^}Model> {
+    const update${module_name^} = await this.${module_name}Entity.findOneBy({ id });
+
+    if (!update${module_name^}) {
+      throw new UpdateException();
+    }
+
+    // const exist${module_name^} = await this.${module_name}Entity.findOne({
+    //  where: {
+    //    name: ILike(`%${update${module_name^}Dto.name}%`),
+    //    id: Not(Equal(update${module_name^}.id)),
+    //  },
+    // });
+
+    // if (exist${module_name^}) {
+    //  throw new AlreadyExistsException();
+    // } // caso precisa verificar se ja existe com o mesmo nome
+
+    const store = await this.${module_name}Entity.save({
+      ...update${module_name^},
+      ...update${module_name^}Dto,
+    });
+
+    return new ${module_name^}Model(store);
+  }
+
+  async remove(id: string): Promise<${module_name^}Model> {
+    const ${module_name} = await this.${module_name}Entity.findOneBy({ id });
+
+    if (${module_name}) {
+      throw new RemoveException();
+    }
+
+    await this.${module_name}Entity.remove(${module_name});
+    return new ${module_name^}Model(${module_name});
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await this.${module_name}Entity.softDelete({ id });
+
+    return result.affected === 1;
+  }
+}
+EOF
+
+# "nome".service.ts
+cat > "$module_path/$module_name.service.ts" << EOF
+import { Injectable } from '@nestjs/common';
+import { I${module_name^}Repository } from './contracts/${module_name}.repository.interface';
+import { Create${module_name^}Dto } from './dto/create${module_name^}.dto';
+import { ${module_name^}Model } from './model/${module_name}.model';
+import { Update${module_name^}Dto } from './dto/update${module_name^}.dto';
+
+@Injectable()
+export class ${module_name^}Service {
+  constructor(private ${module_name}Repository: I${module_name^}Repository) {}
+
+  async create(create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}Model> {
+    return this.${module_name}Repository.create(create${module_name^}Dto);
+  }
+
+  async findAll(): Promise<${module_name^}Model[] | []> {
+    return this.${module_name}Repository.findAll();
+  }
+
+  async find(${module_name}Id: string): Promise<${module_name^}Model | null> {
+    return this.${module_name}Repository.find(${module_name}Id);
+  }
+
+  async update(
+    ${module_name}Id: string,
+    update${module_name^}Dto: Update${module_name^}Dto,
+  ): Promise<${module_name^}Model> {
+    return this.${module_name}Repository.update(${module_name}Id, update${module_name^}Dto);
+  }
+
+  async remove(${module_name}Id: string): Promise<${module_name^}Model> {
+    return this.${module_name}Repository.remove(${module_name}Id);
+  }
+
+  async delete(${module_name}Id: string): Promise<boolean> {
+    return this.${module_name}Repository.delete(${module_name}Id);
+  }
+}
+EOF
+
+# Cria create e update DTO
+cat > "$module_path/dto/create${module_name^}.dto.ts" << EOF
+import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+
+export class Create${module_name^}Dto {
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  value: number; // alterar nome
+}
+EOF
+
+cat > "$module_path/dto/update${module_name^}.dto.ts" << EOF
+import { IsNumber, IsOptional } from 'class-validator';
+import { Create${module_name^}Dto } from './create${module_name^}.dto';
+import { PartialType } from '@nestjs/swagger';
+
+export class Update${module_name^}Dto extends PartialType(Create${module_name^}Dto) {
+  @IsOptional()
+  name: string;
+
+  @IsOptional()
+  @IsNumber()
+  value: number; // alterar nome
+}
+EOF
+
+echo
+echo "✅ Estrutura criada com sucesso!"
+echo
+echo "📁 Estrutura gerada:"
+echo "$module_path/"
+tree "$module_path" 2>/dev/null || find "$module_path" -type f | sed 's/^/  /'
+
+echo
+echo "🎉 Módulo '$module_name' criado em: $module_path"
+echo "💡 Dica: Não esqueça de adicionar o módulo ao app.module.ts!"

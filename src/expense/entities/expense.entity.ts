@@ -1,15 +1,16 @@
-import { Item } from 'src/coupon/entities/item.entity';
+import { User } from 'src/user/entities/user.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
-  OneToMany,
+  JoinColumn,
+  ManyToOne,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
-export class Group {
+export class Expense {
   @Column({
     type: 'varchar',
     length: 36,
@@ -21,6 +22,12 @@ export class Group {
   @Column()
   name: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  value: number;
+
+  @Column({ type: 'boolean', default: false })
+  repeat: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -30,6 +37,7 @@ export class Group {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Item, (item) => item.group)
-  items: Item[];
+  @ManyToOne(() => User, (user) => user.coupons)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 }

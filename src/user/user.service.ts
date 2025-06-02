@@ -6,7 +6,9 @@ import { AppConfig } from '../common/app-config/app.config';
 import * as bcrypt from 'bcrypt';
 import { IUserRepository } from './contracts/user.repository.interface';
 import { ProfileDto } from './dto/profile.dto';
-import { coinsType, financialDataType } from './types/userType';
+import { ExpenseService } from 'src/expense/expense.service';
+import { CoinService } from 'src/coin/coin.service';
+import { RevenueService } from 'src/revenue/revenue.service';
 
 @Injectable()
 export class UserService {
@@ -15,6 +17,9 @@ export class UserService {
   constructor(
     private userRepository: IUserRepository,
     private appConfig: AppConfig,
+    private expenseService: ExpenseService,
+    private revenueService: RevenueService,
+    private coinService: CoinService,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
@@ -73,72 +78,16 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
+    const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
+    const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
+    const coins = await this.coinService.getCoinsByUser(user);
+
     return new ProfileDto({
       ...user,
+      income: revenues.value,
+      expenses: expenses.value,
+      coins: coins,
       isFirstAccess: user.income.toString() === '0.00',
-    });
-  }
-
-  async addCoins(userId: string, type: coinsType): Promise<void> {
-    const user = await this.userRepository.find(userId);
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const coins = this.getValueCoinsByType(type);
-    user.coins += coins;
-
-    this.userRepository.update(user.id, user);
-  }
-
-  private getValueCoinsByType(type: coinsType): number {
-    const types = {
-      coupon: 5,
-      group: 2,
-      payment: 2,
-      store: 2,
-    };
-
-    return types[type] || 0;
-  }
-
-  async addExpenses(userId: string, value: number): Promise<void> {
-    if (isNaN(value) || value < 0) {
-      throw new Error('Valor inválido para adicionar às despesas');
-    }
-
-    const user = await this.userRepository.find(userId);
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const currentExpenses = Number(user.expenses) || 0;
-    const totalExpenses = Number(currentExpenses) + Number(value);
-
-    user.expenses = Math.round(totalExpenses * 100) / 100;
-
-    await this.userRepository.update(user.id, user);
-  }
-
-  async updateFinancialData(
-    userId: string,
-    data: financialDataType,
-  ): Promise<void> {
-    const results = await Promise.allSettled([
-      this.addCoins(userId, data.typeCoins),
-      this.addExpenses(userId, data.expenses),
-    ]);
-
-    results.forEach((result, index) => {
-      const operation = index === 0 ? 'addCoins' : 'addExpenses';
-
-      if (result.status === 'rejected') {
-        console.error(`Erro em ${operation}:`, result);
-      } else {
-        // console.log(`Sucesso em ${operation}:`, result);
-      }
     });
   }
 }
