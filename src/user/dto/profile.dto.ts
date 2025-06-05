@@ -1,7 +1,7 @@
 import { Exclude, Expose } from 'class-transformer';
 
 export class ProfileDto {
-  @Exclude()
+  @Expose()
   id: string;
 
   @Expose()
