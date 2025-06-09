@@ -82,13 +82,16 @@ export class UserService {
     const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
     const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
     const coins = await this.coinService.getCoinsByUser(user);
+    const existRevenue = await this.revenueService.exist();
+    const newMonth = await this.revenueService.isUserNewMonth(user);
 
     return new ProfileDto({
       ...user,
       income: revenues.value,
       expenses: expenses.value,
       coins: coins,
-      isFirstAccess: revenues.value === 0,
+      isFirstAccess: !existRevenue,
+      newMonth: newMonth,
     });
   }
 

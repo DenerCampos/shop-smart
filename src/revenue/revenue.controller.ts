@@ -31,9 +31,23 @@ export class RevenueController {
   }
 
   @UseGuards(AuthGuard)
+  @Post('confirm-new-month-revenues')
+  confirmNewMonthRevenues(@CurrentUser() user: UserModel): Promise<void> {
+    return this.revenueService.confirmNewMonthRevenues(user);
+  }
+
+  @UseGuards(AuthGuard)
   @Get()
   findAll(): Promise<RevenueModel[]> {
     return this.revenueService.findAll();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('repeated-revenues')
+  getRepeatedRevenues(
+    @CurrentUser() user: UserModel,
+  ): Promise<RevenueModel[] | []> {
+    return this.revenueService.getAllByPreviousMonth(user);
   }
 
   @UseGuards(AuthGuard)

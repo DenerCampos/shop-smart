@@ -92,7 +92,7 @@ export class RevenueRepository implements IRevenueRepository {
     return result.affected === 1;
   }
 
-  async findByPeriodAndRepeat(
+  async findByPeriod(
     userId: string,
     startDate: string,
     endDate: string,
@@ -102,17 +102,10 @@ export class RevenueRepository implements IRevenueRepository {
       .leftJoinAndSelect('revenue.user', 'user')
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where('DATE(revenue.createdAt) BETWEEN :startDate AND :endDate', {
-            startDate,
-            endDate,
-          }).orWhere(
-            '(revenue.repeat = true AND DATE(revenue.createdAt) <= :endDate)',
-            { endDate },
-          );
-        }),
-      )
+      .andWhere('DATE(revenue.createdAt) BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
       .orderBy('revenue.createdAt', 'ASC');
 
     const revenues = await query.getMany();
@@ -120,5 +113,34 @@ export class RevenueRepository implements IRevenueRepository {
     return revenues.length > 0
       ? revenues.map((revenue) => new RevenueModel(revenue))
       : [];
+  }
+
+  async findByMonth(
+    userId: string,
+    month: number,
+  ): Promise<RevenueModel[] | []> {
+    const query = this.revenueEntity
+      .createQueryBuilder('revenue')
+      .leftJoinAndSelect('revenue.user', 'user')
+      .where('revenue.user = :userId', { userId })
+      .andWhere('revenue.deletedAt IS NULL')
+      .andWhere('revenue.repeat = true')
+      .andWhere('EXTRACT(MONTH FROM revenue.createdAt) = :month', { month })
+      .orderBy('revenue.createdAt', 'ASC');
+
+    const revenues = await query.getMany();
+
+    return revenues.length > 0
+      ? revenues.map((revenue) => new RevenueModel(revenue))
+      : [];
+  }
+
+  async exist(): Promise<boolean> {
+    const hasData = await this.revenueEntity
+      .createQueryBuilder('revenue')
+      .limit(1)
+      .getOne();
+
+    return hasData !== null;
   }
 }

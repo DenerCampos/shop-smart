@@ -28,6 +28,9 @@ export class ProfileDto {
   @Expose()
   isFirstAccess: boolean;
 
+  @Expose()
+  newMonth: boolean;
+
   @Exclude()
   password: string;
 
