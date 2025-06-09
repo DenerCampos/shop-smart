@@ -18,6 +18,19 @@ export type DateRange = {
   crossesYears?: boolean;
 };
 
+export const getCurrentMonth = (): number => {
+  const now = new Date();
+  return now.getMonth() + 1;
+};
+
+export const getPreviousMonth = (): number => {
+  const now = new Date();
+  const previousMonth = now.getMonth(); // getMonth() já retorna 0-11
+
+  // Se for janeiro (0), volta para dezembro (12)
+  return previousMonth === 0 ? 12 : previousMonth;
+};
+
 export const getCurrentMonthDates = (): DateRange => {
   const now = new Date();
   const year = now.getFullYear();

@@ -4,7 +4,11 @@ import { CreateRevenueDto } from './dto/createRevenue.dto';
 import { RevenueModel } from './model/revenue.model';
 import { UpdateRevenueDto } from './dto/updateRevenue.dto';
 import { UserModel } from 'src/user/model/user.model';
-import { getCurrentMonthDates } from 'src/common/utils/dates';
+import {
+  getCurrentMonth,
+  getCurrentMonthDates,
+  getPreviousMonth,
+} from 'src/common/utils/dates';
 import { GetValueRevenueCurrentDto } from './dto/getValueRevenueCurrent.dto';
 
 @Injectable()
@@ -44,7 +48,7 @@ export class RevenueService {
   async getAllByCurrentMonth(user: UserModel): Promise<RevenueModel[] | []> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
-    return this.revenueRepository.findByPeriodAndRepeat(
+    return this.revenueRepository.findByPeriod(
       user.id,
       startDateString,
       endDateString,
@@ -56,7 +60,7 @@ export class RevenueService {
   ): Promise<GetValueRevenueCurrentDto> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
-    const revenues = await this.revenueRepository.findByPeriodAndRepeat(
+    const revenues = await this.revenueRepository.findByPeriod(
       user.id,
       startDateString,
       endDateString,
@@ -77,5 +81,34 @@ export class RevenueService {
     return {
       value: Number((Math.ceil(total * 100) / 100).toFixed(2)),
     };
+  }
+
+  async isUserNewMonth(user: UserModel): Promise<boolean> {
+    const month = getCurrentMonth();
+    const revenues = await this.revenueRepository.findByMonth(user.id, month);
+
+    return revenues.length === 0;
+  }
+
+  async confirmNewMonthRevenues(user: UserModel): Promise<void> {
+    const month = getPreviousMonth();
+    const revenues = await this.revenueRepository.findByMonth(user.id, month);
+
+    revenues.forEach(async (revenue: RevenueModel) => {
+      await this.revenueRepository.create(user.id.toString(), {
+        name: revenue.name,
+        value: revenue.value,
+        repeat: true,
+      });
+    });
+  }
+
+  async getAllByPreviousMonth(user: UserModel): Promise<RevenueModel[] | []> {
+    const month = getPreviousMonth();
+    return await this.revenueRepository.findByMonth(user.id, month);
+  }
+
+  async exist(): Promise<boolean> {
+    return this.revenueRepository.exist();
   }
 }
