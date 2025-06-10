@@ -10,6 +10,9 @@ import { ExpenseService } from 'src/expense/expense.service';
 import { CoinService } from 'src/coin/coin.service';
 import { RevenueService } from 'src/revenue/revenue.service';
 import { CompleteProfileDto } from './dto/completeProfile.dto';
+import { registration } from './types/userType';
+import { ExpenseModel } from 'src/expense/model/expense.model';
+import { RevenueModel } from 'src/revenue/model/revenue.model';
 
 @Injectable()
 export class UserService {
@@ -114,5 +117,51 @@ export class UserService {
     });
 
     return;
+  }
+
+  async getLatestRegistrations(
+    user: UserModel,
+    limit: number,
+  ): Promise<registration[] | []> {
+    const expenses = this.expenseService.getLatest(user, limit);
+    const revenues = this.revenueService.getLatest(user, limit);
+
+    const [expensesLatest, revenuesLatest] = await Promise.all([
+      expenses,
+      revenues,
+    ]);
+
+    // Adiciona o type antes de unir
+    const expensesWithType = expensesLatest.map((expense: ExpenseModel) => ({
+      ...expense,
+      type: 'expense',
+    }));
+
+    const revenuesWithType = revenuesLatest.map((revenue: RevenueModel) => ({
+      ...revenue,
+      type: 'revenue',
+    }));
+
+    const allRegistrations = [...expensesWithType, ...revenuesWithType];
+
+    const latestRegistrations = allRegistrations
+      .filter((registration) => registration.createdAt) // Remove registros sem data
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, limit);
+
+    return latestRegistrations.map((registration) => {
+      return {
+        id: registration.id as string,
+        name: registration.name,
+        value: registration.value,
+        coins: 5, // TODO: Implementar coins
+        type: registration.type,
+        date: registration.createdAt,
+      };
+    });
   }
 }

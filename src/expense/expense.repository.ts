@@ -90,7 +90,7 @@ export class ExpenseRepository implements IExpenseRepository {
     return result.affected === 1;
   }
 
-  async findByPeriodAndRepeat(
+  async findByPeriod(
     userId: string,
     startDate: string,
     endDate: string,
@@ -100,18 +100,56 @@ export class ExpenseRepository implements IExpenseRepository {
       .leftJoinAndSelect('expense.user', 'user')
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where('DATE(expense.createdAt) BETWEEN :startDate AND :endDate', {
-            startDate,
-            endDate,
-          }).orWhere(
-            '(expense.repeat = true AND DATE(expense.createdAt) <= :endDate)',
-            { endDate },
-          );
-        }),
-      )
+      .andWhere('DATE(expense.createdAt) BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
       .orderBy('expense.createdAt', 'ASC');
+
+    const expenses = await query.getMany();
+
+    return expenses.length > 0
+      ? expenses.map((expense) => new ExpenseModel(expense))
+      : [];
+  }
+
+  async findByMonth(
+    userId: string,
+    month: number,
+  ): Promise<ExpenseModel[] | []> {
+    const query = this.expenseEntity
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.user', 'user')
+      .where('expense.user = :userId', { userId })
+      .andWhere('expense.deletedAt IS NULL')
+      .andWhere('expense.repeat = true')
+      .andWhere('EXTRACT(MONTH FROM expense.createdAt) = :month', { month })
+      .orderBy('expense.createdAt', 'ASC');
+
+    const expenses = await query.getMany();
+
+    return expenses.length > 0
+      ? expenses.map((expense) => new ExpenseModel(expense))
+      : [];
+  }
+
+  async exist(): Promise<boolean> {
+    const hasData = await this.expenseEntity
+      .createQueryBuilder('expense')
+      .limit(1)
+      .getOne();
+
+    return hasData !== null;
+  }
+
+  async getLatest(userId: string, limit: number): Promise<ExpenseModel[] | []> {
+    const query = this.expenseEntity
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.user', 'user')
+      .where('expense.user = :userId', { userId })
+      .andWhere('expense.deletedAt IS NULL')
+      .limit(limit)
+      .orderBy('expense.createdAt', 'DESC');
 
     const expenses = await query.getMany();
 

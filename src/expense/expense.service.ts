@@ -9,6 +9,8 @@ import { getCurrentMonthDates } from 'src/common/utils/dates';
 
 @Injectable()
 export class ExpenseService {
+  private readonly limitDefault = 5;
+
   constructor(private expenseRepository: IExpenseRepository) {}
 
   async create(
@@ -44,7 +46,7 @@ export class ExpenseService {
   async getAllByCurrentMonth(user: UserModel): Promise<ExpenseModel[] | []> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
-    return this.expenseRepository.findByPeriodAndRepeat(
+    return this.expenseRepository.findByPeriod(
       user.id,
       startDateString,
       endDateString,
@@ -56,7 +58,7 @@ export class ExpenseService {
   ): Promise<GetValueExpenseCurrentDto> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
-    const expenses = await this.expenseRepository.findByPeriodAndRepeat(
+    const expenses = await this.expenseRepository.findByPeriod(
       user.id,
       startDateString,
       endDateString,
@@ -77,5 +79,12 @@ export class ExpenseService {
     return {
       value: Number((Math.ceil(total * 100) / 100).toFixed(2)),
     };
+  }
+
+  async getLatest(
+    user: UserModel,
+    limit = this.limitDefault,
+  ): Promise<ExpenseModel[] | []> {
+    return this.expenseRepository.getLatest(user.id, limit);
   }
 }
