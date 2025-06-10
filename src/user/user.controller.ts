@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -15,8 +16,9 @@ import { UserModel } from './model/user.model';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ProfileDto } from './dto/profile.dto';
-import { CompleteNotification } from 'rxjs';
 import { CompleteProfileDto } from './dto/completeProfile.dto';
+import { GetLatestDto } from './dto/getLatest.dto';
+import { registration } from './types/userType';
 
 @Controller('/user')
 export class UserController {
@@ -46,6 +48,15 @@ export class UserController {
   @Get()
   findAll(): Promise<UserModel[]> {
     return this.userService.findAll();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/latest-registrations')
+  async getLatestRegistrations(
+    @Query() query: GetLatestDto,
+    @CurrentUser() user: UserModel,
+  ): Promise<registration[] | []> {
+    return this.userService.getLatestRegistrations(user, query.limit);
   }
 
   @UseGuards(AuthGuard)

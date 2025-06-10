@@ -13,6 +13,8 @@ import { GetValueRevenueCurrentDto } from './dto/getValueRevenueCurrent.dto';
 
 @Injectable()
 export class RevenueService {
+  private readonly limitDefault = 5;
+
   constructor(private revenueRepository: IRevenueRepository) {}
 
   async create(
@@ -110,5 +112,12 @@ export class RevenueService {
 
   async exist(): Promise<boolean> {
     return this.revenueRepository.exist();
+  }
+
+  async getLatest(
+    user: UserModel,
+    limit = this.limitDefault,
+  ): Promise<RevenueModel[] | []> {
+    return this.revenueRepository.getLatest(user.id, limit);
   }
 }

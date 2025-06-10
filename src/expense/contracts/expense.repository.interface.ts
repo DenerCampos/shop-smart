@@ -12,9 +12,12 @@ export interface IExpenseRepository {
   update(id: string, updateExpense: UpdateExpenseDto): Promise<ExpenseModel>;
   remove(id: string): Promise<ExpenseModel>;
   delete(id: string): Promise<boolean>;
-  findByPeriodAndRepeat(
+  findByPeriod(
     userId: string,
     startDate: string,
     endDate: string,
   ): Promise<ExpenseModel[] | []>;
+  findByMonth(userId: string, month: number): Promise<ExpenseModel[] | []>;
+  exist(): Promise<boolean>;
+  getLatest(userId: string, limit: number): Promise<ExpenseModel[] | []>;
 }

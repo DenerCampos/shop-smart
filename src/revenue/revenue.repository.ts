@@ -143,4 +143,20 @@ export class RevenueRepository implements IRevenueRepository {
 
     return hasData !== null;
   }
+
+  async getLatest(userId: string, limit: number): Promise<RevenueModel[] | []> {
+    const query = this.revenueEntity
+      .createQueryBuilder('revenue')
+      .leftJoinAndSelect('revenue.user', 'user')
+      .where('revenue.user = :userId', { userId })
+      .andWhere('revenue.deletedAt IS NULL')
+      .limit(limit)
+      .orderBy('revenue.createdAt', 'DESC');
+
+    const revenues = await query.getMany();
+
+    return revenues.length > 0
+      ? revenues.map((revenue) => new RevenueModel(revenue))
+      : [];
+  }
 }

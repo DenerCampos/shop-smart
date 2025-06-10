@@ -21,3 +21,12 @@ export type financialDataType = {
   expenses: number;
   typeCoins: coinsType;
 };
+
+export type registration = {
+  id: string;
+  name: string;
+  value: number;
+  coins: number;
+  type: string;
+  date: Date;
+};

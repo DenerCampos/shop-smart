@@ -19,4 +19,5 @@ export interface IRevenueRepository {
   ): Promise<RevenueModel[] | []>;
   findByMonth(userId: string, month: number): Promise<RevenueModel[] | []>;
   exist(): Promise<boolean>;
+  getLatest(userId: string, limit: number): Promise<RevenueModel[] | []>;
 }
