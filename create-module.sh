@@ -53,24 +53,25 @@ fi
 
 # Cria a estrutura de diretórios
 echo "📂 Criando estrutura de diretórios..."
-mkdir -p "$module_path"/{contracts,dto,entities,model,test,types}
+mkdir -p "$module_path"/{interfaces,dto,entities,models,repositories,test,types}
 
 # Cria os arquivos
 echo "📄 Criando arquivos..."
 
-# contracts/"nome".repository.interface.ts
-cat > "$module_path/contracts/$module_name.repository.interface.ts" << EOF
+# interfaces/"nome".repository.interface.ts
+cat > "$module_path/interfaces/$module_name.repository.interface.ts" << EOF
 import { Create${module_name^}Dto } from '../dto/create${module_name^}.dto';
 import { Update${module_name^}Dto } from '../dto/update${module_name^}.dto';
-import { ${module_name^}Model } from '../model/${module_name}.model';
+import ${module_name^} from '../entities/${module_name}.entity';
 
 export interface I${module_name^}Repository {
-  create(new${module_name^}: Create${module_name^}Dto): Promise<${module_name^}Model>;
-  findAll(): Promise<${module_name^}Model[] | []>;
-  find(id: string): Promise<${module_name^}Model | null>;
-  update(id: string, update${module_name^}: Update${module_name^}Dto): Promise<${module_name^}Model>;
-  remove(id: string): Promise<${module_name^}Model>;
+  create(new${module_name^}: Create${module_name^}Dto): Promise<${module_name^}>;
+  findAll(page: number, limit: number): Promise<[${module_name^}[], number]>;
+  find(id: string): Promise<${module_name^} | null>;
+  update(id: string, update${module_name^}: Update${module_name^}Dto): Promise<${module_name^}>;
+  remove(id: string): Promise<${module_name^}>;
   delete(id: string): Promise<boolean>;
+  countAll(): Promise<number>;
 }
 EOF
 
@@ -107,11 +108,12 @@ export class ${module_name^} {
 }
 EOF
 
-# model/"nome".model.ts
-cat > "$module_path/model/$module_name.model.ts" << EOF
+# models/"nome".models.ts
+cat > "$module_path/models/$module_name.models.ts" << EOF
 export class ${module_name^}Model {
   id: string | number;
-  // Defina aqui as propriedades do modelo
+  // Defina aqui as propriedades do modelo caso exista/precisa
+  // Lembrando que caso exista a entidade, não tem necessidade de model
 
   constructor(data: Partial<${module_name^}Model>) {
     this.id = data.id;
@@ -158,36 +160,50 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { ${module_name^}Model } from './model/${module_name}.model';
 import { ${module_name^}Service } from './${module_name}.service';
-import { Create${module_name^}Dto } from './dto/create${module_name^}.dto';
-import { Update${module_name^}Dto } from './dto/update${module_name^}.dto';
-
+import { Create${module_name^}Dto } from './dto/create-${module_name}.dto';
+import { Update${module_name^}Dto } from './dto/update-${module_name}.dto';
+import { ${module_name^}ResponseDto } from './dto/${module_name}-response.dto';
+import { ResponseService } from 'src/common/response/response';
+import { ${module_name^}ListDto } from './dto/${module_name}-list.dto';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/${module_name}')
 export class ${module_name^}Controller {
   // Implementar métodos do controller
-  constructor(private readonly ${module_name}Service: ${module_name^}Service) {}
+  constructor(
+    private readonly ${module_name}Service: ${module_name^}Service,
+    private readonly responseService: ResponseService,  
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  create(@Body() create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}Model> {
-    return this.${module_name}Service.create(create${module_name^}Dto);
+  create(@Body() create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}> {
+    const create${module_name^} = await this.${module_name}Service.create(create${module_name^}Dto);
+
+    return this.responseService.mapToDto(${module_name^}ResponseDto, create${module_name^});
   }
 
   @UseGuards(AuthGuard)
   @Get()
-  findAll(): Promise<${module_name^}Model[]> {
-    return this.${module_name}Service.findAll();
+  findAll(
+     @Query() listDto: ${module_name^}ListDto,
+  ): Promise<paginationData<${module_name^}>> {
+    const ${module_name}s = await this.${module_name}Service.findAll(listDto);
+
+    return this.responseService.mapPaginatedToDto(${module_name^}ResponseDto, ${module_name}s);
   }
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<${module_name^}Model> {
-    return this.${module_name}Service.find(id);
+  findOne(@Param('id') id: string): Promise<${module_name^}> {
+    const ${module_name} = await this.${module_name}Service.find(id);
+
+    return this.responseService.mapToDto(${module_name^}ResponseDto, ${module_name});
   }
 
   @UseGuards(AuthGuard)
@@ -195,8 +211,10 @@ export class ${module_name^}Controller {
   update(
     @Param('id') id: string,
     @Body() update${module_name^}Dto: Update${module_name^}Dto,
-  ): Promise<${module_name^}Model> {
-    return this.${module_name}Service.update(id, update${module_name^}Dto);
+  ): Promise<${module_name^}> {
+    const ${module_name} = await this.${module_name}Service.update(id, update${module_name^}Dto);
+
+    return this.responseService.mapToDto(${module_name^}ResponseDto, ${module_name});
   }
 
   @UseGuards(AuthGuard)
@@ -215,41 +233,30 @@ import { Module } from '@nestjs/common';
 import { ${module_name^}Controller } from './${module_name}.controller';
 import { ${module_name^}Service } from './${module_name}.service';
 import { ${module_name^}Repository } from './${module_name}.repository';
-import { DataSource } from 'typeorm';
-import { getDataSourceToken } from '@nestjs/typeorm';
 import { ${module_name^} } from './entities/${module_name}.entity';
-// import { UserModule } from 'src/user/user.module';
 
 @Module({
-  // imports: [UserModule], caso precise importar outro módulo
+  imports: [CommonModule],
   controllers: [${module_name^}Controller],
   providers: [
+    ${module_name^}Service,
     {
-      provide: ${module_name^}Repository,
-      useFactory: (dataSource: DataSource) => {
-        return new ${module_name^}Repository(dataSource.getRepository(${module_name^}));
-      },
-      inject: [getDataSourceToken()],
-    },
-    {
-      provide: ${module_name^}Service,
-      useFactory: (gateway: ${module_name^}Repository) => {
-        return new ${module_name^}Service(gateway);
-      },
-      inject: [${module_name^}Repository],
+      provide: 'I${module_name^}Repository',
+      useClass: ${module_name^}Repository,
     },
   ],
+  exports: [${module_name^}Service, 'I${module_name^}Repository'],
 })
 export class ${module_name^}Module {}
 EOF
 
 # "nome".repository.ts
-cat > "$module_path/$module_name.repository.ts" << EOF
+cat > "$module_path/repositories/$module_name.repository.ts" << EOF
 import { Injectable } from '@nestjs/common';
-import { I${module_name^}Repository } from './contracts/${module_name}.repository.interface';
+import { I${module_name^}Repository } from './interfaces/${module_name}.repository.interface';
 import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { ${module_name^} } from './entities/${module_name}.entity';
-import { ${module_name^}Model } from './model/${module_name}.model';
 import { Create${module_name^}Dto } from './dto/create${module_name^}.dto';
 import { Update${module_name^}Dto } from './dto/update${module_name^}.dto';
 import { UpdateException } from 'src/exception/updateException';
@@ -258,9 +265,12 @@ import { RemoveException } from 'src/exception/removeException';
 
 @Injectable()
 export class ${module_name^}Repository implements I${module_name^}Repository {
-  constructor(private ${module_name}Entity: Repository<${module_name^}>) {}
+  constructor(
+    @InjectRepository(${module_name^})
+    private ${module_name}Entity: Repository<${module_name^}>,
+  ) {}
 
-  async create(create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}Model> {
+  async create(create${module_name^}Dto: Create${module_name^}Dto): Promise<${${module_name^}> {
     // const ${module_name} = await this.${module_name}Entity.findOne({
     //   where: {
     //     name: ILike(`%${create${module_name^}Dto.name}%`),
@@ -268,38 +278,38 @@ export class ${module_name^}Repository implements I${module_name^}Repository {
     // }); //Caso precise buscar pelo nome
 
     // if (${module_name}) {
-    //  return new ${module_name^}Model(${module_name});
+    //  return ${module_name};
     // } //Caso precise buscar pelo nome
 
     const new${module_name^} = this.${module_name}Entity.create(create${module_name^}Dto);
-    const saved${module_name^} = await this.${module_name}Entity.save(new${module_name^});
-    return new ${module_name^}Model(saved${module_name^});
+
+    return await this.${module_name}Entity.save(new${module_name^});
   }
 
-  async findAll(): Promise<${module_name^}Model[] | []> {
-    const ${module_name}s = await this.${module_name}Entity.find();
+  async findAll(page: number, limit: number): Promise<[${module_name^}[], number]> {
+    const queryBuilder = this.${module_name}Entity.createQueryBuilder('${module_name}');
 
-    if (${module_name}s) {
-      return ${module_name}s.map((${module_name}) => new ${module_name^}Model(${module_name}));
+    if (page !== undefined && limit !== undefined) {
+      queryBuilder.skip(page).take(limit);
     }
 
-    return [];
+    return await queryBuilder.getManyAndCount();
   }
 
-  async find(id: string): Promise<${module_name^}Model | null> {
-    const ${module_name} = await this.${module_name}Entity.findOneBy({ id });
+  async countAll(): Promise<number> {
+    return await this.${module_name}Entity.count({
+      withDeleted: false,
+    });
+  }
 
-    if (${module_name}) {
-      return new ${module_name^}Model(${module_name});
-    }
-
-    return null;
+  async find(id: string): Promise<${${module_name^} | null> {
+    return = await this.${module_name}Entity.findOneBy({ id });
   }
 
   async update(
     id: string,
     update${module_name^}Dto: Update${module_name^}Dto,
-  ): Promise<${module_name^}Model> {
+  ): Promise<${${module_name^}> {
     const update${module_name^} = await this.${module_name}Entity.findOneBy({ id });
 
     if (!update${module_name^}) {
@@ -317,15 +327,15 @@ export class ${module_name^}Repository implements I${module_name^}Repository {
     //  throw new AlreadyExistsException();
     // } // caso precisa verificar se ja existe com o mesmo nome
 
-    const store = await this.${module_name}Entity.save({
+    const ${module_name} = await this.${module_name}Entity.save({
       ...update${module_name^},
       ...update${module_name^}Dto,
     });
 
-    return new ${module_name^}Model(store);
+    return ${module_name};
   }
 
-  async remove(id: string): Promise<${module_name^}Model> {
+  async remove(id: string): Promise<${${module_name^}> {
     const ${module_name} = await this.${module_name}Entity.findOneBy({ id });
 
     if (${module_name}) {
@@ -333,7 +343,7 @@ export class ${module_name^}Repository implements I${module_name^}Repository {
     }
 
     await this.${module_name}Entity.remove(${module_name});
-    return new ${module_name^}Model(${module_name});
+    return ${module_name};
   }
 
   async delete(id: string): Promise<boolean> {
@@ -346,37 +356,61 @@ EOF
 
 # "nome".service.ts
 cat > "$module_path/$module_name.service.ts" << EOF
-import { Injectable } from '@nestjs/common';
-import { I${module_name^}Repository } from './contracts/${module_name}.repository.interface';
+import { Inject, Injectable } from '@nestjs/common';
+import { I${module_name^}Repository } from './interfaces/${module_name}.repository.interface';
 import { Create${module_name^}Dto } from './dto/create${module_name^}.dto';
-import { ${module_name^}Model } from './model/${module_name}.model';
 import { Update${module_name^}Dto } from './dto/update${module_name^}.dto';
+import { ${module_name^}ResponseDto } from './dto/${module_name}-response.dto';
+import { plainToClass } from 'class-transformer';
+import { Pagination, paginationData } from 'src/common/pagination/pagination';
+import { ${module_name^}ListDto } from './dto/${module_name}-list.dto';
 
 @Injectable()
 export class ${module_name^}Service {
-  constructor(private ${module_name}Repository: I${module_name^}Repository) {}
+  private url = `${this.appConfig.getBaseUrl()}/${module_name}`;
 
-  async create(create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}Model> {
-    return this.${module_name}Repository.create(create${module_name^}Dto);
+  constructor(
+    @Inject('I${module_name^}Repository')
+    private ${module_name}Repository: I${module_name^}Repository
+    private pagination: Pagination,
+  ) {}
+
+  async create(create${module_name^}Dto: Create${module_name^}Dto): Promise<${module_name^}> {
+    return await this.${module_name}Repository.create(create${module_name^}Dto);
   }
 
-  async findAll(): Promise<${module_name^}Model[] | []> {
-    return this.${module_name}Repository.findAll();
+  async findAll(${module_name}List: ${module_name^}ListDto): Promise<paginationData<${module_name^}>> {
+    const offset = this.pagination.getOffset(${module_name}List.page, ${module_name}List.limit);
+
+    const [${module_name}s, total] = await this.${module_name}Repository.findAll(
+      offset,
+      ${module_name}List.limit,
+    );
+
+    const paginateData = this.pagination.paginateData<User>(
+      ${module_name}s,
+      ${module_name}List.page,
+      ${module_name}List.limit,
+      total,
+      this.url,
+    );
+
+    return paginateData;
   }
 
-  async find(${module_name}Id: string): Promise<${module_name^}Model | null> {
-    return this.${module_name}Repository.find(${module_name}Id);
+  async find(${module_name}Id: string): Promise<${module_name^}> | null> {
+    return await this.${module_name}Repository.find(${module_name}Id);
   }
 
   async update(
     ${module_name}Id: string,
     update${module_name^}Dto: Update${module_name^}Dto,
-  ): Promise<${module_name^}Model> {
-    return this.${module_name}Repository.update(${module_name}Id, update${module_name^}Dto);
+  ): Promise<${module_name^}> {
+    return await this.${module_name}Repository.update(${module_name}Id, update${module_name^}Dto);
   }
 
-  async remove(${module_name}Id: string): Promise<${module_name^}Model> {
-    return this.${module_name}Repository.remove(${module_name}Id);
+  async remove(${module_name}Id: string): Promise<${module_name^}> {
+    return await this.${module_name}Repository.remove(${module_name}Id);
   }
 
   async delete(${module_name}Id: string): Promise<boolean> {
@@ -400,7 +434,7 @@ export class Create${module_name^}Dto {
 }
 EOF
 
-cat > "$module_path/dto/update${module_name^}.dto.ts" << EOF
+cat > "$module_path/dto/update-${module_name}.dto.ts" << EOF
 import { IsNumber, IsOptional } from 'class-validator';
 import { Create${module_name^}Dto } from './create${module_name^}.dto';
 import { PartialType } from '@nestjs/swagger';
@@ -413,6 +447,38 @@ export class Update${module_name^}Dto extends PartialType(Create${module_name^}D
   @IsNumber()
   value: number; // alterar nome
 }
+EOF
+
+cat > "$module_path/dto/${module_name}-response.dto.ts" << EOF
+import { Exclude, Expose } from 'class-transformer';
+
+export class ${module_name^}ResponseDto {
+  @Exclude()
+  id: string;
+
+  @Expose()
+  name: string;
+} 
+EOF
+
+cat > "$module_path/dto/${module_name}-listDto.dto.ts" << EOF
+import { Transform } from 'class-transformer';
+import { IsNumber, IsOptional, Max, Min } from 'class-validator';
+
+export class ${module_name^}ListDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(({ value }) => parseInt(value))
+  page?: number = 1;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  @Transform(({ value }) => parseInt(value))
+  limit?: number = 10;
+} 
 EOF
 
 echo

@@ -1,34 +1,31 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateUserDto } from './dto/createUser.dto';
-import { UpdateUserDto } from './dto/updateUser.dto';
-import { UserModel } from './model/user.model';
+import { Inject, Injectable } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { AppConfig } from '../common/app-config/app.config';
 import * as bcrypt from 'bcrypt';
-import { IUserRepository } from './contracts/user.repository.interface';
 import { ProfileDto } from './dto/profile.dto';
-import { ExpenseService } from 'src/expense/expense.service';
-import { CoinService } from 'src/coin/coin.service';
-import { RevenueService } from 'src/revenue/revenue.service';
-import { CompleteProfileDto } from './dto/completeProfile.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { registration } from './types/userType';
-import { ExpenseModel } from 'src/expense/model/expense.model';
-import { RevenueModel } from 'src/revenue/model/revenue.model';
+import { IUserRepository } from './interfaces/user.repository.interface';
+import { User } from './entities/user.entity';
+import { Pagination, paginationData } from 'src/common/pagination/pagination';
+import { UserListDto } from './dto/user-list.dto';
 
 @Injectable()
 export class UserService {
   private saltOrRounds: number;
+  private url = `${this.appConfig.getBaseUrl()}/user`;
 
   constructor(
+    @Inject('IUserRepository')
     private userRepository: IUserRepository,
     private appConfig: AppConfig,
-    private expenseService: ExpenseService,
-    private revenueService: RevenueService,
-    private coinService: CoinService,
+    private pagination: Pagination,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
 
-  async create(createUserDto: CreateUserDto): Promise<UserModel> {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const hash = await bcrypt.hash(createUserDto.password, this.saltOrRounds);
     createUserDto.password = hash;
 
@@ -40,128 +37,147 @@ export class UserService {
       createUserDto.coatOfArms = '/assets/images/coat_of_arms_solare.png';
     }
 
-    return this.userRepository.create(createUserDto);
+    return await this.userRepository.create(createUserDto);
   }
 
-  async findAll(): Promise<UserModel[] | []> {
-    return this.userRepository.findAll();
+  async findAll(userList: UserListDto): Promise<paginationData<User>> {
+    const offset = this.pagination.getOffset(userList.page, userList.limit);
+
+    const [users, total] = await this.userRepository.findAll(
+      offset,
+      userList.limit,
+    );
+
+    const paginateData = this.pagination.paginateData<User>(
+      users,
+      userList.page,
+      userList.limit,
+      total,
+      this.url,
+    );
+
+    return paginateData;
   }
 
-  async find(userId: string): Promise<UserModel | null> {
-    return this.userRepository.find(userId);
+  async find(userId: string): Promise<User | null> {
+    return await this.userRepository.find(userId);
   }
 
-  async findByEmail(email: string): Promise<UserModel | undefined> {
-    return this.userRepository.findByEmail(email);
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.userRepository.findByEmail(email);
   }
 
-  async saveToken(id: string, token: string): Promise<UserModel | undefined> {
+  async saveToken(id: string, token: string): Promise<User | null> {
     return this.userRepository.saveToken(id, token);
   }
 
-  async update(
-    userId: string,
-    updateUserDto: UpdateUserDto,
-  ): Promise<UserModel> {
+  async update(userId: string, updateUserDto: UpdateUserDto): Promise<User> {
     if (updateUserDto.password) {
       const hash = await bcrypt.hash(updateUserDto.password, this.saltOrRounds);
       updateUserDto.password = hash;
     }
 
-    return this.userRepository.update(userId, updateUserDto);
+    return await this.userRepository.update(userId, updateUserDto);
   }
 
   async delete(userId: string): Promise<boolean> {
     return this.userRepository.delete(userId);
   }
 
-  async getProfile(userId: string): Promise<ProfileDto> {
-    const user = await this.userRepository.find(userId);
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
-    const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
-    const coins = await this.coinService.getCoinsByUser(user);
-    const existRevenue = await this.revenueService.exist();
-    const newMonth = await this.revenueService.isUserNewMonth(user);
+  async getProfile(user: User): Promise<ProfileDto> {
+    // const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
+    // const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
+    // const coins = await this.coinService.getCoinsByUser(user);
+    // const existRevenue = await this.revenueService.exist();
+    // const newMonth = await this.revenueService.isUserNewMonth(user);
 
     return new ProfileDto({
       ...user,
-      income: revenues.value,
-      expenses: expenses.value,
-      coins: coins,
-      isFirstAccess: !existRevenue,
-      newMonth: newMonth,
+      income: 10,
+      expenses: 20,
+      coins: 5,
+      isFirstAccess: false,
+      newMonth: false,
     });
   }
 
   async completeProfile(
-    user: UserModel,
+    user: User,
     completeProfileDto: CompleteProfileDto,
   ): Promise<void> {
-    const revenue = await this.revenueService.create(user, {
-      name: completeProfileDto.name,
-      value: completeProfileDto.income,
-      repeat: completeProfileDto.repeatMonthly,
-    });
+    //olhar
+    // const revenue = await this.revenueService.create(user, {
+    //   name: completeProfileDto.name,
+    //   value: completeProfileDto.income,
+    //   repeat: completeProfileDto.repeatMonthly,
+    // });
 
-    if (!revenue) {
-      throw new NotFoundException('Revenue not found');
-    }
+    // if (!revenue) {
+    //   throw new NotFoundException('Revenue not found');
+    // }
 
-    await this.userRepository.update(user.id, {
-      family: completeProfileDto.family,
-    });
+    // await this.userRepository.update(user.id, {
+    //   family: completeProfileDto.family,
+    // });
 
     return;
   }
 
   async getLatestRegistrations(
-    user: UserModel,
+    user: User,
     limit: number,
   ): Promise<registration[] | []> {
-    const expenses = this.expenseService.getLatest(user, limit);
-    const revenues = this.revenueService.getLatest(user, limit);
+    //ohar
+    // const expenses = this.expenseService.getLatest(user, limit);
+    // const revenues = this.revenueService.getLatest(user, limit);
 
-    const [expensesLatest, revenuesLatest] = await Promise.all([
-      expenses,
-      revenues,
-    ]);
+    // const [expensesLatest, revenuesLatest] = await Promise.all([
+    //   expenses,
+    //   revenues,
+    // ]);
 
-    // Adiciona o type antes de unir
-    const expensesWithType = expensesLatest.map((expense: ExpenseModel) => ({
-      ...expense,
-      type: 'expense',
-    }));
+    // // Adiciona o type antes de unir
+    // const expensesWithType = expensesLatest.map((expense: ExpenseModel) => ({
+    //   ...expense,
+    //   type: 'expense',
+    // }));
 
-    const revenuesWithType = revenuesLatest.map((revenue: RevenueModel) => ({
-      ...revenue,
-      type: 'revenue',
-    }));
+    // const revenuesWithType = revenuesLatest.map((revenue: RevenueModel) => ({
+    //   ...revenue,
+    //   type: 'revenue',
+    // }));
 
-    const allRegistrations = [...expensesWithType, ...revenuesWithType];
+    // const allRegistrations = [...expensesWithType, ...revenuesWithType];
 
-    const latestRegistrations = allRegistrations
-      .filter((registration) => registration.createdAt) // Remove registros sem data
-      .sort((a, b) => {
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
-      })
-      .slice(0, limit);
+    // const latestRegistrations = allRegistrations
+    //   .filter((registration) => registration.createdAt) // Remove registros sem data
+    //   .sort((a, b) => {
+    //     const dateA = new Date(a.createdAt);
+    //     const dateB = new Date(b.createdAt);
+    //     return dateB.getTime() - dateA.getTime();
+    //   })
+    //   .slice(0, limit);
 
-    return latestRegistrations.map((registration) => {
-      return {
-        id: registration.id as string,
-        name: registration.name,
-        value: registration.value,
+    // return latestRegistrations.map((registration) => {
+    //   return {
+    //     id: registration.id as string,
+    //     name: registration.name,
+    //     value: registration.value,
+    //     coins: 5, // TODO: Implementar coins
+    //     type: registration.type,
+    //     date: registration.createdAt,
+    //   };
+    // });
+
+    return [
+      {
+        id: '1',
+        name: 'registration.name',
+        value: 10,
         coins: 5, // TODO: Implementar coins
-        type: registration.type,
-        date: registration.createdAt,
-      };
-    });
+        type: 'registration.type',
+        date: new Date(),
+      },
+    ];
   }
 }

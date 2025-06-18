@@ -1,10 +1,8 @@
-import { Coupon } from 'src/coupon/entities/coupon.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
-  OneToMany,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -36,6 +34,9 @@ export class User {
   @Column({ nullable: true })
   token: string;
 
+  @Column({ nullable: true })
+  refreshtoken: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -44,7 +45,4 @@ export class User {
 
   @DeleteDateColumn()
   deletedAt: Date;
-
-  @OneToMany(() => Coupon, (coupon) => coupon.user)
-  coupons: Coupon[];
 }
