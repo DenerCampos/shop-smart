@@ -10,6 +10,7 @@ import { PaymentModule } from './payment/payment.module';
 import { RevenueModule } from './revenue/revenue.module';
 import { GroupModule } from './group/group.module';
 import { StoreModule } from './store/store.module';
+import { CoinModule } from './coin/coin.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StoreModule } from './store/store.module';
     RevenueModule,
     GroupModule,
     StoreModule,
+    CoinModule,
   ],
   controllers: [],
   providers: [],

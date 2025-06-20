@@ -1,3 +1,5 @@
+import { Coin } from 'src/coin/entities/coin.entity';
+import { CoinTransaction } from 'src/coin/entities/coinTransaction.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
 import {
   Column,
@@ -5,6 +7,7 @@ import {
   DeleteDateColumn,
   Entity,
   OneToMany,
+  OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -50,4 +53,10 @@ export class User {
 
   @OneToMany(() => Revenue, (revenue) => revenue.user)
   revenues: Revenue[];
+
+  @OneToOne(() => Coin, (coin) => coin.user)
+  coin: Coin[];
+
+  @OneToMany(() => CoinTransaction, (coinTransactions) => coinTransactions.user)
+  coinTransactions: CoinTransaction[];
 }
