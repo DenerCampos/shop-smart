@@ -234,9 +234,10 @@ import { ${module_name^}Controller } from './${module_name}.controller';
 import { ${module_name^}Service } from './${module_name}.service';
 import { ${module_name^}Repository } from './${module_name}.repository';
 import { ${module_name^} } from './entities/${module_name}.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
-  imports: [CommonModule],
+  imports: [CommonModule, TypeOrmModule.forFeature([${module_name^}])],
   controllers: [${module_name^}Controller],
   providers: [
     ${module_name^}Service,

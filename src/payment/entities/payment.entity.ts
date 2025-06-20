@@ -1,4 +1,4 @@
-import { Revenue } from 'src/revenue/entities/revenue.entity';
+import { Expense } from 'src/expense/entities/expense.entity';
 import {
   Column,
   CreateDateColumn,
@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 
 @Entity()
-export class User {
+export class Payment {
   @Column({
     type: 'varchar',
     length: 36,
@@ -21,24 +21,6 @@ export class User {
   @Column()
   name: string;
 
-  @Column()
-  email: string;
-
-  @Column()
-  family: string;
-
-  @Column()
-  coatOfArms: string;
-
-  @Column()
-  password: string;
-
-  @Column({ nullable: true })
-  token: string;
-
-  @Column({ nullable: true })
-  refreshtoken: string;
-
   @CreateDateColumn()
   createdAt: Date;
 
@@ -48,6 +30,6 @@ export class User {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Revenue, (revenue) => revenue.user)
-  revenues: Revenue[];
+  @OneToMany(() => Expense, (expense) => expense.payment)
+  expenses: Expense[];
 }
