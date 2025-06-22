@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Equal, ILike, Not, Repository } from 'typeorm';
+import { EntityManager, Equal, ILike, Not, Repository } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
@@ -16,20 +16,29 @@ export class StoreRepository implements IStoreRepository {
     private storeEntity: Repository<Store>,
   ) {}
 
-  async create(createStoreDto: CreateStoreDto): Promise<Store> {
-    const store = await this.storeEntity.findOne({
+  async create(
+    createStoreDto: CreateStoreDto,
+    manager?: EntityManager,
+  ): Promise<Store> {
+    const repository = manager
+      ? manager.getRepository(Store)
+      : this.storeEntity;
+
+    // Busca primeiro se existe
+    const existingStore = await repository.findOne({
       where: {
         name: ILike(`%${createStoreDto.name}%`),
       },
     });
 
-    if (store) {
-      return store;
-    } else {
-      const newStore = this.storeEntity.create(createStoreDto);
-
-      return await this.storeEntity.save(newStore);
+    // Se existe, retorna o existente
+    if (existingStore) {
+      return existingStore;
     }
+
+    // Se não existe, cria novo
+    const store = repository.create(createStoreDto);
+    return repository.save(store);
   }
 
   async countAll(): Promise<number> {
@@ -38,8 +47,14 @@ export class StoreRepository implements IStoreRepository {
     });
   }
 
-  async findAll(): Promise<Store[] | []> {
-    return await this.storeEntity.find();
+  async findAll(page: number, limit: number): Promise<[Store[], number]> {
+    const queryBuilder = this.storeEntity.createQueryBuilder('store');
+
+    if (page !== undefined && limit !== undefined) {
+      queryBuilder.skip(page).take(limit);
+    }
+
+    return await queryBuilder.getManyAndCount();
   }
 
   async find(id: string): Promise<Store | null> {

@@ -6,6 +6,7 @@ import { AppConfig } from 'src/common/app-config/app.config';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { Payment } from './entities/payment.entity';
 import { PaymentListDto } from './dto/payment-list.dto';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class PaymentService {
@@ -18,8 +19,11 @@ export class PaymentService {
     private pagination: Pagination,
   ) {}
 
-  async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
-    return this.paymentRepository.create(createPaymentDto);
+  async create(
+    createPaymentDto: CreatePaymentDto,
+    manager?: EntityManager,
+  ): Promise<Payment> {
+    return this.paymentRepository.create(createPaymentDto, manager);
   }
 
   async findAll(paymentList: PaymentListDto): Promise<paginationData<Payment>> {

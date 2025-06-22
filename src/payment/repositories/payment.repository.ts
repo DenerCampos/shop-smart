@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Equal, ILike, Not, Repository } from 'typeorm';
+import { EntityManager, Equal, ILike, Not, Repository } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
@@ -16,20 +16,26 @@ export class PaymentRepository implements IPaymentRepository {
     private paymentEntity: Repository<Payment>,
   ) {}
 
-  async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
-    const payment = await this.paymentEntity.findOne({
+  async create(
+    createPaymentDto: CreatePaymentDto,
+    manager?: EntityManager,
+  ): Promise<Payment> {
+    const repository = manager
+      ? manager.getRepository(Payment)
+      : this.paymentEntity;
+
+    const existingPayment = await repository.findOne({
       where: {
         name: ILike(`%${createPaymentDto.name}%`),
       },
     });
 
-    if (payment) {
-      return payment;
-    } else {
-      const newPayment = this.paymentEntity.create(createPaymentDto);
-
-      return await this.paymentEntity.save(newPayment);
+    if (existingPayment) {
+      return existingPayment;
     }
+
+    const payment = repository.create(createPaymentDto);
+    return repository.save(payment);
   }
 
   async findAll(page: number, limit: number): Promise<[Payment[], number]> {

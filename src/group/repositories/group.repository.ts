@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Equal, ILike, Not, Repository } from 'typeorm';
+import { EntityManager, Equal, ILike, Not, Repository } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
@@ -16,20 +16,26 @@ export class GroupRepository implements IGroupRepository {
     private groupEntity: Repository<Group>,
   ) {}
 
-  async create(createGroupDto: CreateGroupDto): Promise<Group> {
-    const group = await this.groupEntity.findOne({
+  async create(
+    createGroupDto: CreateGroupDto,
+    manager?: EntityManager,
+  ): Promise<Group> {
+    const repository = manager
+      ? manager.getRepository(Group)
+      : this.groupEntity;
+
+    const existingGroup = await repository.findOne({
       where: {
         name: ILike(`%${createGroupDto.name}%`),
       },
     });
 
-    if (group) {
-      return group;
+    if (existingGroup) {
+      return existingGroup;
     }
 
-    const newGroup = this.groupEntity.create(createGroupDto);
-    const savedStore = await this.groupEntity.save(newGroup);
-    return savedStore;
+    const group = repository.create(createGroupDto);
+    return repository.save(group);
   }
 
   async findAll(page: number, limit: number): Promise<[Group[], number]> {

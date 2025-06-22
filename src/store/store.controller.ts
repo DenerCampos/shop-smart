@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { StoreService } from './store.service';
@@ -14,6 +15,8 @@ import { CreateStoreDto } from './dto/create-store.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { StoreResponseDto } from './dto/store-response.dto';
 import { ResponseService } from 'src/common/response/response';
+import { StoreListDto } from './dto/store-list.dto';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/store')
 export class StoreController {
@@ -34,10 +37,12 @@ export class StoreController {
 
   @UseGuards(AuthGuard)
   @Get()
-  async findAll(): Promise<StoreResponseDto[]> {
-    const stores = await this.storeService.findAll();
+  async findAll(
+    @Query() listDto: StoreListDto,
+  ): Promise<paginationData<StoreResponseDto>> {
+    const stores = await this.storeService.findAll(listDto);
 
-    return this.responseService.mapArrayToDto(StoreResponseDto, stores);
+    return this.responseService.mapPaginatedToDto(StoreResponseDto, stores);
   }
 
   @UseGuards(AuthGuard)

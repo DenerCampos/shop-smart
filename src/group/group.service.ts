@@ -6,10 +6,11 @@ import { Group } from './entities/group.entity';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { GroupListDto } from './dto/group-list.dto';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class GroupService {
-  private url = `${this.appConfig.getBaseUrl()}/groups`;
+  private url = `${this.appConfig.getBaseUrl()}/group`;
 
   constructor(
     @Inject('IGroupRepository')
@@ -18,8 +19,11 @@ export class GroupService {
     private pagination: Pagination,
   ) {}
 
-  async create(createGroupDto: CreateGroupDto): Promise<Group> {
-    return this.groupRepository.create(createGroupDto);
+  async create(
+    createGroupDto: CreateGroupDto,
+    manager?: EntityManager,
+  ): Promise<Group> {
+    return this.groupRepository.create(createGroupDto, manager);
   }
 
   async findAll(userList: GroupListDto): Promise<paginationData<Group>> {

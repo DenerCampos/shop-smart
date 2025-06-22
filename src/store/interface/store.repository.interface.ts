@@ -1,10 +1,14 @@
+import { EntityManager } from 'typeorm';
 import { CreateStoreDto } from '../dto/create-store.dto';
 import { UpdateStoreDto } from '../dto/update-store.dto';
 import { Store } from '../entities/store.entity';
 
 export interface IStoreRepository {
-  create(newStore: CreateStoreDto): Promise<Store>;
-  findAll(): Promise<Store[] | []>;
+  create(
+    createStoreDto: CreateStoreDto,
+    manager?: EntityManager,
+  ): Promise<Store>;
+  findAll(page: number, limit: number): Promise<[Store[], number]>;
   find(id: string): Promise<Store | null>;
   update(id: string, updateStore: UpdateStoreDto): Promise<Store>;
   remove(id: string): Promise<Store>;

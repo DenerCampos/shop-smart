@@ -25,12 +25,15 @@ export class CoinRepository implements ICoinRepository {
   async create(user: User, createCoinDto: CreateCoinDto): Promise<Coin> {
     let userCoin = await this.coinEntity.findOne({
       where: {
-        user: user,
+        user: { id: user.id },
       },
     });
 
     if (!userCoin) {
-      userCoin = this.coinEntity.create(createCoinDto);
+      userCoin = this.coinEntity.create({
+        ...createCoinDto,
+        user,
+      });
     }
 
     await this.coinEntity.save(userCoin);
@@ -100,14 +103,14 @@ export class CoinRepository implements ICoinRepository {
 
       let userCoin = await this.coinEntity.findOne({
         where: {
-          user: user,
+          user: { id: user.id },
         },
       });
 
       if (!userCoin) {
         userCoin = this.coinEntity.create({
           ...createCoinDto,
-          user: user, // Associar ao usuário
+          user, // Associar ao usuário
         });
       }
 

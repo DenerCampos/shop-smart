@@ -1,4 +1,5 @@
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
+import { ItemResponseDto } from './item-response.dto';
 
 export class ExpenseResponseDto {
   @Exclude()
@@ -14,6 +15,9 @@ export class ExpenseResponseDto {
   repeat: boolean;
 
   @Expose()
+  date: Date;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()
@@ -21,4 +25,8 @@ export class ExpenseResponseDto {
 
   @Exclude()
   deletedAt: Date;
+
+  @Expose()
+  @Type(() => ItemResponseDto)
+  items: ItemResponseDto[];
 }

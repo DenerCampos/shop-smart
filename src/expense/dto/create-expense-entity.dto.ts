@@ -15,7 +15,7 @@ import { storeType } from 'src/store/types/storeType';
 import { CreateItemDto } from './create-item.dto';
 import { itemType } from '../types/itemType';
 
-export class CreateExpenseDto {
+export class CreateExpenseEntityDto {
   @IsNotEmpty()
   @IsString()
   name: string;
@@ -28,25 +28,10 @@ export class CreateExpenseDto {
   @IsBoolean()
   repeat: boolean;
 
-  @ValidateNested()
-  @Type(() => CreateStoreDto)
-  @IsNotEmpty()
-  store: storeType;
-
   @IsString()
   uri: string;
 
   @IsNotEmpty()
   @IsDateString()
   date: Date;
-
-  @ValidateNested()
-  @IsArray()
-  @Type(() => CreateItemDto)
-  items: itemType[];
-
-  @ValidateNested()
-  @Type(() => CreatePaymentDto)
-  @IsNotEmpty()
-  payment: paymentType;
 }

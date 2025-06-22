@@ -1,31 +1,64 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { RemoveException } from 'src/exception/removeException';
 import { IExpenseRepository } from '../interface/expense.repository.interface';
 import { Expense } from '../entities/expense.entity';
-import { CreateExpenseDto } from '../dto/create-expense.dto';
 import { User } from 'src/user/entities/user.entity';
 import { UpdateExpenseDto } from '../dto/update-expense.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Item } from '../entities/item.entity';
+import { Group } from 'src/group/entities/group.entity';
+import { CreateExpenseEntityDto } from '../dto/create-expense-entity.dto';
+import { Store } from 'src/store/entities/store.entity';
+import { Payment } from 'src/payment/entities/payment.entity';
+import { CreateItemEntityDto } from '../dto/create-item-entity.dto';
 
 @Injectable()
 export class ExpenseRepository implements IExpenseRepository {
   constructor(
     @InjectRepository(Expense)
     private expenseEntity: Repository<Expense>,
+    @InjectRepository(Item)
+    private itemEntity: Repository<Item>,
   ) {}
 
   async create(
     user: User,
-    createExpenseDto: CreateExpenseDto,
+    store: Store,
+    payment: Payment,
+    createExpenseDto: CreateExpenseEntityDto,
+    manager?: EntityManager,
   ): Promise<Expense> {
-    const newExpense = this.expenseEntity.create({
+    const repository = manager
+      ? manager.getRepository(Expense)
+      : this.expenseEntity;
+
+    const expense = repository.create({
       ...createExpenseDto,
       user,
+      store,
+      payment,
     });
 
-    return await this.expenseEntity.save(newExpense);
+    return repository.save(expense);
+  }
+
+  async createItem(
+    expense: Expense,
+    group: Group,
+    CreateItemDto: CreateItemEntityDto,
+    manager?: EntityManager,
+  ): Promise<Item> {
+    const repository = manager ? manager.getRepository(Item) : this.itemEntity;
+
+    const item = repository.create({
+      ...CreateItemDto,
+      expense,
+      group,
+    });
+
+    return repository.save(item);
   }
 
   async findAll(page: number, limit: number): Promise<[Expense[], number]> {

@@ -1,7 +1,7 @@
 import { Exclude, Expose } from 'class-transformer';
 
 export class GroupResponseDto {
-  @Exclude()
+  @Expose()
   id: string;
 
   @Expose()
