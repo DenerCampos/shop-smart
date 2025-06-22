@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { RemoveException } from 'src/exception/removeException';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
@@ -22,23 +22,26 @@ export class CoinRepository implements ICoinRepository {
     private coinTransactionEntity: Repository<CoinTransaction>,
   ) {}
 
-  async create(user: User, createCoinDto: CreateCoinDto): Promise<Coin> {
-    let userCoin = await this.coinEntity.findOne({
+  async create(
+    user: User,
+    createCoinDto: CreateCoinDto,
+    manager?: EntityManager,
+  ): Promise<Coin> {
+    const repository = manager ? manager.getRepository(Coin) : this.coinEntity;
+
+    const existinCoin = await repository.findOne({
       where: {
         user: { id: user.id },
       },
     });
 
-    if (!userCoin) {
-      userCoin = this.coinEntity.create({
-        ...createCoinDto,
-        user,
-      });
+    if (existinCoin) {
+      return existinCoin;
     }
 
-    await this.coinEntity.save(userCoin);
-
-    return userCoin;
+    // Se não existe, cria novo
+    const coin = repository.create({ ...createCoinDto, user });
+    return repository.save(coin);
   }
 
   async findAll(page: number, limit: number): Promise<[Coin[], number]> {
@@ -93,47 +96,33 @@ export class CoinRepository implements ICoinRepository {
     return result.affected === 1;
   }
 
-  async updateCoinsAndTransaction(
-    user: User,
-    createCoinDto: CreateCoinDto,
-    createCoinTransactionDto: CreateCoinTransactionDto,
-  ): Promise<Coin> {
-    try {
-      await this.queryRunner.startTransaction();
+  async updateCoins(user: User, updateCoinDto: UpdateCoinDto): Promise<Coin> {
+    const userCoin = await this.coinEntity.findOne({
+      where: {
+        user: { id: user.id },
+      },
+    });
 
-      let userCoin = await this.coinEntity.findOne({
-        where: {
-          user: { id: user.id },
-        },
-      });
-
-      if (!userCoin) {
-        userCoin = this.coinEntity.create({
-          ...createCoinDto,
-          user, // Associar ao usuário
-        });
-      }
-
-      userCoin = await this.coinEntity.save({
-        ...userCoin,
-        ...createCoinDto,
-      });
-
-      const coinTransaction = this.coinTransactionEntity.create({
-        ...createCoinTransactionDto,
-        user: user, // Associar ao usuário
-      });
-
-      await this.coinTransactionEntity.save(coinTransaction);
-      await this.coinEntity.save(userCoin);
-
-      await this.queryRunner.commitTransaction();
-
-      return userCoin;
-    } catch (error) {
-      await this.queryRunner.rollbackTransaction();
-      throw new Error(error.message);
+    if (!userCoin) {
+      throw new UpdateException();
     }
+
+    return await this.coinEntity.save({
+      ...userCoin,
+      ...updateCoinDto,
+    });
+  }
+
+  async updateTransaction(
+    user: User,
+    createCoinTransactionDto: CreateCoinTransactionDto,
+  ): Promise<CoinTransaction> {
+    const coinTransaction = this.coinTransactionEntity.create({
+      ...createCoinTransactionDto,
+      user: user, // Associar ao usuário
+    });
+
+    return await this.coinTransactionEntity.save(coinTransaction);
   }
 
   async countAll(): Promise<number> {

@@ -2,19 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ClassConstructor, plainToClass } from 'class-transformer';
 import { paginationData } from '../pagination/pagination';
 
-// Interface para resultado paginado
-// export interface PaginatedResult<T> {
-//   data: T[];
-//   meta: {
-//     total: number;
-//     page: number;
-//     limit: number;
-//     totalPages: number;
-//     hasNextPage: boolean;
-//     hasPreviousPage: boolean;
-//   };
-// }
-
 @Injectable()
 export class ResponseService {
   /**

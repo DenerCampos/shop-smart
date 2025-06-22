@@ -15,6 +15,9 @@ import { PaymentService } from 'src/payment/payment.service';
 import { StoreService } from 'src/store/store.service';
 import { GroupService } from 'src/group/group.service';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
+import { Item } from './entities/item.entity';
+import { CoinService } from 'src/coin/coin.service';
+import { coinType } from 'src/coin/types/coinType';
 
 @Injectable()
 export class ExpenseService {
@@ -29,6 +32,7 @@ export class ExpenseService {
     private storeService: StoreService,
     private paymentService: PaymentService,
     private groupService: GroupService,
+    private coinService: CoinService,
     private queryRunnerFactory: QueryRunnerFactory,
   ) {}
 
@@ -42,6 +46,7 @@ export class ExpenseService {
       createExpenseDto.value = this.calculateTotalValue(createExpenseDto.items);
 
       const { items, store, payment, ...expenseData } = createExpenseDto;
+      const itens = [] as Item[];
 
       const savedStore = await this.storeService.create(
         store,
@@ -78,25 +83,30 @@ export class ExpenseService {
           },
           this.queryRunnerFactory.manager,
         );
+
+        itens.push(savedItem);
       }
 
       await this.queryRunnerFactory.commitTransaction();
 
-      // const results = await Promise.allSettled([
-      //   withTimeout(this.addCoins(user, 'coupon')),
-      //   withTimeout(this.addExpenses(user, coupon)),
-      // ]);
+      expense.items = itens;
 
-      // //Log results promises
-      // logResultsPromises(results, ['addCoins', 'addExpenses']);
+      const results = await Promise.allSettled([
+        withTimeout(this.addCoins(user, 'coupon')),
+      ]);
 
-      console.log('Expense created:', expense);
+      //Log results promises
+      logResultsPromises(results, ['addCoins']);
 
       return expense;
     } catch (error) {
       await this.queryRunnerFactory.rollbackTransaction();
       throw new Error(error.message);
     }
+  }
+
+  private async addCoins(user: User, typeCoins: coinType): Promise<void> {
+    await this.coinService.addCoins(user, { type: typeCoins });
   }
 
   async findAll(expenseList: ExpenseListDto): Promise<paginationData<Expense>> {

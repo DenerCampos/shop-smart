@@ -17,6 +17,8 @@ import { User } from 'src/user/entities/user.entity';
 import { Coin } from './entities/coin.entity';
 import { CoinListDto } from './dto/coin-list.dto';
 import { CreateCoinTransactionDto } from './dto/create-coin-transaction.dto';
+import { EntityManager } from 'typeorm';
+import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 
 @Injectable()
 export class CoinService {
@@ -39,10 +41,15 @@ export class CoinService {
     private coinRepository: ICoinRepository,
     private appConfig: AppConfig,
     private pagination: Pagination,
+    private queryRunnerFactory: QueryRunnerFactory,
   ) {}
 
-  async create(user: User, createCoinDto: CreateCoinDto): Promise<Coin> {
-    return this.coinRepository.create(user, createCoinDto);
+  async create(
+    user: User,
+    createCoinDto: CreateCoinDto,
+    manager?: EntityManager,
+  ): Promise<Coin> {
+    return this.coinRepository.create(user, createCoinDto, manager);
   }
 
   async findAll(userList: CoinListDto): Promise<paginationData<Coin>> {
@@ -138,11 +145,34 @@ export class CoinService {
       addCoinDto.type,
     );
 
-    return this.coinRepository.updateCoinsAndTransaction(
+    return this.updateCoinsAndTransaction(
       user,
       createCoinDto,
       createCoinTransactionDto,
     );
+  }
+
+  private async updateCoinsAndTransaction(
+    user: User,
+    createCoinDto: CreateCoinDto,
+    createCoinTransactionDto: CreateCoinTransactionDto,
+  ): Promise<Coin> {
+    try {
+      await this.queryRunnerFactory.startTransaction();
+
+      const coin = await this.coinRepository.updateCoins(user, createCoinDto);
+      await this.coinRepository.updateTransaction(
+        user,
+        createCoinTransactionDto,
+      );
+
+      await this.queryRunnerFactory.commitTransaction();
+
+      return coin;
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw new Error(error.message);
+    }
   }
 
   private async getRemoveCoinDto(
@@ -204,7 +234,7 @@ export class CoinService {
       removeCoinDto.type,
     );
 
-    return this.coinRepository.updateCoinsAndTransaction(
+    return this.updateCoinsAndTransaction(
       user,
       subtractCoinDto,
       subtractCoinTransactionDto,

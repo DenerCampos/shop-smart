@@ -9,6 +9,9 @@ export class ExpenseResponseDto {
   name: string;
 
   @Expose()
+  uri: string;
+
+  @Expose()
   value: number;
 
   @Expose()
