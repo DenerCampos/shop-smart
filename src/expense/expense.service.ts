@@ -18,6 +18,11 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
 import { Item } from './entities/item.entity';
 import { CoinService } from 'src/coin/coin.service';
 import { coinType } from 'src/coin/types/coinType';
+import { UpdateException } from 'src/exception/updateException';
+import { UpdateItemDto } from './dto/update-item.dto';
+import { Store } from 'src/store/entities/store.entity';
+import { Payment } from 'src/payment/entities/payment.entity';
+import { Group } from 'src/group/entities/group.entity';
 
 @Injectable()
 export class ExpenseService {
@@ -135,11 +140,167 @@ export class ExpenseService {
     return this.expenseRepository.find(expenseId);
   }
 
+  async findOrCreateStore(storeName: string): Promise<Store> {
+    let updateStore = await this.storeService.findByName(storeName);
+
+    if (!updateStore) {
+      const savedStore = await this.storeService.create({
+        name: storeName,
+      });
+      updateStore = savedStore;
+    }
+
+    return updateStore;
+  }
+
+  async findOrCreatePayment(paymentName: string): Promise<Payment> {
+    let updatePayment = await this.paymentService.findByName(paymentName);
+
+    if (!updatePayment) {
+      const savedPayment = await this.paymentService.create({
+        name: paymentName,
+      });
+      updatePayment = savedPayment;
+    }
+
+    return updatePayment;
+  }
+
+  async findOrCreateGroup(groupName: string): Promise<Group> {
+    let updateGroup = await this.groupService.findByName(groupName);
+
+    if (!updateGroup) {
+      const savedGroup = await this.groupService.create({
+        name: groupName,
+      });
+      updateGroup = savedGroup;
+    }
+
+    return updateGroup;
+  }
+
   async update(
     expenseId: string,
     updateExpenseDto: UpdateExpenseDto,
   ): Promise<Expense> {
-    return this.expenseRepository.update(expenseId, updateExpenseDto);
+    try {
+      await this.queryRunnerFactory.startTransaction();
+
+      const expense = await this.expenseRepository.find(expenseId);
+
+      if (!expense) {
+        throw new UpdateException();
+      }
+
+      if (updateExpenseDto.store) {
+        const updateStore = await this.findOrCreateStore(
+          updateExpenseDto.store.name,
+        );
+        updateExpenseDto.store = updateStore;
+      }
+
+      if (updateExpenseDto.payment) {
+        const updatePayment = await this.findOrCreatePayment(
+          updateExpenseDto.payment.name,
+        );
+        updateExpenseDto.payment = updatePayment;
+      }
+
+      await this.expenseRepository.update(
+        expense,
+        updateExpenseDto,
+        this.queryRunnerFactory.manager,
+      );
+
+      // TODO - trocar para updateItem separadamente, para cada item
+      // const itens = [] as Item[];
+
+      // if (updateExpenseDto.items && updateExpenseDto.items.length > 0) {
+      //   for (const item of updateExpenseDto.items) {
+      //     if (item.group) {
+      //       let updateGroup = await this.groupService.findByName(
+      //         item.group.name,
+      //       );
+
+      //       if (!updateGroup) {
+      //         const savedGroup = await this.groupService.create(
+      //           item.group,
+      //           this.queryRunnerFactory.manager,
+      //         );
+      //         updateGroup = savedGroup;
+      //       }
+      //       item.group = updateGroup;
+      //     }
+
+      //     const updateItem = await this.expenseRepository.findItemById(item.id);
+
+      //     const updatedItem = await this.expenseRepository.UpdateItem(
+      //       updateItem,
+      //       updatedExpense,
+      //       item,
+      //       this.queryRunnerFactory.manager,
+      //     );
+
+      //     itens.push(updatedItem);
+      //   }
+      // }
+
+      // updatedExpense.items = itens;
+
+      await this.queryRunnerFactory.commitTransaction();
+      return await this.expenseRepository.find(expenseId);
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw new Error(error.message);
+    }
+  }
+
+  async updateValueExpense(expenseId: string): Promise<Expense> {
+    const allItems = await this.expenseRepository.findAllItemsByExpenseId(
+      expenseId,
+    );
+
+    const total = this.calculateTotalValue(allItems);
+
+    const expense = await this.expenseRepository.find(expenseId);
+
+    return await this.expenseRepository.update(expense, {
+      ...expense,
+      value: total,
+    });
+  }
+
+  async updateItem(
+    itemId: string,
+    updateItemDto: UpdateItemDto,
+  ): Promise<Item> {
+    try {
+      await this.queryRunnerFactory.startTransaction();
+
+      if (updateItemDto.group) {
+        const updateGroup = await this.groupService.findByName(
+          updateItemDto.group.name,
+        );
+        updateItemDto.group = updateGroup;
+      }
+
+      const updateItem = await this.expenseRepository.findItemById(itemId);
+
+      const updatedItem = await this.expenseRepository.UpdateItem(
+        updateItem,
+        updateItemDto,
+        this.queryRunnerFactory.manager,
+      );
+
+      await this.queryRunnerFactory.commitTransaction();
+
+      await this.updateValueExpense(updatedItem.expense.id);
+
+      return updatedItem;
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw new Error(error.message);
+    }
   }
 
   async remove(expenseId: string): Promise<Expense> {
@@ -199,8 +360,7 @@ export class ExpenseService {
     if (!items || items.length === 0) return 0;
 
     const total = items.reduce((total, item) => {
-      const itemTotal =
-        typeof item.total === 'number' && !isNaN(item.total) ? item.total : 0;
+      const itemTotal = !isNaN(item.total) ? Number(item.total) : 0;
       return total + itemTotal;
     }, 0);
 

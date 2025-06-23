@@ -59,33 +59,37 @@ export class PaymentRepository implements IPaymentRepository {
   }
 
   async update(
-    id: string,
+    payment: Payment,
     updatePaymentDto: UpdatePaymentDto,
+    manager?: EntityManager,
   ): Promise<Payment> {
-    const updatePayment = await this.paymentEntity.findOneBy({ id });
+    const repository = manager
+      ? manager.getRepository(Payment)
+      : this.paymentEntity;
 
-    if (!updatePayment) {
-      throw new UpdateException();
-    }
+    return await repository.save({
+      ...payment,
+      ...updatePaymentDto,
+    });
+  }
 
+  async exist(name: string, payment: Payment): Promise<boolean> {
     const existPayment = await this.paymentEntity.findOne({
       where: {
-        name: ILike(`%${updatePaymentDto.name}%`),
-        id: Not(Equal(updatePayment.id)),
+        name: ILike(`%${name}%`),
+        id: Not(Equal(payment.id)),
       },
     });
 
-    if (existPayment) {
-      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
-      throw new AlreadyExistsException();
-    }
+    return existPayment ? true : false;
+  }
 
-    const payment = await this.paymentEntity.save({
-      ...updatePayment,
-      ...updatePaymentDto,
+  async findByName(name: string): Promise<Payment | null> {
+    return await this.paymentEntity.findOne({
+      where: {
+        name: ILike(`%${name}%`),
+      },
     });
-
-    return payment;
   }
 
   async remove(id: string): Promise<Payment> {

@@ -61,28 +61,37 @@ export class StoreRepository implements IStoreRepository {
     return await this.storeEntity.findOneBy({ id });
   }
 
-  async update(id: string, updateStoreDto: UpdateStoreDto): Promise<Store> {
-    const updateStore = await this.storeEntity.findOneBy({ id });
+  async update(
+    store: Store,
+    updateStoreDto: UpdateStoreDto,
+    manager?: EntityManager,
+  ): Promise<Store> {
+    const repository = manager
+      ? manager.getRepository(Store)
+      : this.storeEntity;
 
-    if (!updateStore) {
-      throw new UpdateException();
-    }
+    return await repository.save({
+      ...store,
+      ...updateStoreDto,
+    });
+  }
 
+  async exist(name: string, store: Store): Promise<boolean> {
     const existStore = await this.storeEntity.findOne({
       where: {
-        name: ILike(`%${updateStoreDto.name}%`),
-        id: Not(Equal(updateStore.id)),
+        name: ILike(`%${name}%`),
+        id: Not(Equal(store.id)),
       },
     });
 
-    if (existStore) {
-      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
-      throw new AlreadyExistsException();
-    }
+    return existStore ? true : false;
+  }
 
-    return await this.storeEntity.save({
-      ...updateStore,
-      ...updateStoreDto,
+  async findByName(name: string): Promise<Store | null> {
+    return await this.storeEntity.findOne({
+      where: {
+        name: ILike(`%${name}%`),
+      },
     });
   }
 

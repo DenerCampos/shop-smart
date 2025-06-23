@@ -15,7 +15,7 @@ export interface ICoinRepository {
   findAll(page: number, limit: number): Promise<[Coin[], number]>;
   find(id: string): Promise<Coin | null>;
   findByUserId(userId: string): Promise<Coin | null>;
-  update(id: string, updateCoin: UpdateCoinDto): Promise<Coin>;
+  update(coin: Coin, updateCoin: UpdateCoinDto): Promise<Coin>;
   remove(id: string): Promise<Coin>;
   delete(id: string): Promise<boolean>;
   updateTransaction(

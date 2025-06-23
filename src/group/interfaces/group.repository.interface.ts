@@ -10,9 +10,15 @@ export interface IGroupRepository {
   ): Promise<Group>;
   findAll(page: number, limit: number): Promise<[Group[], number]>;
   find(id: string): Promise<Group | null>;
-  update(id: string, updateGroup: UpdateGroupDto): Promise<Group>;
+  update(
+    group: Group,
+    updateGroup: UpdateGroupDto,
+    manager?: EntityManager,
+  ): Promise<Group>;
   remove(id: string): Promise<Group>;
   delete(id: string): Promise<boolean>;
   findByItemIdOrName(id: string, name: string): Promise<Group | null>;
   countAll(): Promise<number>;
+  exist(name: string, group: Group): Promise<boolean>;
+  findByName(name: string): Promise<Group | null>;
 }

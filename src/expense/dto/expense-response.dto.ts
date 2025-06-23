@@ -1,8 +1,10 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { ItemResponseDto } from './item-response.dto';
+import { PaymentResponseDto } from 'src/payment/dto/payment-response.dto';
+import { StoreResponseDto } from 'src/store/dto/store-response.dto';
 
 export class ExpenseResponseDto {
-  @Exclude()
+  @Expose()
   id: string;
 
   @Expose()
@@ -28,6 +30,14 @@ export class ExpenseResponseDto {
 
   @Exclude()
   deletedAt: Date;
+
+  @Expose()
+  @Type(() => PaymentResponseDto)
+  payment: PaymentResponseDto;
+
+  @Expose()
+  @Type(() => StoreResponseDto)
+  store: StoreResponseDto;
 
   @Expose()
   @Type(() => ItemResponseDto)

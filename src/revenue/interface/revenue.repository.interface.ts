@@ -2,12 +2,17 @@ import { User } from 'src/user/entities/user.entity';
 import { CreateRevenueDto } from '../dto/create-revenue.dto';
 import { UpdateRevenueDto } from '../dto/update-revenue.dto';
 import { Revenue } from '../entities/revenue.entity';
+import { EntityManager } from 'typeorm';
 
 export interface IRevenueRepository {
   create(user: User, createRevenueDto: CreateRevenueDto): Promise<Revenue>;
   findAll(page: number, limit: number): Promise<[Revenue[], number]>;
   find(id: string): Promise<Revenue | null>;
-  update(id: string, updateRevenue: UpdateRevenueDto): Promise<Revenue>;
+  update(
+    revenue: Revenue,
+    updateRevenue: UpdateRevenueDto,
+    manager?: EntityManager,
+  ): Promise<Revenue>;
   remove(id: string): Promise<Revenue>;
   delete(id: string): Promise<boolean>;
   findByPeriod(

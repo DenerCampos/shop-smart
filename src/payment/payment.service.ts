@@ -7,6 +7,8 @@ import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { Payment } from './entities/payment.entity';
 import { PaymentListDto } from './dto/payment-list.dto';
 import { EntityManager } from 'typeorm';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 
 @Injectable()
 export class PaymentService {
@@ -55,8 +57,32 @@ export class PaymentService {
   async update(
     paymentId: string,
     updatePaymentDto: UpdatePaymentDto,
+    manager?: EntityManager,
   ): Promise<Payment> {
-    return this.paymentRepository.update(paymentId, updatePaymentDto);
+    const updatePayment = await this.paymentRepository.find(paymentId);
+
+    if (!updatePayment) {
+      throw new UpdateException();
+    }
+
+    const existPayment = await this.paymentRepository.exist(
+      updatePaymentDto.name,
+      updatePayment,
+    );
+
+    if (existPayment) {
+      throw new AlreadyExistsException();
+    }
+
+    return this.paymentRepository.update(
+      updatePayment,
+      updatePaymentDto,
+      manager,
+    );
+  }
+
+  async findByName(name: string): Promise<Payment | null> {
+    return this.paymentRepository.findByName(name);
   }
 
   async delete(paymentId: string): Promise<boolean> {

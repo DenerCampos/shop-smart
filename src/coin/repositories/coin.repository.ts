@@ -66,15 +66,9 @@ export class CoinRepository implements ICoinRepository {
     });
   }
 
-  async update(id: string, updateCoinDto: UpdateCoinDto): Promise<Coin> {
-    const updateCoin = await this.coinEntity.findOneBy({ id });
-
-    if (!updateCoin) {
-      throw new UpdateException();
-    }
-
+  async update(coin: Coin, updateCoinDto: UpdateCoinDto): Promise<Coin> {
     return await this.coinEntity.save({
-      ...updateCoin,
+      ...coin,
       ...updateCoinDto,
     });
   }

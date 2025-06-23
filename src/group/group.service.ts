@@ -7,6 +7,8 @@ import { AppConfig } from 'src/common/app-config/app.config';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { GroupListDto } from './dto/group-list.dto';
 import { EntityManager } from 'typeorm';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 
 @Injectable()
 export class GroupService {
@@ -24,6 +26,10 @@ export class GroupService {
     manager?: EntityManager,
   ): Promise<Group> {
     return this.groupRepository.create(createGroupDto, manager);
+  }
+
+  async findByName(name: string): Promise<Group | null> {
+    return this.groupRepository.findByName(name);
   }
 
   async findAll(userList: GroupListDto): Promise<paginationData<Group>> {
@@ -52,8 +58,24 @@ export class GroupService {
   async update(
     groupId: string,
     updateGroupDto: UpdateGroupDto,
+    manager?: EntityManager,
   ): Promise<Group> {
-    return this.groupRepository.update(groupId, updateGroupDto);
+    const updateGroup = await this.groupRepository.find(groupId);
+
+    if (!updateGroup) {
+      throw new UpdateException();
+    }
+
+    const existStore = await this.groupRepository.exist(
+      updateGroupDto.name,
+      updateGroup,
+    );
+
+    if (existStore) {
+      throw new AlreadyExistsException();
+    }
+
+    return this.groupRepository.update(updateGroup, updateGroupDto, manager);
   }
 
   async remove(groupId: string): Promise<Group> {

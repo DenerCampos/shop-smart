@@ -10,6 +10,8 @@ import { IUserRepository } from './interfaces/user.repository.interface';
 import { User } from './entities/user.entity';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { UserListDto } from './dto/user-list.dto';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 
 @Injectable()
 export class UserService {
@@ -77,7 +79,22 @@ export class UserService {
       updateUserDto.password = hash;
     }
 
-    return await this.userRepository.update(userId, updateUserDto);
+    const updateUser = await this.userRepository.find(userId);
+
+    if (!updateUser) {
+      throw new UpdateException();
+    }
+
+    const existUser = await this.userRepository.exist(
+      updateUserDto.email,
+      updateUser,
+    );
+
+    if (existUser) {
+      throw new AlreadyExistsException();
+    }
+
+    return this.userRepository.update(updateUser, updateUserDto);
   }
 
   async delete(userId: string): Promise<boolean> {

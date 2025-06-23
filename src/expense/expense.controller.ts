@@ -20,6 +20,8 @@ import { ResponseService } from 'src/common/response/response';
 import { ExpenseListDto } from './dto/expense-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
 import { ValueExpenseCurrentResponseDto } from './dto/value-expense-current-response.dto';
+import { UpdateItemDto } from './dto/update-item.dto';
+import { ItemResponseDto } from './dto/item-response.dto';
 
 @Controller('/expense')
 export class ExpenseController {
@@ -86,7 +88,21 @@ export class ExpenseController {
   ): Promise<ExpenseResponseDto> {
     const expense = await this.expenseService.update(id, updateExpenseDto);
 
+    console.log('expense', expense);
+    
+
     return this.responseService.mapToDto(ExpenseResponseDto, expense);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('/item/:id')
+  async updateItem(
+    @Param('id') id: string,
+    @Body() updateItemDto: UpdateItemDto,
+  ): Promise<ItemResponseDto> {
+    const item = await this.expenseService.updateItem(id, updateItemDto);
+
+    return this.responseService.mapToDto(ItemResponseDto, item);
   }
 
   @UseGuards(AuthGuard)

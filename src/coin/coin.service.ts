@@ -76,7 +76,13 @@ export class CoinService {
   }
 
   async update(coinId: string, updateCoinDto: UpdateCoinDto): Promise<Coin> {
-    return this.coinRepository.update(coinId, updateCoinDto);
+    const coin = await this.coinRepository.find(coinId);
+
+    if (!coin) {
+      throw new NotExistException();
+    }
+
+    return this.coinRepository.update(coin, updateCoinDto);
   }
 
   async remove(coinId: string): Promise<Coin> {

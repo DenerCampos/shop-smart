@@ -7,6 +7,8 @@ import { StoreListDto } from './dto/store-list.dto';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { EntityManager } from 'typeorm';
+import { UpdateException } from 'src/exception/updateException';
+import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 
 @Injectable()
 export class StoreService {
@@ -49,11 +51,32 @@ export class StoreService {
     return this.storeRepository.find(storeId);
   }
 
+  async findByName(name: string): Promise<Store | null> {
+    return this.storeRepository.findByName(name);
+  }
+
   async update(
     storeId: string,
     updateStoreDto: UpdateStoreDto,
+    manager?: EntityManager,
   ): Promise<Store> {
-    return this.storeRepository.update(storeId, updateStoreDto);
+    const updateStore = await this.storeRepository.find(storeId);
+
+    if (!updateStore) {
+      throw new UpdateException();
+    }
+
+    const existStore = await this.storeRepository.exist(
+      updateStoreDto.name,
+      updateStore,
+    );
+
+    if (existStore) {
+      throw new AlreadyExistsException();
+    }
+
+    // atualiza o novo store
+    return this.storeRepository.update(updateStore, updateStoreDto, manager);
   }
 
   async delete(storeId: string): Promise<boolean> {

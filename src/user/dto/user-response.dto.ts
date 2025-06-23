@@ -1,7 +1,7 @@
 import { Exclude, Expose } from 'class-transformer';
 
 export class UserResponseDto {
-  @Exclude()
+  @Expose()
   id: string;
 
   @Expose()

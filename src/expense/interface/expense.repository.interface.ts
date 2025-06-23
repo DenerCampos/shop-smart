@@ -8,6 +8,7 @@ import { CreateExpenseEntityDto } from '../dto/create-expense-entity.dto';
 import { Store } from 'src/store/entities/store.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { CreateItemEntityDto } from '../dto/create-item-entity.dto';
+import { UpdateItemEntityDto } from '../dto/update-item-entity.dto';
 
 export interface IExpenseRepository {
   create(
@@ -25,7 +26,16 @@ export interface IExpenseRepository {
   ): Promise<Item>;
   findAll(page: number, limit: number): Promise<[Expense[], number]>;
   find(id: string): Promise<Expense | null>;
-  update(id: string, updateExpense: UpdateExpenseDto): Promise<Expense>;
+  update(
+    expense: Expense,
+    updateExpense: UpdateExpenseDto,
+    manager?: EntityManager,
+  ): Promise<Expense>;
+  UpdateItem(
+    item: Item,
+    updateItemDto: UpdateItemEntityDto,
+    manager?: EntityManager,
+  ): Promise<Item>;
   remove(id: string): Promise<Expense>;
   delete(id: string): Promise<boolean>;
   findByPeriod(
@@ -37,4 +47,6 @@ export interface IExpenseRepository {
   exist(): Promise<boolean>;
   getLatest(userId: string, limit: number): Promise<Expense[] | []>;
   countAll(): Promise<number>;
+  findItemById(id: string): Promise<Item | null>;
+  findAllItemsByExpenseId(expenseId: string): Promise<Item[]>;
 }

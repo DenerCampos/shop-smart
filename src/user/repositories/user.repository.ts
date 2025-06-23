@@ -71,31 +71,22 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const updateUser = await this.userEntity.findOneBy({ id });
-
-    if (!updateUser) {
-      throw new UpdateException();
-    }
-
+  async exist(email: string, user: User): Promise<boolean> {
     const existUser = await this.userEntity.findOne({
       where: {
-        email: ILike(`%${updateUserDto.email}%`),
-        id: Not(Equal(updateUser.id)),
+        email: ILike(`%${email}%`),
+        id: Not(Equal(user.id)),
       },
     });
 
-    if (existUser) {
-      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
-      throw new AlreadyExistsException();
-    }
+    return existUser ? true : false;
+  }
 
-    const user = await this.userEntity.save({
-      ...updateUser,
+  async update(user: User, updateUserDto: UpdateUserDto): Promise<User> {
+    return await this.userEntity.save({
+      ...user,
       ...updateUserDto,
     });
-
-    return user;
   }
 
   async remove(id: string): Promise<User> {

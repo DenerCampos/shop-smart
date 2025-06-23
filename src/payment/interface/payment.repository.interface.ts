@@ -10,8 +10,14 @@ export interface IPaymentRepository {
   ): Promise<Payment>;
   findAll(page: number, limit: number): Promise<[Payment[], number]>;
   find(id: string): Promise<Payment | null>;
-  update(id: string, updateStore: UpdatePaymentDto): Promise<Payment>;
+  update(
+    payment: Payment,
+    updateStore: UpdatePaymentDto,
+    manager?: EntityManager,
+  ): Promise<Payment>;
   remove(id: string): Promise<Payment>;
   delete(id: string): Promise<boolean>;
   countAll(): Promise<number>;
+  exist(name: string, payment: Payment): Promise<boolean>;
+  findByName(name: string): Promise<Payment | null>;
 }

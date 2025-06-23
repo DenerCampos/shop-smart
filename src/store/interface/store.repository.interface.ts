@@ -10,8 +10,14 @@ export interface IStoreRepository {
   ): Promise<Store>;
   findAll(page: number, limit: number): Promise<[Store[], number]>;
   find(id: string): Promise<Store | null>;
-  update(id: string, updateStore: UpdateStoreDto): Promise<Store>;
+  update(
+    store: Store,
+    updateStore: UpdateStoreDto,
+    manager?: EntityManager,
+  ): Promise<Store>;
   remove(id: string): Promise<Store>;
   delete(id: string): Promise<boolean>;
   countAll(): Promise<number>;
+  exist(name: string, store: Store): Promise<boolean>;
+  findByName(name: string): Promise<Store | null>;
 }

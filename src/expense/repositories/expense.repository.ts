@@ -13,6 +13,7 @@ import { CreateExpenseEntityDto } from '../dto/create-expense-entity.dto';
 import { Store } from 'src/store/entities/store.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { CreateItemEntityDto } from '../dto/create-item-entity.dto';
+import { UpdateItemEntityDto } from '../dto/update-item-entity.dto';
 
 @Injectable()
 export class ExpenseRepository implements IExpenseRepository {
@@ -63,6 +64,10 @@ export class ExpenseRepository implements IExpenseRepository {
 
   async findAll(page: number, limit: number): Promise<[Expense[], number]> {
     const queryBuilder = this.expenseEntity.createQueryBuilder('expense');
+    queryBuilder.leftJoinAndSelect('expense.items', 'item');
+    queryBuilder.leftJoinAndSelect('expense.payment', 'payment');
+    queryBuilder.leftJoinAndSelect('expense.store', 'store');
+    queryBuilder.leftJoinAndSelect('item.group', 'group');
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
@@ -78,33 +83,51 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async find(id: string): Promise<Expense | null> {
-    return await this.expenseEntity.findOneBy({ id });
+    return await this.expenseEntity.findOne({
+      where: { id },
+      relations: ['items', 'items.group', 'payment', 'store'],
+    });
+  }
+
+  async findItemById(id: string): Promise<Item | null> {
+    return await this.itemEntity.findOne({
+      where: { id },
+      relations: ['group', 'expense'],
+    });
+  }
+
+  async findAllItemsByExpenseId(expenseId: string): Promise<Item[]> {
+    return await this.itemEntity.find({
+      where: { expense: { id: expenseId } },
+      relations: ['group'],
+    });
   }
 
   async update(
-    id: string,
+    expense: Expense,
     updateExpenseDto: UpdateExpenseDto,
+    manager?: EntityManager,
   ): Promise<Expense> {
-    const updateExpense = await this.expenseEntity.findOneBy({ id });
+    const repository = manager
+      ? manager.getRepository(Expense)
+      : this.expenseEntity;
 
-    if (!updateExpense) {
-      throw new UpdateException();
-    }
-
-    // const existExpense = await this.expenseEntity.findOne({
-    //  where: {
-    //    name: ILike(),
-    //    id: Not(Equal(updateExpense.id)),
-    //  },
-    // });
-
-    // if (existExpense) {
-    //  throw new AlreadyExistsException();
-    // } // caso precisa verificar se ja existe com o mesmo nome
-
-    return await this.expenseEntity.save({
-      ...updateExpense,
+    return await repository.save({
+      ...expense,
       ...updateExpenseDto,
+    });
+  }
+
+  async UpdateItem(
+    item: Item,
+    updateItemDto: UpdateItemEntityDto,
+    manager?: EntityManager,
+  ): Promise<Item> {
+    const repository = manager ? manager.getRepository(Item) : this.itemEntity;
+
+    return await repository.save({
+      ...item,
+      ...updateItemDto,
     });
   }
 

@@ -13,6 +13,8 @@ import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { User } from 'src/user/entities/user.entity';
 import { Revenue } from './entities/revenue.entity';
 import { RevenueListDto } from './dto/revenue-list.dto';
+import { EntityManager } from 'typeorm';
+import { UpdateException } from 'src/exception/updateException';
 
 @Injectable()
 export class RevenueService {
@@ -59,8 +61,19 @@ export class RevenueService {
   async update(
     revenueId: string,
     updateRevenueDto: UpdateRevenueDto,
+    manager?: EntityManager,
   ): Promise<Revenue> {
-    return this.revenueRepository.update(revenueId, updateRevenueDto);
+    const updateRevenue = await this.revenueRepository.find(revenueId);
+
+    if (!updateRevenue) {
+      throw new UpdateException();
+    }
+
+    return this.revenueRepository.update(
+      updateRevenue,
+      updateRevenueDto,
+      manager,
+    );
   }
 
   async remove(revenueId: string): Promise<Revenue> {

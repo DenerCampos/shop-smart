@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Equal, ILike, Not, Repository } from 'typeorm';
+import { EntityManager, Equal, ILike, Not, Repository } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
@@ -44,28 +44,16 @@ export class RevenueRepository implements IRevenueRepository {
   }
 
   async update(
-    id: string,
+    revenue: Revenue,
     updateRevenueDto: UpdateRevenueDto,
+    manager?: EntityManager,
   ): Promise<Revenue> {
-    const updateRevenue = await this.revenueEntity.findOneBy({ id });
+    const repository = manager
+      ? manager.getRepository(Revenue)
+      : this.revenueEntity;
 
-    if (!updateRevenue) {
-      throw new UpdateException();
-    }
-
-    const existRevenue = await this.revenueEntity.findOne({
-      where: {
-        name: ILike(`%${updateRevenueDto.name}%`),
-        id: Not(Equal(updateRevenue.id)),
-      },
-    });
-
-    if (existRevenue) {
-      throw new AlreadyExistsException();
-    }
-
-    return await this.revenueEntity.save({
-      ...updateRevenue,
+    return await repository.save({
+      ...revenue,
       ...updateRevenueDto,
     });
   }

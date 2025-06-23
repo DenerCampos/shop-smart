@@ -52,28 +52,37 @@ export class GroupRepository implements IGroupRepository {
     return await this.groupEntity.findOneBy({ id });
   }
 
-  async update(id: string, updateGroupDto: UpdateGroupDto): Promise<Group> {
-    const updateGroup = await this.groupEntity.findOneBy({ id });
+  async update(
+    group: Group,
+    updateGroupDto: UpdateGroupDto,
+    manager?: EntityManager,
+  ): Promise<Group> {
+    const repository = manager
+      ? manager.getRepository(Group)
+      : this.groupEntity;
 
-    if (!updateGroup) {
-      throw new UpdateException();
-    }
+    return await repository.save({
+      ...group,
+      ...updateGroupDto,
+    });
+  }
 
+  async exist(name: string, group: Group): Promise<boolean> {
     const existGroup = await this.groupEntity.findOne({
       where: {
-        name: ILike(`%${updateGroupDto.name}%`),
-        id: Not(Equal(updateGroup.id)),
+        name: ILike(`%${name}%`),
+        id: Not(Equal(group.id)),
       },
     });
 
-    if (existGroup) {
-      //TODO Olhar depois - https://docs.nestjs.com/exception-filters
-      throw new AlreadyExistsException();
-    }
+    return existGroup ? true : false;
+  }
 
-    return await this.groupEntity.save({
-      ...updateGroup,
-      ...updateGroupDto,
+  async findByName(name: string): Promise<Group | null> {
+    return await this.groupEntity.findOne({
+      where: {
+        name: ILike(`%${name}%`),
+      },
     });
   }
 
