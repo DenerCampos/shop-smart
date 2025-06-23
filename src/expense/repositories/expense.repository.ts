@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
-import { UpdateException } from 'src/exception/updateException';
 import { RemoveException } from 'src/exception/removeException';
 import { IExpenseRepository } from '../interface/expense.repository.interface';
 import { Expense } from '../entities/expense.entity';

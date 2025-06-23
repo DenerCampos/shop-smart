@@ -88,9 +88,6 @@ export class ExpenseController {
   ): Promise<ExpenseResponseDto> {
     const expense = await this.expenseService.update(id, updateExpenseDto);
 
-    console.log('expense', expense);
-    
-
     return this.responseService.mapToDto(ExpenseResponseDto, expense);
   }
 

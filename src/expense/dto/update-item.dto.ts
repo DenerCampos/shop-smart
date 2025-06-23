@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { UpdateGroupDto } from 'src/group/dto/update-group.dto';
 import { groupType } from 'src/group/types/groupType';
 import { CreateItemDto } from './create-item.dto';

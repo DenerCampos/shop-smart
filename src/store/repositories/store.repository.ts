@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager, Equal, ILike, Not, Repository } from 'typeorm';
-import { UpdateException } from 'src/exception/updateException';
-import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
 import { IStoreRepository } from '../interface/store.repository.interface';
 import { Store } from '../entities/store.entity';
