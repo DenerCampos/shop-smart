@@ -1,4 +1,4 @@
-import { IsEmail, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString } from 'class-validator';
 import { CreateUserDto } from './create-user.dto';
 import { PartialType } from '@nestjs/swagger';
 
