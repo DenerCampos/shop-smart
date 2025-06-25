@@ -39,7 +39,7 @@ export class ProfileService {
       expenses: expenses.value,
       coins: coins,
       isFirstAccess: !existRevenue,
-      newMonth: newMonth,
+      newMonth: existRevenue && newMonth,
     });
   }
 
