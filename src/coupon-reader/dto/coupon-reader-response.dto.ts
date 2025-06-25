@@ -1,30 +1,8 @@
 import { Exclude, Expose, Type } from 'class-transformer';
+import { PaymentResponseDto } from 'src/payment/dto/payment-response.dto';
+import { StoreResponseDto } from 'src/store/dto/store-response.dto';
+import { CouponReaderItemResponseDto } from './coupon-reader-item-response.dto';
 
-// DTO para cada item individual
-export class CouponItemDto {
-  @Expose()
-  code: string;
-
-  @Expose()
-  name: string;
-
-  @Expose()
-  quantity: number;
-
-  @Expose()
-  unit: string;
-
-  @Expose()
-  value: number;
-
-  @Expose()
-  total: number;
-
-  @Expose()
-  group: string;
-}
-
-// DTO principal de resposta
 export class CouponReaderResponseDto {
   @Exclude()
   url: string;
@@ -39,6 +17,20 @@ export class CouponReaderResponseDto {
   date: Date;
 
   @Expose()
-  @Type(() => CouponItemDto)
-  items: CouponItemDto[];
+  value: number;
+
+  @Expose()
+  repeat: boolean;
+
+  @Expose()
+  @Type(() => PaymentResponseDto)
+  payment: PaymentResponseDto;
+
+  @Expose()
+  @Type(() => StoreResponseDto)
+  store: StoreResponseDto;
+
+  @Expose()
+  @Type(() => CouponReaderItemResponseDto)
+  items: CouponReaderItemResponseDto[];
 }

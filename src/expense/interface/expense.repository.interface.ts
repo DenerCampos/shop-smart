@@ -49,4 +49,7 @@ export interface IExpenseRepository {
   countAll(): Promise<number>;
   findItemById(id: string): Promise<Item | null>;
   findAllItemsByExpenseId(expenseId: string): Promise<Item[]>;
+  getMostUsedPaymentName(): Promise<string | null>;
+  getGroupByItemName(itemName: string): Promise<string | null>;
+  getGroupByItemNamePartial(itemName: string): Promise<string | null>;
 }

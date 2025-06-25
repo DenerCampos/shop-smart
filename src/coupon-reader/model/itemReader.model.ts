@@ -11,6 +11,10 @@ enum UnitType {
   FD = 'fd', // Fardo
 }
 
+type Gruop = {
+  name: string;
+};
+
 export class ItemReaderModel {
   code: string;
   name: string;
@@ -18,7 +22,7 @@ export class ItemReaderModel {
   unit: string;
   value: number;
   total: number;
-  group: string;
+  group: Gruop;
 
   unitLabels: Record<string, string> = {
     [UnitType.KG]: 'Quilograma',
@@ -43,7 +47,7 @@ export class ItemReaderModel {
     this.unit = this.getUnitValue(data.unit);
     this.value = data.value;
     this.total = data.total;
-    this.group = data.group || this.defaultGroup;
+    this.group = { name: this.defaultGroup };
   }
 
   private getUnitValue(value: string): string {

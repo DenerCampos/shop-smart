@@ -1,17 +1,30 @@
 import axios from 'axios';
 import cheerio from 'cheerio';
 import { ItemReaderModel } from './itemReader.model';
+import { val } from 'cheerio/lib/api/attributes';
 
 interface IDescriptionAndCode {
   code: string;
   description: string;
 }
 
+type Store = {
+  name: string;
+};
+
+type Payment = {
+  name: string;
+};
+
 export class CouponReaderModel {
   url: string;
   uri: string;
   name?: string;
   date?: Date;
+  value: number;
+  repeat: boolean;
+  payment: Payment;
+  store: Store;
   items: ItemReaderModel[] = [];
   baseUrl =
     'https://portalsped.fazenda.mg.gov.br/portalnfce/sistema/qrcode.xhtml?p=';
@@ -20,6 +33,10 @@ export class CouponReaderModel {
     this.url = `${this.baseUrl}${url}`;
     this.uri = url;
     this.date = new Date();
+    this.value = 0;
+    this.repeat = false;
+    this.payment = { name: '' };
+    this.store = { name: '' };
   }
 
   private convertStringToDecimal(value: string): number {
@@ -96,7 +113,7 @@ export class CouponReaderModel {
           const { code: itemCode, description: itemName } =
             this.extractDescriptionAndCode($(element).text());
           item.code = itemCode;
-          item.name = itemName;
+          item.name = this.capitalize(itemName);
         }
 
         if (index === 1) {
@@ -158,6 +175,9 @@ export class CouponReaderModel {
           this.items.push(item);
         });
       }
+
+      const value = this.items.reduce((total, item) => total + item.total, 0);
+      this.value = this.convertStringToDecimal(value.toString());
     } catch (error) {
       console.error('Error fetching URL:', error);
       throw new Error('Error fetching URL');

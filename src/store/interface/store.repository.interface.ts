@@ -20,4 +20,5 @@ export interface IStoreRepository {
   countAll(): Promise<number>;
   exist(name: string, store: Store): Promise<boolean>;
   findByName(name: string): Promise<Store | null>;
+  getAllNames(max: number): Promise<string[]>;
 }

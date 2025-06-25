@@ -110,4 +110,13 @@ export class StoreRepository implements IStoreRepository {
 
     return result.affected === 1 ? true : false;
   }
+
+  async getAllNames(max: number): Promise<string[]> {
+    const stores = await this.storeEntity.find({
+      select: ['name'],
+      take: max,
+    });
+
+    return stores.map((store) => store.name);
+  }
 }

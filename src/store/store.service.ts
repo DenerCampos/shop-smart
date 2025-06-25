@@ -47,6 +47,10 @@ export class StoreService {
     return paginateData;
   }
 
+  async getAllNames(max = 200): Promise<string[]> {
+    return this.storeRepository.getAllNames(max);
+  }
+
   async find(storeId: string): Promise<Store | null> {
     return this.storeRepository.find(storeId);
   }

@@ -62,15 +62,24 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async findAll(page: number, limit: number): Promise<[Expense[], number]> {
-    const queryBuilder = this.expenseEntity.createQueryBuilder('expense');
+    const queryBuilder = this.expenseEntity
+      .createQueryBuilder('expense')
+      .withDeleted(); // Permite buscar registros deletados
+
     queryBuilder.leftJoinAndSelect('expense.items', 'item');
     queryBuilder.leftJoinAndSelect('expense.payment', 'payment');
     queryBuilder.leftJoinAndSelect('expense.store', 'store');
     queryBuilder.leftJoinAndSelect('item.group', 'group');
 
+    // Filtrar para não trazer expense e item deletados
+    queryBuilder.where('expense.deletedAt IS NULL');
+    queryBuilder.andWhere('(item.deletedAt IS NULL OR item.id IS NULL)');
+
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
+
+    queryBuilder.orderBy('expense.createdAt', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }
@@ -198,5 +207,44 @@ export class ExpenseRepository implements IExpenseRepository {
       .orderBy('expense.createdAt', 'DESC');
 
     return await query.getMany();
+  }
+
+  async getMostUsedPaymentName(): Promise<string | null> {
+    const result = await this.expenseEntity
+      .createQueryBuilder('expense')
+      .innerJoin('payment', 'payment')
+      .select('payment.name', 'paymentName')
+      .addSelect('COUNT(expense.paymentId)', 'usage_count')
+      .where('expense.deletedAt IS NULL')
+      .andWhere('expense.paymentId IS NOT NULL')
+      .groupBy('expense.paymentId')
+      .addGroupBy('payment.name')
+      .orderBy('usage_count', 'DESC')
+      .limit(1)
+      .getRawOne();
+
+    return result?.paymentName || null;
+  }
+
+  async getGroupByItemName(itemName: string): Promise<string | null> {
+    const result = await this.itemEntity
+      .createQueryBuilder('item')
+      .innerJoin('item.group', 'group')
+      .select('group.name', 'groupName')
+      .where('item.name = :itemName', { itemName })
+      .getRawOne();
+
+    return result?.groupName || null;
+  }
+
+  async getGroupByItemNamePartial(itemName: string): Promise<string | null> {
+    const result = await this.itemEntity
+      .createQueryBuilder('item')
+      .innerJoin('group', 'group')
+      .select('group.name', 'groupName')
+      .where('item.name LIKE :itemName', { itemName: `%${itemName}%` })
+      .getRawOne();
+
+    return result?.groupName || null;
   }
 }

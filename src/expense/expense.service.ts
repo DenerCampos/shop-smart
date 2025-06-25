@@ -28,6 +28,8 @@ import { Group } from 'src/group/entities/group.entity';
 export class ExpenseService {
   private readonly limitDefault = 5;
   private url = `${this.appConfig.getBaseUrl()}/expense`;
+  private defaultPayment = 'Cartão de crédito';
+  private defaultGroup = 'Alimentação';
 
   constructor(
     @Inject('IExpenseRepository')
@@ -366,4 +368,22 @@ export class ExpenseService {
 
     return Number((Math.ceil(total * 100) / 100).toFixed(2));
   };
+
+  async getMostUsedPaymentName(): Promise<string> {
+    const paymentName = await this.expenseRepository.getMostUsedPaymentName();
+
+    return paymentName ?? this.defaultPayment;
+  }
+
+  async getGroupNameByItemName(itemName: string): Promise<string> {
+    let groupName = await this.expenseRepository.getGroupByItemName(itemName);
+
+    if (!groupName) {
+      groupName = await this.expenseRepository.getGroupByItemNamePartial(
+        itemName,
+      );
+    }
+
+    return groupName ?? this.defaultGroup;
+  }
 }
