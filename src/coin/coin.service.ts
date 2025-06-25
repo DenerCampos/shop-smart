@@ -1,47 +1,91 @@
-import { Injectable } from '@nestjs/common';
-import { ICoinRepository } from './contracts/coin.repository.interface';
-import { CreateCoinDto } from './dto/createCoin.dto';
-import { CoinModel } from './model/coin.model';
-import { UpdateCoinDto } from './dto/updateCoin.dto';
+import { Inject, Injectable } from '@nestjs/common';
+import { CreateCoinDto } from './dto/create-coin.dto';
+import { UpdateCoinDto } from './dto/update-coin.dto';
 import {
   coinTransactionDescription,
   coinType,
   TransactionType,
 } from './types/coinType';
-import { CreateCoinTransactionDto } from './dto/createCoinTransaction.dto';
-import { UserModel } from 'src/user/model/user.model';
-import { AddCoinDto } from './dto/addCoin.dto';
-import { RemoveCoinDto } from './dto/removeCoin.dto';
+import { AddCoinDto } from './dto/add-coin.dto';
+import { RemoveCoinDto } from './dto/remove-coin.dto';
 import { NotExistException } from 'src/exception/notExistException';
 import { InsufficientResourceException } from 'src/exception/insufficientResourceException';
+import { ICoinRepository } from './interface/coin.repository.interface';
+import { AppConfig } from 'src/common/app-config/app.config';
+import { Pagination, paginationData } from 'src/common/pagination/pagination';
+import { User } from 'src/user/entities/user.entity';
+import { Coin } from './entities/coin.entity';
+import { CoinListDto } from './dto/coin-list.dto';
+import { CreateCoinTransactionDto } from './dto/create-coin-transaction.dto';
+import { EntityManager } from 'typeorm';
+import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 
 @Injectable()
 export class CoinService {
-  constructor(private coinRepository: ICoinRepository) {}
+  private url = `${this.appConfig.getBaseUrl()}/coin`;
+  private addCoinsTypes = {
+    coupon: 5,
+    group: 2,
+    payment: 2,
+    store: 2,
+    resource: 2,
+  };
+  private removeCoinsTypes = {
+    imagem: 50,
+    theme: 200,
+    color: 10,
+  };
+
+  constructor(
+    @Inject('ICoinRepository')
+    private coinRepository: ICoinRepository,
+    private appConfig: AppConfig,
+    private pagination: Pagination,
+    private queryRunnerFactory: QueryRunnerFactory,
+  ) {}
 
   async create(
-    user: UserModel,
+    user: User,
     createCoinDto: CreateCoinDto,
-  ): Promise<CoinModel> {
-    return this.coinRepository.create(user.id, createCoinDto);
+    manager?: EntityManager,
+  ): Promise<Coin> {
+    return this.coinRepository.create(user, createCoinDto, manager);
   }
 
-  async findAll(): Promise<CoinModel[] | []> {
-    return this.coinRepository.findAll();
+  async findAll(userList: CoinListDto): Promise<paginationData<Coin>> {
+    const offset = this.pagination.getOffset(userList.page, userList.limit);
+
+    const [users, total] = await this.coinRepository.findAll(
+      offset,
+      userList.limit,
+    );
+
+    const paginateData = this.pagination.paginateData<Coin>(
+      users,
+      userList.page,
+      userList.limit,
+      total,
+      this.url,
+    );
+
+    return paginateData;
   }
 
-  async find(coinId: string): Promise<CoinModel | null> {
+  async find(coinId: string): Promise<Coin | null> {
     return this.coinRepository.find(coinId);
   }
 
-  async update(
-    coinId: string,
-    updateCoinDto: UpdateCoinDto,
-  ): Promise<CoinModel> {
-    return this.coinRepository.update(coinId, updateCoinDto);
+  async update(coinId: string, updateCoinDto: UpdateCoinDto): Promise<Coin> {
+    const coin = await this.coinRepository.find(coinId);
+
+    if (!coin) {
+      throw new NotExistException();
+    }
+
+    return this.coinRepository.update(coin, updateCoinDto);
   }
 
-  async remove(coinId: string): Promise<CoinModel> {
+  async remove(coinId: string): Promise<Coin> {
     return this.coinRepository.remove(coinId);
   }
 
@@ -50,23 +94,9 @@ export class CoinService {
   }
 
   private getValueCoinsByType(type: coinType): number {
-    const addTypes = {
-      coupon: 5,
-      group: 2,
-      payment: 2,
-      store: 2,
-      resource: 2,
-    };
-
-    const removeTypes = {
-      imagem: 50,
-      theme: 200,
-      color: 10,
-    };
-
     const types = {
-      ...addTypes,
-      ...removeTypes,
+      ...this.addCoinsTypes,
+      ...this.removeCoinsTypes,
     };
 
     return types[type] || 0;
@@ -76,7 +106,7 @@ export class CoinService {
     return (await this.coinRepository.findByUserId(userId))?.balance || 0;
   }
 
-  async getCreateCoinDto(
+  private async getCreateCoinDto(
     userId: string,
     coins: number,
   ): Promise<CreateCoinDto> {
@@ -96,7 +126,7 @@ export class CoinService {
     return createCoinDto;
   }
 
-  async getCreateCoinTransactionDto(
+  private async getCreateCoinTransactionDto(
     userId: string,
     coins: number,
     type: coinType,
@@ -112,7 +142,7 @@ export class CoinService {
     };
   }
 
-  async addCoins(user: UserModel, addCoinDto: AddCoinDto): Promise<CoinModel> {
+  async addCoins(user: User, addCoinDto: AddCoinDto): Promise<Coin> {
     const coins = this.getValueCoinsByType(addCoinDto.type);
     const createCoinDto = await this.getCreateCoinDto(user.id, coins);
     const createCoinTransactionDto = await this.getCreateCoinTransactionDto(
@@ -121,14 +151,37 @@ export class CoinService {
       addCoinDto.type,
     );
 
-    return this.coinRepository.updateCoinsAndTransaction(
-      user.id,
+    return this.updateCoinsAndTransaction(
+      user,
       createCoinDto,
       createCoinTransactionDto,
     );
   }
 
-  async getRemoveCoinDto(
+  private async updateCoinsAndTransaction(
+    user: User,
+    createCoinDto: CreateCoinDto,
+    createCoinTransactionDto: CreateCoinTransactionDto,
+  ): Promise<Coin> {
+    try {
+      await this.queryRunnerFactory.startTransaction();
+
+      const coin = await this.coinRepository.updateCoins(user, createCoinDto);
+      await this.coinRepository.updateTransaction(
+        user,
+        createCoinTransactionDto,
+      );
+
+      await this.queryRunnerFactory.commitTransaction();
+
+      return coin;
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw new Error(error.message);
+    }
+  }
+
+  private async getRemoveCoinDto(
     userId: string,
     coins: number,
   ): Promise<CreateCoinDto> {
@@ -147,7 +200,7 @@ export class CoinService {
     };
   }
 
-  async getRemoveCoinTransactionDto(
+  private async getRemoveCoinTransactionDto(
     userId: string,
     coins: number,
     type: coinType,
@@ -163,7 +216,7 @@ export class CoinService {
     };
   }
 
-  async removeCoins(user: UserModel, removeCoinDto: RemoveCoinDto) {
+  async removeCoins(user: User, removeCoinDto: RemoveCoinDto) {
     const coins = this.getValueCoinsByType(removeCoinDto.type);
 
     const userCoin = await this.coinRepository.findByUserId(user.id);
@@ -187,14 +240,14 @@ export class CoinService {
       removeCoinDto.type,
     );
 
-    return this.coinRepository.updateCoinsAndTransaction(
-      user.id,
+    return this.updateCoinsAndTransaction(
+      user,
       subtractCoinDto,
       subtractCoinTransactionDto,
     );
   }
 
-  async getCoinsByUser(user: UserModel): Promise<number> {
+  async getCoinsByUser(user: User): Promise<number> {
     const coin = await this.coinRepository.findByUserId(user.id);
 
     return coin?.balance || 0;

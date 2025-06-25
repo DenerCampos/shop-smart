@@ -1,10 +1,13 @@
-import { Coupon } from 'src/coupon/entities/coupon.entity';
+import { Coin } from 'src/coin/entities/coin.entity';
+import { CoinTransaction } from 'src/coin/entities/coinTransaction.entity';
+import { Revenue } from 'src/revenue/entities/revenue.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
   OneToMany,
+  OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -36,6 +39,9 @@ export class User {
   @Column({ nullable: true })
   token: string;
 
+  @Column({ nullable: true })
+  refreshtoken: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -45,6 +51,12 @@ export class User {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Coupon, (coupon) => coupon.user)
-  coupons: Coupon[];
+  @OneToMany(() => Revenue, (revenue) => revenue.user)
+  revenues: Revenue[];
+
+  @OneToOne(() => Coin, (coin) => coin.user)
+  coin: Coin[];
+
+  @OneToMany(() => CoinTransaction, (coinTransactions) => coinTransactions.user)
+  coinTransactions: CoinTransaction[];
 }

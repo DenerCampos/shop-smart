@@ -10,68 +10,55 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UpdateUserDto } from './dto/updateUser.dto';
-import { CreateUserDto } from './dto/createUser.dto';
-import { UserModel } from './model/user.model';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { AuthGuard } from '../auth/auth.guard';
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { ProfileDto } from './dto/profile.dto';
-import { CompleteProfileDto } from './dto/completeProfile.dto';
-import { GetLatestDto } from './dto/getLatest.dto';
-import { registration } from './types/userType';
+import { UserResponseDto } from './dto/user-response.dto';
+import { ResponseService } from 'src/common/response/response';
+import { UserListDto } from './dto/user-list.dto';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly responseService: ResponseService,
+  ) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto): Promise<UserModel> {
-    return this.userService.create(createUserDto);
-  }
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
+    const createUser = await this.userService.create(createUserDto);
 
-  @UseGuards(AuthGuard)
-  @Get('profile')
-  profile(@CurrentUser() user: UserModel): Promise<ProfileDto> {
-    return this.userService.getProfile(user.id);
-  }
-
-  @UseGuards(AuthGuard)
-  @Post('complete-profile')
-  completeProfile(
-    @CurrentUser() user: UserModel,
-    @Body() completeUserDto: CompleteProfileDto,
-  ): Promise<void> {
-    return this.userService.completeProfile(user, completeUserDto);
+    return this.responseService.mapToDto(UserResponseDto, createUser);
   }
 
   @UseGuards(AuthGuard)
   @Get()
-  findAll(): Promise<UserModel[]> {
-    return this.userService.findAll();
-  }
+  async findAll(
+    @Query() listDto: UserListDto,
+  ): Promise<paginationData<UserResponseDto>> {
+    const users = await this.userService.findAll(listDto);
 
-  @UseGuards(AuthGuard)
-  @Get('/latest-registrations')
-  async getLatestRegistrations(
-    @Query() query: GetLatestDto,
-    @CurrentUser() user: UserModel,
-  ): Promise<registration[] | []> {
-    return this.userService.getLatestRegistrations(user, query.limit);
+    return this.responseService.mapPaginatedToDto(UserResponseDto, users);
   }
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<UserModel> {
-    return this.userService.find(id);
+  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
+    const user = await this.userService.find(id);
+
+    return this.responseService.mapToDto(UserResponseDto, user);
   }
 
   @UseGuards(AuthGuard)
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
-  ): Promise<UserModel> {
-    return this.userService.update(id, updateUserDto);
+  ): Promise<UserResponseDto> {
+    const user = await this.userService.update(id, updateUserDto);
+
+    return this.responseService.mapToDto(UserResponseDto, user);
   }
 
   @UseGuards(AuthGuard)

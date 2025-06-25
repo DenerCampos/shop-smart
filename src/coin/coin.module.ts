@@ -1,37 +1,33 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { CoinController } from './coin.controller';
 import { CoinService } from './coin.service';
-import { CoinRepository } from './coin.repository';
-import { DataSource } from 'typeorm';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { Coin } from './entities/coin.entity';
 import { CoinTransaction } from './entities/coinTransaction.entity';
-import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 import { UserModule } from 'src/user/user.module';
+import { CommonModule } from 'src/common/common.module';
+import { CoinRepository } from './repositories/coin.repository';
+import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 
 @Module({
-  imports: [forwardRef(() => UserModule)], //user tem que estar aqui pq usa o auth nas rotas
+  imports: [
+    CommonModule,
+    UserModule,
+    TypeOrmModule.forFeature([Coin, CoinTransaction]),
+  ],
   controllers: [CoinController],
   providers: [
+    CoinService,
+    QueryRunnerFactory,
     {
-      provide: CoinRepository,
-      useFactory: (dataSource: DataSource) => {
-        return new CoinRepository(
-          new QueryRunnerFactory(dataSource),
-          dataSource.getRepository(Coin),
-          dataSource.getRepository(CoinTransaction),
-        );
-      },
-      inject: [getDataSourceToken()],
+      provide: 'ICoinRepository',
+      useClass: CoinRepository,
     },
     {
-      provide: CoinService,
-      useFactory: (repository: CoinRepository) => {
-        return new CoinService(repository);
-      },
-      inject: [CoinRepository],
+      provide: 'ICoinTransactionRepository',
+      useClass: CoinRepository,
     },
   ],
-  exports: [CoinService, CoinRepository],
+  exports: [CoinService, 'ICoinRepository', 'ICoinTransactionRepository'],
 })
 export class CoinModule {}

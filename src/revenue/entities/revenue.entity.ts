@@ -1,4 +1,3 @@
-import { User } from 'src/user/entities/user.entity';
 import {
   Column,
   CreateDateColumn,
@@ -8,6 +7,7 @@ import {
   ManyToOne,
   UpdateDateColumn,
 } from 'typeorm';
+import { User } from 'src/user/entities/user.entity';
 
 @Entity()
 export class Revenue {
@@ -37,7 +37,7 @@ export class Revenue {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @ManyToOne(() => User, (user) => user.coupons)
-  @JoinColumn({ name: 'user_id' })
+  @ManyToOne(() => User, (user) => user.revenues)
+  @JoinColumn({ name: 'userId' })
   user: User;
 }

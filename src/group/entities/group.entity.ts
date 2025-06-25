@@ -1,4 +1,4 @@
-import { Item } from 'src/coupon/entities/item.entity';
+import { Item } from 'src/expense/entities/item.entity';
 import {
   Column,
   CreateDateColumn,

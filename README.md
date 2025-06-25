@@ -74,6 +74,30 @@ npm run generate:module nomeDoModulo
 
 ```
 
+# Arquitetura
+
+## Responsabilidades por Camada
+
+### Controller
+
+- Recebe parâmetros da requisição
+- Valida DTOs
+- Chama o Service
+- Mapeia entidades para DTOs de resposta
+
+### Service
+
+- Implementa a lógica de paginação
+- Aplica filtros e ordenação
+- Constrói metadados da paginação
+- Retorna resultado paginado com entidades
+
+### Repository
+
+- Query building específico
+- Otimizações de banco de dados
+- Reutilização de queries complexas
+
 # TypeORM Commands
 
 Este projeto utiliza TypeORM para gerenciamento de banco de dados. Abaixo estão os comandos disponíveis para trabalhar com migrações e schema.

@@ -5,7 +5,7 @@ import {
   DeleteDateColumn,
   Entity,
   JoinColumn,
-  ManyToOne,
+  OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -37,7 +37,7 @@ export class Coin {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @ManyToOne(() => User, (user) => user.coupons)
-  @JoinColumn({ name: 'user_id' })
+  @OneToOne(() => User, (user) => user.coin)
+  @JoinColumn({ name: 'userId' })
   user: User;
 }

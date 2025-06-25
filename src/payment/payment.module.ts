@@ -1,30 +1,22 @@
 import { Module } from '@nestjs/common';
 import { PaymentController } from './payment.controller';
-import { PaymentService } from './payment.service';
-import { PaymentRepository } from './payment.repository';
-import { DataSource } from 'typeorm';
-import { Payment } from './entities/payment.entity';
-import { getDataSourceToken } from '@nestjs/typeorm';
 import { UserModule } from 'src/user/user.module';
+import { CommonModule } from 'src/common/common.module';
+import { PaymentService } from './payment.service';
+import { PaymentRepository } from './repositories/payment.repository';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Payment } from './entities/payment.entity';
 
 @Module({
-  imports: [UserModule],
+  imports: [CommonModule, UserModule, TypeOrmModule.forFeature([Payment])],
   controllers: [PaymentController],
   providers: [
+    PaymentService,
     {
-      provide: PaymentRepository,
-      useFactory: (dataSource: DataSource) => {
-        return new PaymentRepository(dataSource.getRepository(Payment));
-      },
-      inject: [getDataSourceToken()],
-    },
-    {
-      provide: PaymentService,
-      useFactory: (gateway: PaymentRepository) => {
-        return new PaymentService(gateway);
-      },
-      inject: [PaymentRepository],
+      provide: 'IPaymentRepository',
+      useClass: PaymentRepository,
     },
   ],
+  exports: [PaymentService, 'IPaymentRepository'],
 })
 export class PaymentModule {}

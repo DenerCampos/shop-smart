@@ -1,11 +1,10 @@
-import { Coupon } from 'src/coupon/entities/coupon.entity';
+import { Expense } from 'src/expense/entities/expense.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
   OneToMany,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -31,6 +30,6 @@ export class Payment {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Coupon, (coupon) => coupon.payment)
-  coupons: Coupon[];
+  @OneToMany(() => Expense, (expense) => expense.payment)
+  expenses: Expense[];
 }

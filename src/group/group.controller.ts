@@ -6,43 +6,62 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { GroupService } from './group.service';
-import { UpdateGroupDto } from './dto/updateGroup.dto';
-import { CreateGroupDto } from './dto/createGroup.dto';
-import { GroupModel } from './model/group.model';
+import { UpdateGroupDto } from './dto/update-group.dto';
+import { CreateGroupDto } from './dto/create-group.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { ResponseService } from 'src/common/response/response';
+import { GroupResponseDto } from './dto/group-response.dto';
+import { GroupListDto } from './dto/group-list.dto';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/group')
 export class GroupController {
-  constructor(private readonly groupService: GroupService) {}
+  constructor(
+    private readonly groupService: GroupService,
+    private readonly responseService: ResponseService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  create(@Body() createStoreDto: CreateGroupDto): Promise<GroupModel> {
-    return this.groupService.create(createStoreDto);
+  async create(
+    @Body() createStoreDto: CreateGroupDto,
+  ): Promise<GroupResponseDto> {
+    const createGroup = await this.groupService.create(createStoreDto);
+
+    return this.responseService.mapToDto(GroupResponseDto, createGroup);
   }
 
   @UseGuards(AuthGuard)
   @Get()
-  findAll(): Promise<GroupModel[]> {
-    return this.groupService.findAll();
+  async findAll(
+    @Query() listDto: GroupListDto,
+  ): Promise<paginationData<GroupResponseDto>> {
+    const groups = await this.groupService.findAll(listDto);
+
+    return this.responseService.mapPaginatedToDto(GroupResponseDto, groups);
   }
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<GroupModel> {
-    return this.groupService.find(id);
+  async findOne(@Param('id') id: string): Promise<GroupResponseDto> {
+    const group = await this.groupService.find(id);
+
+    return this.responseService.mapToDto(GroupResponseDto, group);
   }
 
   @UseGuards(AuthGuard)
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateStoreDto: UpdateGroupDto,
-  ): Promise<GroupModel> {
-    return this.groupService.update(id, updateStoreDto);
+  ): Promise<GroupResponseDto> {
+    const group = await this.groupService.update(id, updateStoreDto);
+
+    return this.responseService.mapToDto(GroupResponseDto, group);
   }
 
   @UseGuards(AuthGuard)

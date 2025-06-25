@@ -47,7 +47,7 @@ export class CoinTransaction {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @ManyToOne(() => User, (user) => user.coupons)
-  @JoinColumn({ name: 'user_id' })
+  @ManyToOne(() => User, (user) => user.coinTransactions)
+  @JoinColumn({ name: 'userId' })
   user: User;
 }

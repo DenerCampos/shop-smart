@@ -1,31 +1,22 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { RevenueController } from './revenue.controller';
-import { RevenueService } from './revenue.service';
-import { RevenueRepository } from './revenue.repository';
-import { DataSource } from 'typeorm';
-import { getDataSourceToken } from '@nestjs/typeorm';
-import { Revenue } from './entities/revenue.entity';
 import { UserModule } from 'src/user/user.module';
+import { CommonModule } from 'src/common/common.module';
+import { RevenueService } from './revenue.service';
+import { RevenueRepository } from './repositories/revenue.repository';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Revenue } from './entities/revenue.entity';
 
 @Module({
-  imports: [forwardRef(() => UserModule)],
+  imports: [CommonModule, UserModule, TypeOrmModule.forFeature([Revenue])],
   controllers: [RevenueController],
   providers: [
+    RevenueService,
     {
-      provide: RevenueRepository,
-      useFactory: (dataSource: DataSource) => {
-        return new RevenueRepository(dataSource.getRepository(Revenue));
-      },
-      inject: [getDataSourceToken()],
-    },
-    {
-      provide: RevenueService,
-      useFactory: (gateway: RevenueRepository) => {
-        return new RevenueService(gateway);
-      },
-      inject: [RevenueRepository],
+      provide: 'IRevenueRepository',
+      useClass: RevenueRepository,
     },
   ],
-  exports: [RevenueService, RevenueRepository],
+  exports: [RevenueService, 'IRevenueRepository'],
 })
 export class RevenueModule {}

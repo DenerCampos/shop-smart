@@ -1,4 +1,4 @@
-import { Coupon } from 'src/coupon/entities/coupon.entity';
+import { Expense } from 'src/expense/entities/expense.entity';
 import {
   Column,
   CreateDateColumn,
@@ -30,6 +30,6 @@ export class Store {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToMany(() => Coupon, (coupon) => coupon.store)
-  coupons: Coupon[];
+  @OneToMany(() => Expense, (expense) => expense.store)
+  expenses: Expense[];
 }

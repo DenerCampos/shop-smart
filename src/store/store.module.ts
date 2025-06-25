@@ -1,30 +1,22 @@
 import { Module } from '@nestjs/common';
 import { StoreController } from './store.controller';
 import { StoreService } from './store.service';
-import { StoreRepository } from './store.repository';
-import { DataSource } from 'typeorm';
-import { Store } from './entities/store.entity';
-import { getDataSourceToken } from '@nestjs/typeorm';
 import { UserModule } from 'src/user/user.module';
+import { StoreRepository } from './repositories/store.repository';
+import { CommonModule } from 'src/common/common.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Store } from './entities/store.entity';
 
 @Module({
-  imports: [UserModule],
+  imports: [CommonModule, UserModule, TypeOrmModule.forFeature([Store])],
   controllers: [StoreController],
   providers: [
+    StoreService,
     {
-      provide: StoreRepository,
-      useFactory: (dataSource: DataSource) => {
-        return new StoreRepository(dataSource.getRepository(Store));
-      },
-      inject: [getDataSourceToken()],
-    },
-    {
-      provide: StoreService,
-      useFactory: (gateway: StoreRepository) => {
-        return new StoreService(gateway);
-      },
-      inject: [StoreRepository],
+      provide: 'IStoreRepository',
+      useClass: StoreRepository,
     },
   ],
+  exports: [StoreService, 'IStoreRepository'],
 })
 export class StoreModule {}

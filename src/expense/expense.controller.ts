@@ -6,65 +6,100 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { ExpenseModel } from './model/expense.model';
 import { ExpenseService } from './expense.service';
-import { CreateExpenseDto } from './dto/createExpense.dto';
-import { UpdateExpenseDto } from './dto/updateExpense.dto';
-import { UserModel } from 'src/user/model/user.model';
+import { CreateExpenseDto } from './dto/create-expense.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { GetValueExpenseCurrentDto } from './dto/getValueExpenseCurrent.dto';
+import { User } from 'src/user/entities/user.entity';
+import { ExpenseResponseDto } from './dto/expense-response.dto';
+import { ResponseService } from 'src/common/response/response';
+import { ExpenseListDto } from './dto/expense-list.dto';
+import { paginationData } from 'src/common/pagination/pagination';
+import { ValueExpenseCurrentResponseDto } from './dto/value-expense-current-response.dto';
+import { UpdateItemDto } from './dto/update-item.dto';
+import { ItemResponseDto } from './dto/item-response.dto';
 
 @Controller('/expense')
 export class ExpenseController {
-  constructor(private readonly expenseService: ExpenseService) {}
+  constructor(
+    private readonly expenseService: ExpenseService,
+    private readonly responseService: ResponseService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  create(
-    @CurrentUser() user: UserModel,
+  async create(
+    @CurrentUser() user: User,
     @Body() createExpenseDto: CreateExpenseDto,
-  ): Promise<ExpenseModel> {
-    return this.expenseService.create(user, createExpenseDto);
+  ): Promise<ExpenseResponseDto> {
+    const createExpense = await this.expenseService.create(
+      user,
+      createExpenseDto,
+    );
+
+    return this.responseService.mapToDto(ExpenseResponseDto, createExpense);
   }
 
   @UseGuards(AuthGuard)
   @Get()
-  findAll(): Promise<ExpenseModel[]> {
-    return this.expenseService.findAll();
+  async findAll(
+    @Query() listDto: ExpenseListDto,
+  ): Promise<paginationData<ExpenseResponseDto>> {
+    const expenses = await this.expenseService.findAll(listDto);
+
+    return this.responseService.mapPaginatedToDto(ExpenseResponseDto, expenses);
   }
 
   @UseGuards(AuthGuard)
   @Get('/current-month')
   async getAllByCurrentMonth(
-    @CurrentUser() user: UserModel,
-  ): Promise<ExpenseModel[] | []> {
-    return this.expenseService.getAllByCurrentMonth(user);
+    @CurrentUser() user: User,
+  ): Promise<ExpenseResponseDto[] | []> {
+    const expenses = await this.expenseService.getAllByCurrentMonth(user);
+
+    return this.responseService.mapArrayToDto(ExpenseResponseDto, expenses);
   }
 
   @UseGuards(AuthGuard)
   @Get('/value-current-month')
   async getExpenseByCurrentMonth(
-    @CurrentUser() user: UserModel,
-  ): Promise<GetValueExpenseCurrentDto> {
+    @CurrentUser() user: User,
+  ): Promise<ValueExpenseCurrentResponseDto> {
     return this.expenseService.getExpenseByCurrentMonth(user);
   }
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<ExpenseModel> {
-    return this.expenseService.find(id);
+  async findOne(@Param('id') id: string): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseService.find(id);
+
+    return this.responseService.mapToDto(ExpenseResponseDto, expense);
   }
 
   @UseGuards(AuthGuard)
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateExpenseDto: UpdateExpenseDto,
-  ): Promise<ExpenseModel> {
-    return this.expenseService.update(id, updateExpenseDto);
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseService.update(id, updateExpenseDto);
+
+    return this.responseService.mapToDto(ExpenseResponseDto, expense);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('/item/:id')
+  async updateItem(
+    @Param('id') id: string,
+    @Body() updateItemDto: UpdateItemDto,
+  ): Promise<ItemResponseDto> {
+    const item = await this.expenseService.updateItem(id, updateItemDto);
+
+    return this.responseService.mapToDto(ItemResponseDto, item);
   }
 
   @UseGuards(AuthGuard)

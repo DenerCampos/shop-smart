@@ -6,43 +6,62 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { StoreService } from './store.service';
-import { UpdateStoreDto } from './dto/updateStore.dto';
-import { CreateStoreDto } from './dto/createStore.dto';
-import { StoreModel } from './model/store.model';
+import { UpdateStoreDto } from './dto/update-store.dto';
+import { CreateStoreDto } from './dto/create-store.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { StoreResponseDto } from './dto/store-response.dto';
+import { ResponseService } from 'src/common/response/response';
+import { StoreListDto } from './dto/store-list.dto';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/store')
 export class StoreController {
-  constructor(private readonly storeService: StoreService) {}
+  constructor(
+    private readonly storeService: StoreService,
+    private readonly responseService: ResponseService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  create(@Body() createStoreDto: CreateStoreDto): Promise<StoreModel> {
-    return this.storeService.create(createStoreDto);
+  async create(
+    @Body() createStoreDto: CreateStoreDto,
+  ): Promise<StoreResponseDto> {
+    const createStore = await this.storeService.create(createStoreDto);
+
+    return this.responseService.mapToDto(StoreResponseDto, createStore);
   }
 
   @UseGuards(AuthGuard)
   @Get()
-  findAll(): Promise<StoreModel[]> {
-    return this.storeService.findAll();
+  async findAll(
+    @Query() listDto: StoreListDto,
+  ): Promise<paginationData<StoreResponseDto>> {
+    const stores = await this.storeService.findAll(listDto);
+
+    return this.responseService.mapPaginatedToDto(StoreResponseDto, stores);
   }
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<StoreModel> {
-    return this.storeService.find(id);
+  async findOne(@Param('id') id: string): Promise<StoreResponseDto> {
+    const store = await this.storeService.find(id);
+
+    return this.responseService.mapToDto(StoreResponseDto, store);
   }
 
   @UseGuards(AuthGuard)
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateStoreDto: UpdateStoreDto,
-  ): Promise<StoreModel> {
-    return this.storeService.update(id, updateStoreDto);
+  ): Promise<StoreResponseDto> {
+    const store = await this.storeService.update(id, updateStoreDto);
+
+    return this.responseService.mapToDto(StoreResponseDto, store);
   }
 
   @UseGuards(AuthGuard)

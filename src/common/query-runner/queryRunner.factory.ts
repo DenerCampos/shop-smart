@@ -4,35 +4,36 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class QueryRunnerFactory implements QueryRunnerInterface {
-  private readonly dataSource: DataSource;
   private queryRunner: QueryRunner;
   public manager: EntityManager;
 
-  constructor(dataSource: DataSource) {
-    this.dataSource = dataSource;
+  constructor(private dataSource: DataSource) {}
+
+  async startTransaction(): Promise<void> {
+    // Cria novo QueryRunner para cada transação
     this.queryRunner = this.dataSource.createQueryRunner();
+    await this.queryRunner.connect();
+    await this.queryRunner.startTransaction();
     this.manager = this.queryRunner.manager;
   }
 
-  async startTransaction() {
-    // console.log(
-    //   'startTransaction -> this.queryRunner.isReleased: ',
-    //   this.queryRunner.isReleased,
-    // );
-    // console.log(
-    //   'startTransaction -> this.queryRunner.isTransactionActive: ',
-    //   this.queryRunner.isTransactionActive,
-    // );
-
-    await this.queryRunner.connect();
-    return this.queryRunner.startTransaction();
+  async commitTransaction(): Promise<void> {
+    if (this.queryRunner?.isTransactionActive) {
+      await this.queryRunner.commitTransaction();
+    }
+    await this.release();
   }
 
-  async commitTransaction() {
-    return this.queryRunner.commitTransaction();
+  async rollbackTransaction(): Promise<void> {
+    if (this.queryRunner?.isTransactionActive) {
+      await this.queryRunner.rollbackTransaction();
+    }
+    await this.release();
   }
 
-  async rollbackTransaction() {
-    return this.queryRunner.rollbackTransaction();
+  private async release(): Promise<void> {
+    if (this.queryRunner && !this.queryRunner.isReleased) {
+      await this.queryRunner.release();
+    }
   }
 }
