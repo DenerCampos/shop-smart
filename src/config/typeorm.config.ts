@@ -37,7 +37,7 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
       poolSize: 2, // Máximo de conexões simultâneas
       extra: {
         charset: 'utf8mb4_unicode_ci',
-        connectionLimit: 4, // Igual ao poolSize
+        connectionLimit: 2, // Igual ao poolSize
         idleTimeout: 30000, // Fecha conexões ociosas após 30s
         enableKeepAlive: true, // Mantém conexões vivas
       },
