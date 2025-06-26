@@ -15,13 +15,17 @@ export interface ICoinRepository {
   findAll(page: number, limit: number): Promise<[Coin[], number]>;
   find(id: string): Promise<Coin | null>;
   findByUserId(userId: string): Promise<Coin | null>;
-  update(coin: Coin, updateCoin: UpdateCoinDto): Promise<Coin>;
+  update(
+    coin: Coin,
+    updateCoinDto: UpdateCoinDto,
+    manager?: EntityManager,
+  ): Promise<Coin>;
   remove(id: string): Promise<Coin>;
   delete(id: string): Promise<boolean>;
-  updateTransaction(
+  createTransaction(
     user: User,
     createCoinTransactionDto: CreateCoinTransactionDto,
+    manager?: EntityManager,
   ): Promise<CoinTransaction>;
   countAll(): Promise<number>;
-  updateCoins(user: User, updateCoinDto: UpdateCoinDto): Promise<Coin>;
 }

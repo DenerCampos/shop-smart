@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager, Repository } from 'typeorm';
-import { UpdateException } from 'src/exception/updateException';
 import { RemoveException } from 'src/exception/removeException';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
 import { ICoinRepository } from '../interface/coin.repository.interface';
@@ -66,13 +65,6 @@ export class CoinRepository implements ICoinRepository {
     });
   }
 
-  async update(coin: Coin, updateCoinDto: UpdateCoinDto): Promise<Coin> {
-    return await this.coinEntity.save({
-      ...coin,
-      ...updateCoinDto,
-    });
-  }
-
   async remove(id: string): Promise<Coin> {
     const coin = await this.coinEntity.findOneBy({ id });
 
@@ -90,33 +82,34 @@ export class CoinRepository implements ICoinRepository {
     return result.affected === 1;
   }
 
-  async updateCoins(user: User, updateCoinDto: UpdateCoinDto): Promise<Coin> {
-    const userCoin = await this.coinEntity.findOne({
-      where: {
-        user: { id: user.id },
-      },
-    });
+  async update(
+    coin: Coin,
+    updateCoinDto: UpdateCoinDto,
+    manager?: EntityManager,
+  ): Promise<Coin> {
+    const repository = manager ? manager.getRepository(Coin) : this.coinEntity;
 
-    if (!userCoin) {
-      throw new UpdateException();
-    }
-
-    return await this.coinEntity.save({
-      ...userCoin,
+    return await repository.save({
+      ...coin,
       ...updateCoinDto,
     });
   }
 
-  async updateTransaction(
+  async createTransaction(
     user: User,
     createCoinTransactionDto: CreateCoinTransactionDto,
+    manager?: EntityManager,
   ): Promise<CoinTransaction> {
-    const coinTransaction = this.coinTransactionEntity.create({
+    const repository = manager
+      ? manager.getRepository(CoinTransaction)
+      : this.coinTransactionEntity;
+
+    const coinTransaction = repository.create({
       ...createCoinTransactionDto,
       user: user, // Associar ao usuário
     });
 
-    return await this.coinTransactionEntity.save(coinTransaction);
+    return await repository.save(coinTransaction);
   }
 
   async countAll(): Promise<number> {
