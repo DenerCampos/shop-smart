@@ -29,6 +29,7 @@ export class CoinService {
     payment: 2,
     store: 2,
     resource: 2,
+    revenue: 10,
   };
   private removeCoinsTypes = {
     imagem: 50,

@@ -103,7 +103,7 @@ export class ProfileService {
         id: registration.id as string,
         name: registration.name,
         value: registration.value,
-        coins: 5, // TODO: Implementar coins
+        coins: registration.type === 'revenue' ? 10 : 5, // TODO: Implementar coins
         type: registration.type,
         date: registration.createdAt,
       });

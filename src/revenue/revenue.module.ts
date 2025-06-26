@@ -6,9 +6,15 @@ import { RevenueService } from './revenue.service';
 import { RevenueRepository } from './repositories/revenue.repository';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Revenue } from './entities/revenue.entity';
+import { CoinModule } from 'src/coin/coin.module';
 
 @Module({
-  imports: [CommonModule, UserModule, TypeOrmModule.forFeature([Revenue])],
+  imports: [
+    CommonModule,
+    UserModule,
+    CoinModule,
+    TypeOrmModule.forFeature([Revenue]),
+  ],
   controllers: [RevenueController],
   providers: [
     RevenueService,

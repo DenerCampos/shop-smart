@@ -6,7 +6,8 @@ export type coinType =
   | 'resource'
   | 'imagem'
   | 'theme'
-  | 'color';
+  | 'color'
+  | 'revenue';
 
 export enum TransactionType {
   EARN = 'earn',
@@ -25,4 +26,5 @@ export enum coinTransactionDescription {
   IMAGEM = 'Gastou moedas por comprar uma nova imagem',
   THEME = 'Gastou moedas por comprar um novo tema',
   COLOR = 'Gastou moedas por comprar uma nova cor',
+  REVENUE = 'Ganhou moedas por adicionar uma nova receita',
 }
