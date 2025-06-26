@@ -158,18 +158,36 @@ export class CoinService {
     );
   }
 
+  private async getOrCreateCoin(
+    user: User,
+    createCoinDto: CreateCoinDto,
+  ): Promise<Coin> {
+    return (
+      (await this.coinRepository.findByUserId(user.id)) ||
+      (await this.coinRepository.create(user, createCoinDto))
+    );
+  }
+
   private async updateCoinsAndTransaction(
     user: User,
     createCoinDto: CreateCoinDto,
     createCoinTransactionDto: CreateCoinTransactionDto,
   ): Promise<Coin> {
     try {
+      const userCoin = await this.getOrCreateCoin(user, createCoinDto);
+
       await this.queryRunnerFactory.startTransaction();
 
-      const coin = await this.coinRepository.updateCoins(user, createCoinDto);
-      await this.coinRepository.updateTransaction(
+      const coin = await this.coinRepository.update(
+        userCoin,
+        createCoinDto,
+        this.queryRunnerFactory.manager,
+      );
+
+      await this.coinRepository.createTransaction(
         user,
         createCoinTransactionDto,
+        this.queryRunnerFactory.manager,
       );
 
       await this.queryRunnerFactory.commitTransaction();
