@@ -15,6 +15,9 @@ import { Revenue } from './entities/revenue.entity';
 import { RevenueListDto } from './dto/revenue-list.dto';
 import { EntityManager } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
+import { logResultsPromises, withTimeout } from 'src/common/utils/helpPromises';
+import { CoinService } from 'src/coin/coin.service';
+import { coinType } from 'src/coin/types/coinType';
 
 @Injectable()
 export class RevenueService {
@@ -26,13 +29,27 @@ export class RevenueService {
     private revenueRepository: IRevenueRepository,
     private appConfig: AppConfig,
     private pagination: Pagination,
+    private readonly coinService: CoinService,
   ) {}
 
   async create(
     user: User,
     createRevenueDto: CreateRevenueDto,
   ): Promise<Revenue> {
-    return this.revenueRepository.create(user, createRevenueDto);
+    const revenue = await this.revenueRepository.create(user, createRevenueDto);
+
+    const results = await Promise.allSettled([
+      withTimeout(this.addCoins(user, 'revenue')),
+    ]);
+
+    //Log results promises
+    logResultsPromises(results, ['addCoins']);
+
+    return revenue;
+  }
+
+  private async addCoins(user: User, typeCoins: coinType): Promise<void> {
+    await this.coinService.addCoins(user, { type: typeCoins });
   }
 
   async findAll(userList: RevenueListDto): Promise<paginationData<Revenue>> {
