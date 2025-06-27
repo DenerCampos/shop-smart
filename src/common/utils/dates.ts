@@ -103,3 +103,32 @@ export const getLastDaysDates = (days: number): DateRange => {
     month: now.getMonth() + 1, // 1-based para exibição
   };
 };
+
+export const formatToMySQLDateTime = (date: Date): string => {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+};
+
+export const getFirstDayOfMonth = (): string => {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  return formatToMySQLDateTime(firstDay);
+};
+
+export const getLastDayOfMonth = (): string => {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  lastDay.setHours(23, 59, 59, 999);
+  return formatToMySQLDateTime(lastDay);
+};
+
+export const addTimeIfMissing = (
+  dateString: string,
+  isEndDate = false,
+): string => {
+  // Se for só data (YYYY-MM-DD)
+  if (dateString.length === 10) {
+    return isEndDate ? `${dateString} 23:59:59` : `${dateString} 00:00:00`;
+  }
+  return dateString;
+};
+
