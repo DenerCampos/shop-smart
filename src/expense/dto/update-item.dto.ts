@@ -1,9 +1,10 @@
 import { PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { UpdateGroupDto } from 'src/group/dto/update-group.dto';
 import { groupType } from 'src/group/types/groupType';
 import { CreateItemDto } from './create-item.dto';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString';
 
 export class UpdateItemDto extends PartialType(CreateItemDto) {
   @IsOptional()
@@ -12,6 +13,7 @@ export class UpdateItemDto extends PartialType(CreateItemDto) {
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => capitalizeFirstLetter(value))
   name: string;
 
   @IsOptional()

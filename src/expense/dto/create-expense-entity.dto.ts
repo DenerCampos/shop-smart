@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -5,10 +6,12 @@ import {
   IsNumber,
   IsString,
 } from 'class-validator';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString';
 
 export class CreateExpenseEntityDto {
   @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) => capitalizeFirstLetter(value))
   name: string;
 
   @IsNotEmpty()
