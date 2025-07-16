@@ -20,6 +20,7 @@ import { User } from 'src/user/entities/user.entity';
 import { RevenueResponseDto } from './dto/revenue-response.dto';
 import { RevenueListDto } from './dto/revenue-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
+import { ConfirmNewMonthRevenueDto } from './dto/confirm-new-month-revenue.dto';
 
 @Controller('/revenue')
 export class RevenueController {
@@ -44,8 +45,14 @@ export class RevenueController {
 
   @UseGuards(AuthGuard)
   @Post('confirm-new-month-revenues')
-  async confirmNewMonthRevenues(@CurrentUser() user: User): Promise<void> {
-    return await this.revenueService.confirmNewMonthRevenues(user);
+  async confirmNewMonthRevenues(
+    @CurrentUser() user: User,
+    @Body() confirmNewMonthRevenueDto: ConfirmNewMonthRevenueDto,
+  ): Promise<void> {
+    return await this.revenueService.confirmNewMonthRevenues(
+      user,
+      confirmNewMonthRevenueDto,
+    );
   }
 
   @UseGuards(AuthGuard)

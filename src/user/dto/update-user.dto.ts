@@ -1,7 +1,7 @@
 import { IsEmail, IsOptional, IsString } from 'class-validator';
 import { CreateUserDto } from './create-user.dto';
 import { PartialType } from '@nestjs/swagger';
-import { trimString } from 'src/common/utils/transformString';
+import { trimString } from 'src/common/utils/transformString.util';
 import { Transform } from 'class-transformer';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {

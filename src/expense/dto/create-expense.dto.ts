@@ -14,7 +14,7 @@ import { CreateStoreDto } from 'src/store/dto/create-store.dto';
 import { storeType } from 'src/store/types/storeType';
 import { CreateItemDto } from './create-item.dto';
 import { itemType } from '../types/itemType';
-import { capitalizeFirstLetter } from 'src/common/utils/transformString';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class CreateExpenseDto {
   @IsNotEmpty()

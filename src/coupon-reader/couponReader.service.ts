@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CouponReaderModel } from './model/couponReader.model';
-import { findSimilarString } from 'src/common/utils/similarString';
+import { findSimilarString } from 'src/common/utils/similarString.util';
 import { StoreService } from 'src/store/store.service';
 import { GroupService } from 'src/group/group.service';
 import { PaymentService } from 'src/payment/payment.service';

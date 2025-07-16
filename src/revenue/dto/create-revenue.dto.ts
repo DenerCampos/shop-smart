@@ -1,6 +1,13 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsNotEmpty, IsNumber, IsString } from 'class-validator';
-import { capitalizeFirstLetter } from 'src/common/utils/transformString';
+import {
+  IsBoolean,
+  IsDateString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class CreateRevenueDto {
   @IsNotEmpty()
@@ -15,4 +22,8 @@ export class CreateRevenueDto {
   @IsNotEmpty()
   @IsBoolean()
   repeat: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  date: Date;
 }

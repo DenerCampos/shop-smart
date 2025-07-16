@@ -4,7 +4,7 @@ import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { UpdateGroupDto } from 'src/group/dto/update-group.dto';
 import { groupType } from 'src/group/types/groupType';
 import { CreateItemDto } from './create-item.dto';
-import { capitalizeFirstLetter } from 'src/common/utils/transformString';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class UpdateItemDto extends PartialType(CreateItemDto) {
   @IsOptional()

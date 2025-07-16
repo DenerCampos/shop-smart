@@ -2,7 +2,7 @@ import { IsOptional } from 'class-validator';
 import { CreateStoreDto } from './create-store.dto';
 import { PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { capitalizeFirstLetter } from 'src/common/utils/transformString';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class UpdateStoreDto extends PartialType(CreateStoreDto) {
   @IsOptional()

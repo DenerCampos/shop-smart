@@ -15,7 +15,7 @@ import { UpdateItemDto } from './update-item.dto';
 import { itemType } from '../types/itemType';
 import { UpdatePaymentDto } from 'src/payment/dto/update-payment.dto';
 import { paymentType } from 'src/payment/types/paymentType';
-import { capitalizeFirstLetter } from 'src/common/utils/transformString';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {
   @IsOptional()

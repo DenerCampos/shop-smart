@@ -28,6 +28,12 @@ export class Revenue {
   @Column({ type: 'boolean', default: false })
   repeat: boolean;
 
+  @Column({
+    type: 'datetime',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  date: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 
