@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -14,10 +14,12 @@ import { CreateStoreDto } from 'src/store/dto/create-store.dto';
 import { storeType } from 'src/store/types/storeType';
 import { CreateItemDto } from './create-item.dto';
 import { itemType } from '../types/itemType';
+import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class CreateExpenseDto {
   @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) => capitalizeFirstLetter(value))
   name: string;
 
   @IsNotEmpty()

@@ -132,3 +132,109 @@ export const addTimeIfMissing = (
   return dateString;
 };
 
+export const addOneMonth = (dateString: string | Date): Date => {
+  try {
+    const date =
+      typeof dateString === 'string' ? new Date(dateString) : dateString;
+
+    if (isNaN(date.getTime())) {
+      throw new Error('Data inválida');
+    }
+
+    const originalDay = date.getDate();
+    const currentMonth = date.getMonth();
+    const currentYear = date.getFullYear();
+
+    // Cria uma nova data com o próximo mês
+    const nextMonth = currentMonth + 1;
+    let newYear = currentYear;
+    let newMonth = nextMonth;
+
+    // Se passou de dezembro, vai para janeiro do próximo ano
+    if (nextMonth > 11) {
+      newMonth = 0;
+      newYear = currentYear + 1;
+    }
+
+    // Tenta criar a data com o dia original
+    let newDate = new Date(newYear, newMonth, originalDay);
+
+    // Se o dia mudou, significa que o dia não existe no mês de destino
+    // Por exemplo: 31 de janeiro -> 31 de fevereiro (não existe)
+    if (newDate.getDate() !== originalDay) {
+      // Pega o último dia do mês de destino
+      const lastDayOfMonth = new Date(newYear, newMonth + 1, 0).getDate();
+      newDate = new Date(newYear, newMonth, lastDayOfMonth);
+    }
+
+    return newDate;
+  } catch (error) {
+    console.error('Erro ao adicionar um mês à data:', error);
+    throw new Error('Data inválida');
+  }
+};
+
+// Função auxiliar para adicionar N meses
+export const addMonths = (
+  dateString: string | Date,
+  monthsToAdd: number,
+): Date => {
+  try {
+    let currentDate =
+      typeof dateString === 'string' ? new Date(dateString) : dateString;
+
+    for (let i = 0; i < Math.abs(monthsToAdd); i++) {
+      if (monthsToAdd > 0) {
+        currentDate = addOneMonth(currentDate);
+      } else {
+        currentDate = subtractOneMonth(currentDate);
+      }
+    }
+
+    return currentDate;
+  } catch (error) {
+    console.error('Erro ao adicionar meses à data:', error);
+    throw new Error('Data inválida');
+  }
+};
+
+// Função para subtrair um mês (caso seja útil)
+export const subtractOneMonth = (dateString: string | Date): Date => {
+  try {
+    const date =
+      typeof dateString === 'string' ? new Date(dateString) : dateString;
+
+    if (isNaN(date.getTime())) {
+      throw new Error('Data inválida');
+    }
+
+    const originalDay = date.getDate();
+    const currentMonth = date.getMonth();
+    const currentYear = date.getFullYear();
+
+    // Cria uma nova data com o mês anterior
+    const previousMonth = currentMonth - 1;
+    let newYear = currentYear;
+    let newMonth = previousMonth;
+
+    // Se passou de janeiro, vai para dezembro do ano anterior
+    if (previousMonth < 0) {
+      newMonth = 11;
+      newYear = currentYear - 1;
+    }
+
+    // Tenta criar a data com o dia original
+    let newDate = new Date(newYear, newMonth, originalDay);
+
+    // Se o dia mudou, pega o último dia do mês de destino
+    if (newDate.getDate() !== originalDay) {
+      const lastDayOfMonth = new Date(newYear, newMonth + 1, 0).getDate();
+      newDate = new Date(newYear, newMonth, lastDayOfMonth);
+    }
+
+    return newDate;
+  } catch (error) {
+    console.error('Erro ao subtrair um mês da data:', error);
+    throw new Error('Data inválida');
+  }
+};

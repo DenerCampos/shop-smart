@@ -4,7 +4,7 @@ import {
   addTimeIfMissing,
   getFirstDayOfMonth,
   getLastDayOfMonth,
-} from 'src/common/utils/dates';
+} from 'src/common/utils/dates.util';
 
 export class ExpenseByDateDto {
   @IsOptional()

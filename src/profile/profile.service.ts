@@ -51,6 +51,7 @@ export class ProfileService {
       name: completeProfileDto.name,
       value: completeProfileDto.income,
       repeat: completeProfileDto.repeatMonthly,
+      date: new Date(),
     });
 
     if (!revenue) {

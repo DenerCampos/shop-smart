@@ -2,10 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
 import {
+  addOneMonth,
   getCurrentMonth,
   getCurrentMonthDates,
   getPreviousMonth,
-} from 'src/common/utils/dates';
+} from 'src/common/utils/dates.util';
 import { GetValueRevenueCurrentDto } from './dto/get-value-revenue-current.dto';
 import { IRevenueRepository } from './interface/revenue.repository.interface';
 import { AppConfig } from 'src/common/app-config/app.config';
@@ -15,9 +16,13 @@ import { Revenue } from './entities/revenue.entity';
 import { RevenueListDto } from './dto/revenue-list.dto';
 import { EntityManager } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
-import { logResultsPromises, withTimeout } from 'src/common/utils/helpPromises';
+import {
+  logResultsPromises,
+  withTimeout,
+} from 'src/common/utils/helpPromises.util';
 import { CoinService } from 'src/coin/coin.service';
 import { coinType } from 'src/coin/types/coinType';
+import { ConfirmNewMonthRevenueDto } from './dto/confirm-new-month-revenue.dto';
 
 @Injectable()
 export class RevenueService {
@@ -36,6 +41,10 @@ export class RevenueService {
     user: User,
     createRevenueDto: CreateRevenueDto,
   ): Promise<Revenue> {
+    if (!createRevenueDto.date) {
+      createRevenueDto.date = new Date();
+    }
+
     const revenue = await this.revenueRepository.create(user, createRevenueDto);
 
     const results = await Promise.allSettled([
@@ -146,15 +155,18 @@ export class RevenueService {
     return revenues.length === 0;
   }
 
-  async confirmNewMonthRevenues(user: User): Promise<void> {
-    const month = getPreviousMonth();
-    const revenues = await this.revenueRepository.findByMonth(user.id, month);
+  async confirmNewMonthRevenues(
+    user: User,
+    confirmNewMonthRevenueDto: ConfirmNewMonthRevenueDto,
+  ): Promise<void> {
+    const { revenues } = confirmNewMonthRevenueDto;
 
     revenues.forEach(async (revenue: Revenue) => {
       await this.revenueRepository.create(user, {
         name: revenue.name,
         value: revenue.value,
-        repeat: true,
+        repeat: revenue.repeat,
+        date: addOneMonth(revenue.date),
       });
     });
   }

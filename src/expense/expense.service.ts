@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
-import { getCurrentMonthDates } from 'src/common/utils/dates';
+import { getCurrentMonthDates } from 'src/common/utils/dates.util';
 import { User } from 'src/user/entities/user.entity';
 import { Expense } from './entities/expense.entity';
 import { IExpenseRepository } from './interface/expense.repository.interface';
@@ -10,7 +10,10 @@ import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ValueExpenseCurrentResponseDto } from './dto/value-expense-current-response.dto';
 import { itemType } from './types/itemType';
-import { logResultsPromises, withTimeout } from 'src/common/utils/helpPromises';
+import {
+  logResultsPromises,
+  withTimeout,
+} from 'src/common/utils/helpPromises.util';
 import { PaymentService } from 'src/payment/payment.service';
 import { StoreService } from 'src/store/store.service';
 import { GroupService } from 'src/group/group.service';

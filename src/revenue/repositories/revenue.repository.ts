@@ -83,11 +83,11 @@ export class RevenueRepository implements IRevenueRepository {
       .leftJoinAndSelect('revenue.user', 'user')
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
-      .andWhere('DATE(revenue.createdAt) BETWEEN :startDate AND :endDate', {
+      .andWhere('DATE(revenue.date) BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
-      .orderBy('revenue.createdAt', 'ASC');
+      .orderBy('revenue.date', 'ASC');
 
     return await query.getMany();
   }
@@ -99,8 +99,8 @@ export class RevenueRepository implements IRevenueRepository {
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
       .andWhere('revenue.repeat = true')
-      .andWhere('EXTRACT(MONTH FROM revenue.createdAt) = :month', { month })
-      .orderBy('revenue.createdAt', 'ASC');
+      .andWhere('EXTRACT(MONTH FROM revenue.date) = :month', { month })
+      .orderBy('revenue.date', 'ASC');
 
     return await query.getMany();
   }
@@ -121,7 +121,7 @@ export class RevenueRepository implements IRevenueRepository {
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
       .limit(limit)
-      .orderBy('revenue.createdAt', 'DESC');
+      .orderBy('revenue.date', 'DESC');
 
     return await query.getMany();
   }

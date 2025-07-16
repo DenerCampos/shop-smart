@@ -14,6 +14,9 @@ export class RevenueResponseDto {
   repeat: boolean;
 
   @Expose()
+  date: Date;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()
