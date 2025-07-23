@@ -22,6 +22,7 @@ import { paginationData } from 'src/common/pagination/pagination';
 import { ValueExpenseCurrentResponseDto } from './dto/value-expense-current-response.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { ItemResponseDto } from './dto/item-response.dto';
+import { ExpenseRecurringConfirmDto } from './dto/expense-recurring-confirm.dto';
 
 @Controller('/expense')
 export class ExpenseController {
@@ -70,6 +71,29 @@ export class ExpenseController {
     @CurrentUser() user: User,
   ): Promise<ValueExpenseCurrentResponseDto> {
     return this.expenseService.getExpenseByCurrentMonth(user);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/recurring/current-month')
+  async getRecurringExpenseByCurrentMonth(
+    @CurrentUser() user: User,
+  ): Promise<ExpenseResponseDto[] | []> {
+    const expenses =
+      await this.expenseService.getRecurringExpenseByCurrentMonth(user);
+
+    return this.responseService.mapArrayToDto(ExpenseResponseDto, expenses);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('/recurring/confirm')
+  async getRecurringExpenseConfirm(
+    @CurrentUser() user: User,
+    @Body() expenseRecurringConfirmDto: ExpenseRecurringConfirmDto,
+  ): Promise<void> {
+    await this.expenseService.recurringConfirm(
+      user,
+      expenseRecurringConfirmDto,
+    );
   }
 
   @UseGuards(AuthGuard)

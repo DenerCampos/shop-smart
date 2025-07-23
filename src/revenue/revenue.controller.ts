@@ -20,7 +20,8 @@ import { User } from 'src/user/entities/user.entity';
 import { RevenueResponseDto } from './dto/revenue-response.dto';
 import { RevenueListDto } from './dto/revenue-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
-import { ConfirmNewMonthRevenueDto } from './dto/confirm-new-month-revenue.dto';
+import { RevenueRecurringConfirmDto } from './dto/revenue-recurring-confirm.dto';
+import { RevenueRecurringDto } from './dto/revenue-recurring.dto';
 
 @Controller('/revenue')
 export class RevenueController {
@@ -44,18 +45,6 @@ export class RevenueController {
   }
 
   @UseGuards(AuthGuard)
-  @Post('confirm-new-month-revenues')
-  async confirmNewMonthRevenues(
-    @CurrentUser() user: User,
-    @Body() confirmNewMonthRevenueDto: ConfirmNewMonthRevenueDto,
-  ): Promise<void> {
-    return await this.revenueService.confirmNewMonthRevenues(
-      user,
-      confirmNewMonthRevenueDto,
-    );
-  }
-
-  @UseGuards(AuthGuard)
   @Get()
   async findAll(
     @Query() listDto: RevenueListDto,
@@ -66,13 +55,26 @@ export class RevenueController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('repeated-revenues')
-  async getRepeatedRevenues(
+  @Get('/recurring/current-month')
+  async getRecurringRevenueByCurrentMonth(
     @CurrentUser() user: User,
-  ): Promise<RevenueResponseDto[] | []> {
-    const revenues = await this.revenueService.getAllByPreviousMonth(user);
+  ): Promise<RevenueRecurringDto[] | []> {
+    const revenues =
+      await this.revenueService.getRecurringRevenueByCurrentMonth(user);
 
-    return this.responseService.mapArrayToDto(RevenueResponseDto, revenues);
+    return this.responseService.mapArrayToDto(RevenueRecurringDto, revenues);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('/recurring/confirm')
+  async getRecurringRevenueConfirm(
+    @CurrentUser() user: User,
+    @Body() revenueRecurringConfirmDto: RevenueRecurringConfirmDto,
+  ): Promise<void> {
+    await this.revenueService.recurringConfirm(
+      user,
+      revenueRecurringConfirmDto,
+    );
   }
 
   @UseGuards(AuthGuard)

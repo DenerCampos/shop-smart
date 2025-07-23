@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
-import { getCurrentMonthDates } from 'src/common/utils/dates.util';
+import {
+  getCurrentDay,
+  getCurrentMonthDates,
+  getPreviousMonth,
+  setSpecificMonth,
+} from 'src/common/utils/dates.util';
 import { User } from 'src/user/entities/user.entity';
 import { Expense } from './entities/expense.entity';
 import { IExpenseRepository } from './interface/expense.repository.interface';
@@ -26,6 +31,7 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { Store } from 'src/store/entities/store.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { Group } from 'src/group/entities/group.entity';
+import { ExpenseRecurringConfirmDto } from './dto/expense-recurring-confirm.dto';
 
 @Injectable()
 export class ExpenseService {
@@ -388,5 +394,54 @@ export class ExpenseService {
     }
 
     return groupName ?? this.defaultGroup;
+  }
+
+  async getRecurringExpenseByCurrentMonth(user: User): Promise<Expense[] | []> {
+    const month = getPreviousMonth();
+    const day = getCurrentDay();
+
+    return this.expenseRepository.findRecurringByMonthAndDay(
+      user.id,
+      month,
+      day,
+    );
+  }
+
+  async updateRecurringExpenseToFalse(expenseId: string): Promise<void> {
+    const expense = await this.expenseRepository.find(expenseId);
+    await this.expenseRepository.update(expense, {
+      ...expense,
+      repeat: false,
+    });
+  }
+
+  async recurringConfirm(
+    user: User,
+    expenseRecurringConfirmDto: ExpenseRecurringConfirmDto,
+  ): Promise<void> {
+    const { expenses } = expenseRecurringConfirmDto;
+    const { expenseIds } = expenseRecurringConfirmDto;
+
+    // trocar para false a repetição de cada despesa do array expenseIds
+    expenseIds.forEach(async (expenseId: string) => {
+      await this.updateRecurringExpenseToFalse(expenseId);
+    });
+
+    // criar as novas despesas, executado assim para não usar muitas conexões com o banco de dados (limit de 2)
+    for (const expense of expenses) {
+      const currentMonth = new Date().getMonth() + 1;
+      expense.date = setSpecificMonth(expense.date, currentMonth);
+      await this.create(user, expense);
+    }
+  }
+
+  async hasRecurringPreviousMonth(user: User): Promise<boolean> {
+    const expenses = await this.expenseRepository.findRecurringByMonthAndDay(
+      user.id,
+      getPreviousMonth(),
+      getCurrentDay(),
+    );
+
+    return expenses.length > 0;
   }
 }
