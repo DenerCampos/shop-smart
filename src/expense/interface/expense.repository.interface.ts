@@ -52,4 +52,9 @@ export interface IExpenseRepository {
   getMostUsedPaymentName(): Promise<string | null>;
   getGroupByItemName(itemName: string): Promise<string | null>;
   getGroupByItemNamePartial(itemName: string): Promise<string | null>;
+  findRecurringByMonthAndDay(
+    userId: string,
+    month: number,
+    day: number,
+  ): Promise<Expense[] | []>;
 }

@@ -3,9 +3,11 @@ import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
 import {
   addOneMonth,
+  getCurrentDay,
   getCurrentMonth,
   getCurrentMonthDates,
   getPreviousMonth,
+  setSpecificMonth,
 } from 'src/common/utils/dates.util';
 import { GetValueRevenueCurrentDto } from './dto/get-value-revenue-current.dto';
 import { IRevenueRepository } from './interface/revenue.repository.interface';
@@ -22,7 +24,7 @@ import {
 } from 'src/common/utils/helpPromises.util';
 import { CoinService } from 'src/coin/coin.service';
 import { coinType } from 'src/coin/types/coinType';
-import { ConfirmNewMonthRevenueDto } from './dto/confirm-new-month-revenue.dto';
+import { RevenueRecurringConfirmDto } from './dto/revenue-recurring-confirm.dto';
 
 @Injectable()
 export class RevenueService {
@@ -155,22 +157,6 @@ export class RevenueService {
     return revenues.length === 0;
   }
 
-  async confirmNewMonthRevenues(
-    user: User,
-    confirmNewMonthRevenueDto: ConfirmNewMonthRevenueDto,
-  ): Promise<void> {
-    const { revenues } = confirmNewMonthRevenueDto;
-
-    revenues.forEach(async (revenue: Revenue) => {
-      await this.revenueRepository.create(user, {
-        name: revenue.name,
-        value: revenue.value,
-        repeat: revenue.repeat,
-        date: addOneMonth(revenue.date),
-      });
-    });
-  }
-
   async getAllByPreviousMonth(user: User): Promise<Revenue[] | []> {
     const month = getPreviousMonth();
     return await this.revenueRepository.findByMonth(user.id, month);
@@ -185,5 +171,44 @@ export class RevenueService {
     limit = this.limitDefault,
   ): Promise<Revenue[] | []> {
     return this.revenueRepository.getLatest(user.id, limit);
+  }
+
+  async getRecurringRevenueByCurrentMonth(user: User): Promise<Revenue[] | []> {
+    const month = getPreviousMonth();
+    const day = getCurrentDay();
+
+    return this.revenueRepository.findRecurringByMonthAndDay(
+      user.id,
+      month,
+      day,
+    );
+  }
+
+  async updateRecurringRevenueToFalse(revenueId: string): Promise<void> {
+    const revenue = await this.revenueRepository.find(revenueId);
+    await this.revenueRepository.update(revenue, {
+      ...revenue,
+      repeat: false,
+    });
+  }
+
+  async recurringConfirm(
+    user: User,
+    revenueRecurringConfirmDto: RevenueRecurringConfirmDto,
+  ): Promise<void> {
+    const { revenues } = revenueRecurringConfirmDto;
+    const { revenueIds } = revenueRecurringConfirmDto;
+
+    // trocar para false a repetição de cada receita do array revenueIds
+    revenueIds.forEach(async (revenueId: string) => {
+      await this.updateRecurringRevenueToFalse(revenueId);
+    });
+
+    // criar as novas receitas, executado assim para não usar muitas conexões com o banco de dados (limit de 2)
+    for (const revenue of revenues) {
+      const currentMonth = new Date().getMonth() + 1;
+      revenue.date = setSpecificMonth(revenue.date, currentMonth);
+      await this.create(user, revenue);
+    }
   }
 }

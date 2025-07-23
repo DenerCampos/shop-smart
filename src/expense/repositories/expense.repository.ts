@@ -79,7 +79,7 @@ export class ExpenseRepository implements IExpenseRepository {
       queryBuilder.skip(page).take(limit);
     }
 
-    queryBuilder.orderBy('expense.createdAt', 'DESC');
+    queryBuilder.orderBy('expense.date', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }
@@ -166,11 +166,11 @@ export class ExpenseRepository implements IExpenseRepository {
       .leftJoinAndSelect('expense.user', 'user')
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
-      .andWhere('DATE(expense.createdAt) BETWEEN :startDate AND :endDate', {
+      .andWhere('DATE(expense.date) BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
-      .orderBy('expense.createdAt', 'ASC');
+      .orderBy('expense.date', 'ASC');
 
     return await query.getMany();
   }
@@ -182,8 +182,29 @@ export class ExpenseRepository implements IExpenseRepository {
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
       .andWhere('expense.repeat = true')
-      .andWhere('EXTRACT(MONTH FROM expense.createdAt) = :month', { month })
-      .orderBy('expense.createdAt', 'ASC');
+      .andWhere('EXTRACT(MONTH FROM expense.date) = :month', { month })
+      .orderBy('expense.date', 'ASC');
+
+    return await query.getMany();
+  }
+
+  async findRecurringByMonthAndDay(
+    userId: string,
+    month: number,
+    day: number,
+  ): Promise<Expense[] | []> {
+    const query = this.expenseEntity
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.items', 'item')
+      .leftJoinAndSelect('item.group', 'group')
+      .leftJoinAndSelect('expense.payment', 'payment')
+      .leftJoinAndSelect('expense.store', 'store')
+      .where('expense.user = :userId', { userId })
+      .andWhere('expense.deletedAt IS NULL')
+      .andWhere('expense.repeat = true')
+      .andWhere('EXTRACT(MONTH FROM expense.date) = :month', { month })
+      .andWhere('EXTRACT(DAY FROM expense.date) <= :day', { day })
+      .orderBy('expense.date', 'ASC');
 
     return await query.getMany();
   }
@@ -204,7 +225,7 @@ export class ExpenseRepository implements IExpenseRepository {
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
       .limit(limit)
-      .orderBy('expense.createdAt', 'DESC');
+      .orderBy('expense.date', 'DESC');
 
     return await query.getMany();
   }

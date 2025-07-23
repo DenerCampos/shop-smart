@@ -31,6 +31,11 @@ export const getPreviousMonth = (): number => {
   return previousMonth === 0 ? 12 : previousMonth;
 };
 
+export const getCurrentDay = (): number => {
+  const now = new Date();
+  return now.getDate(); // getDate() retorna o dia do mês (1-31)
+};
+
 export const getCurrentMonthDates = (): DateRange => {
   const now = new Date();
   const year = now.getFullYear();
@@ -171,6 +176,53 @@ export const addOneMonth = (dateString: string | Date): Date => {
   } catch (error) {
     console.error('Erro ao adicionar um mês à data:', error);
     throw new Error('Data inválida');
+  }
+};
+
+export const setSpecificMonth = (
+  dateString: string | Date,
+  targetMonth: number,
+): Date => {
+  try {
+    const date =
+      typeof dateString === 'string' ? new Date(dateString) : dateString;
+
+    if (isNaN(date.getTime())) {
+      throw new Error('Data inválida');
+    }
+
+    if (targetMonth < 1 || targetMonth > 12) {
+      throw new Error('Mês inválido. Deve estar entre 1 e 12');
+    }
+
+    const originalDay = date.getDate();
+    const currentMonth = date.getMonth();
+    const currentYear = date.getFullYear();
+
+    // Ajusta o mês para o formato 0-11 usado pelo JavaScript
+    const newMonth = targetMonth - 1;
+
+    // Define o ano baseado no mês alvo
+    let newYear = currentYear;
+    if (newMonth < currentMonth) {
+      newYear = currentYear + 1;
+    }
+
+    // Tenta criar a data com o dia original
+    let newDate = new Date(newYear, newMonth, originalDay);
+
+    // Se o dia mudou, significa que o dia não existe no mês de destino
+    // Por exemplo: 31 de janeiro -> 31 de fevereiro (não existe)
+    if (newDate.getDate() !== originalDay) {
+      // Pega o último dia do mês de destino
+      const lastDayOfMonth = new Date(newYear, newMonth + 1, 0).getDate();
+      newDate = new Date(newYear, newMonth, lastDayOfMonth);
+    }
+
+    return newDate;
+  } catch (error) {
+    console.error('Erro ao definir mês específico na data:', error);
+    throw new Error('Erro ao processar a data');
   }
 };
 
