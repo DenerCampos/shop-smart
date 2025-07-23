@@ -19,5 +19,8 @@ export class ProfileResponseDto {
   isFirstAccess: boolean;
 
   @Expose()
-  newMonth: boolean;
+  hasRecurringRevenues: boolean;
+
+  @Expose()
+  hasRecurringExpenses: boolean;
 }

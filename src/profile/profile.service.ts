@@ -31,7 +31,10 @@ export class ProfileService {
     const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
     const coins = await this.coinService.getCoinsByUser(user);
     const existRevenue = await this.revenueService.exist();
-    const newMonth = await this.revenueService.isUserNewMonth(user);
+    const hasRecurringRevenues =
+      await this.revenueService.hasRecurringPreviousMonth(user);
+    const hasRecurringExpenses =
+      await this.expenseService.hasRecurringPreviousMonth(user);
 
     return new ProfileModel({
       user,
@@ -39,7 +42,8 @@ export class ProfileService {
       expenses: expenses.value,
       coins: coins,
       isFirstAccess: !existRevenue,
-      newMonth: existRevenue && newMonth,
+      hasRecurringRevenues: hasRecurringRevenues,
+      hasRecurringExpenses: hasRecurringExpenses,
     });
   }
 

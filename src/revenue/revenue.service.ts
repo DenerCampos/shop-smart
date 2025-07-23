@@ -211,4 +211,14 @@ export class RevenueService {
       await this.create(user, revenue);
     }
   }
+
+  async hasRecurringPreviousMonth(user: User): Promise<boolean> {
+    const revenues = await this.revenueRepository.findRecurringByMonthAndDay(
+      user.id,
+      getPreviousMonth(),
+      getCurrentDay(),
+    );
+
+    return revenues.length > 0;
+  }
 }

@@ -434,4 +434,14 @@ export class ExpenseService {
       await this.create(user, expense);
     }
   }
+
+  async hasRecurringPreviousMonth(user: User): Promise<boolean> {
+    const expenses = await this.expenseRepository.findRecurringByMonthAndDay(
+      user.id,
+      getPreviousMonth(),
+      getCurrentDay(),
+    );
+
+    return expenses.length > 0;
+  }
 }
