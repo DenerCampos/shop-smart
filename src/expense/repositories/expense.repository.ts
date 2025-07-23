@@ -202,7 +202,7 @@ export class ExpenseRepository implements IExpenseRepository {
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
       .andWhere('expense.repeat = true')
-      .andWhere('EXTRACT(MONTH FROM expense.date) = :month', { month })
+      .andWhere('EXTRACT(MONTH FROM expense.date) <= :month', { month })
       .andWhere('EXTRACT(DAY FROM expense.date) <= :day', { day })
       .orderBy('expense.date', 'ASC');
 

@@ -142,7 +142,7 @@ export class RevenueRepository implements IRevenueRepository {
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
       .andWhere('revenue.repeat = true')
-      .andWhere('EXTRACT(MONTH FROM revenue.date) = :month', { month })
+      .andWhere('EXTRACT(MONTH FROM revenue.date) <= :month', { month })
       .andWhere('EXTRACT(DAY FROM revenue.date) <= :day', { day })
       .orderBy('revenue.date', 'ASC');
 
