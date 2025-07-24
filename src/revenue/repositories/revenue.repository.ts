@@ -121,7 +121,7 @@ export class RevenueRepository implements IRevenueRepository {
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
       .limit(limit)
-      .orderBy('revenue.date', 'DESC');
+      .orderBy('revenue.createdAt', 'DESC');
 
     return await query.getMany();
   }

@@ -225,7 +225,7 @@ export class ExpenseRepository implements IExpenseRepository {
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
       .limit(limit)
-      .orderBy('expense.date', 'DESC');
+      .orderBy('expense.createdAt', 'DESC');
 
     return await query.getMany();
   }
