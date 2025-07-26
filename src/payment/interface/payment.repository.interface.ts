@@ -8,7 +8,11 @@ export interface IPaymentRepository {
     createPaymentDto: CreatePaymentDto,
     manager?: EntityManager,
   ): Promise<Payment>;
-  findAll(page: number, limit: number): Promise<[Payment[], number]>;
+  findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Payment[], number]>;
   find(id: string): Promise<Payment | null>;
   update(
     payment: Payment,

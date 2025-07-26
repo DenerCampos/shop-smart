@@ -69,6 +69,7 @@ export class RevenueService {
     const [revenues, total] = await this.revenueRepository.findAll(
       offset,
       userList.limit,
+      userList.search,
     );
 
     const paginateData = this.pagination.paginateData<Revenue>(

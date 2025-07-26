@@ -61,7 +61,11 @@ export class ExpenseRepository implements IExpenseRepository {
     return repository.save(item);
   }
 
-  async findAll(page: number, limit: number): Promise<[Expense[], number]> {
+  async findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Expense[], number]> {
     const queryBuilder = this.expenseEntity
       .createQueryBuilder('expense')
       .withDeleted(); // Permite buscar registros deletados
@@ -75,11 +79,17 @@ export class ExpenseRepository implements IExpenseRepository {
     queryBuilder.where('expense.deletedAt IS NULL');
     queryBuilder.andWhere('(item.deletedAt IS NULL OR item.id IS NULL)');
 
+    if (search) {
+      queryBuilder.where('LOWER(expense.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
 
-    queryBuilder.orderBy('expense.date', 'DESC');
+    queryBuilder.orderBy('expense.createdAt', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }

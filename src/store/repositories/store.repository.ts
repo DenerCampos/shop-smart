@@ -45,12 +45,24 @@ export class StoreRepository implements IStoreRepository {
     });
   }
 
-  async findAll(page: number, limit: number): Promise<[Store[], number]> {
+  async findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Store[], number]> {
     const queryBuilder = this.storeEntity.createQueryBuilder('store');
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
+
+    if (search) {
+      queryBuilder.where('LOWER(store.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    queryBuilder.orderBy('store.createdAt', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }

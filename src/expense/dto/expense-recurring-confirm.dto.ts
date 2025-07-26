@@ -4,7 +4,6 @@ import { CreateExpenseDto } from './create-expense.dto';
 
 export class ExpenseRecurringConfirmDto {
   @IsArray()
-  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => CreateExpenseDto)
   expenses: CreateExpenseDto[];

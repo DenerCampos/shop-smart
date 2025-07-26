@@ -6,7 +6,11 @@ import { EntityManager } from 'typeorm';
 
 export interface IRevenueRepository {
   create(user: User, createRevenueDto: CreateRevenueDto): Promise<Revenue>;
-  findAll(page: number, limit: number): Promise<[Revenue[], number]>;
+  findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Revenue[], number]>;
   find(id: string): Promise<Revenue | null>;
   update(
     revenue: Revenue,

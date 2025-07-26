@@ -134,6 +134,7 @@ export class ExpenseService {
     const [expenses, total] = await this.expenseRepository.findAll(
       offset,
       expenseList.limit,
+      expenseList.search,
     );
 
     const paginateData = this.pagination.paginateData<Expense>(
