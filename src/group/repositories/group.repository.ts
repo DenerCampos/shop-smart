@@ -36,12 +36,24 @@ export class GroupRepository implements IGroupRepository {
     return repository.save(group);
   }
 
-  async findAll(page: number, limit: number): Promise<[Group[], number]> {
+  async findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Group[], number]> {
     const queryBuilder = this.groupEntity.createQueryBuilder('group');
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
+
+    if (search) {
+      queryBuilder.where('LOWER(group.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    queryBuilder.orderBy('group.createdAt', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }

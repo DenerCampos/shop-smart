@@ -36,12 +36,24 @@ export class PaymentRepository implements IPaymentRepository {
     return repository.save(payment);
   }
 
-  async findAll(page: number, limit: number): Promise<[Payment[], number]> {
+  async findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Payment[], number]> {
     const queryBuilder = this.paymentEntity.createQueryBuilder('payment');
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
+
+    if (search) {
+      queryBuilder.where('LOWER(payment.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    queryBuilder.orderBy('payment.createdAt', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }

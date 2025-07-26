@@ -34,6 +34,7 @@ export class StoreService {
     const [users, total] = await this.storeRepository.findAll(
       offset,
       userList.limit,
+      userList.search,
     );
 
     const paginateData = this.pagination.paginateData<Store>(

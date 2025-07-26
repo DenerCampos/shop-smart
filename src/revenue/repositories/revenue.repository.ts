@@ -27,12 +27,24 @@ export class RevenueRepository implements IRevenueRepository {
     return await this.revenueEntity.save(newRevenue);
   }
 
-  async findAll(page: number, limit: number): Promise<[Revenue[], number]> {
+  async findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Revenue[], number]> {
     const queryBuilder = this.revenueEntity.createQueryBuilder('revenue');
+
+    if (search) {
+      queryBuilder.where('LOWER(revenue.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
+
+    queryBuilder.orderBy('revenue.createdAt', 'DESC');
 
     return await queryBuilder.getManyAndCount();
   }

@@ -24,7 +24,11 @@ export interface IExpenseRepository {
     CreateItemDto: CreateItemEntityDto,
     manager?: EntityManager,
   ): Promise<Item>;
-  findAll(page: number, limit: number): Promise<[Expense[], number]>;
+  findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Expense[], number]>;
   find(id: string): Promise<Expense | null>;
   update(
     expense: Expense,

@@ -4,7 +4,6 @@ import { CreateRevenueDto } from './create-revenue.dto';
 
 export class RevenueRecurringConfirmDto {
   @IsArray()
-  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => CreateRevenueDto)
   revenues: CreateRevenueDto[];

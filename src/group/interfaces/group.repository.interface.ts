@@ -8,7 +8,11 @@ export interface IGroupRepository {
     createGroupDto: CreateGroupDto,
     manager?: EntityManager,
   ): Promise<Group>;
-  findAll(page: number, limit: number): Promise<[Group[], number]>;
+  findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Group[], number]>;
   find(id: string): Promise<Group | null>;
   update(
     group: Group,

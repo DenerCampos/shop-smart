@@ -8,7 +8,11 @@ export interface IStoreRepository {
     createStoreDto: CreateStoreDto,
     manager?: EntityManager,
   ): Promise<Store>;
-  findAll(page: number, limit: number): Promise<[Store[], number]>;
+  findAll(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<[Store[], number]>;
   find(id: string): Promise<Store | null>;
   update(
     store: Store,

@@ -37,6 +37,7 @@ export class PaymentService {
     const [payments, total] = await this.paymentRepository.findAll(
       offset,
       paymentList.limit,
+      paymentList.search,
     );
 
     const paginateData = this.pagination.paginateData<Payment>(

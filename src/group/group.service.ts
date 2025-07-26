@@ -38,6 +38,7 @@ export class GroupService {
     const [users, total] = await this.groupRepository.findAll(
       offset,
       userList.limit,
+      userList.search,
     );
 
     const paginateData = this.pagination.paginateData<Group>(

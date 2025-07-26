@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsNumber, IsOptional, Max, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ExpenseListDto {
   @IsOptional()
@@ -14,4 +14,8 @@ export class ExpenseListDto {
   @Max(100)
   @Transform(({ value }) => parseInt(value))
   limit?: number = 10;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
