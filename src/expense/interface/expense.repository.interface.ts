@@ -61,4 +61,6 @@ export interface IExpenseRepository {
     month: number,
     day: number,
   ): Promise<Expense[] | []>;
+  removeItem(id: string): Promise<void>;
+  removeItems(itemIds: string[], manager?: EntityManager): Promise<void>;
 }

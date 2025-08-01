@@ -2,6 +2,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -18,6 +19,10 @@ import { paymentType } from 'src/payment/types/paymentType';
 import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
 export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {
+  @IsNotEmpty()
+  @IsString()
+  id: string;
+
   @IsOptional()
   @IsString()
   @Transform(({ value }) => capitalizeFirstLetter(value))
@@ -51,4 +56,9 @@ export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {
   @IsOptional()
   @Type(() => UpdatePaymentDto)
   payment: paymentType;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  removedItemIds?: string[];
 }
