@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, Repository, In } from 'typeorm';
 import { RemoveException } from 'src/exception/removeException';
 import { IExpenseRepository } from '../interface/expense.repository.interface';
 import { Expense } from '../entities/expense.entity';
@@ -47,13 +47,13 @@ export class ExpenseRepository implements IExpenseRepository {
   async createItem(
     expense: Expense,
     group: Group,
-    CreateItemDto: CreateItemEntityDto,
+    createItemDto: CreateItemEntityDto,
     manager?: EntityManager,
   ): Promise<Item> {
     const repository = manager ? manager.getRepository(Item) : this.itemEntity;
 
     const item = repository.create({
-      ...CreateItemDto,
+      ...createItemDto,
       expense,
       group,
     });
@@ -143,9 +143,17 @@ export class ExpenseRepository implements IExpenseRepository {
   ): Promise<Item> {
     const repository = manager ? manager.getRepository(Item) : this.itemEntity;
 
+    // Extrair apenas as propriedades que queremos atualizar
+    const { code, name, quantity, unit, value, total } = updateItemDto;
+
     return await repository.save({
       ...item,
-      ...updateItemDto,
+      code,
+      name,
+      quantity,
+      unit,
+      value,
+      total,
     });
   }
 
@@ -277,5 +285,15 @@ export class ExpenseRepository implements IExpenseRepository {
       .getRawOne();
 
     return result?.groupName || null;
+  }
+
+  async removeItem(id: string): Promise<void> {
+    await this.itemEntity.softDelete({ id });
+  }
+
+  async removeItems(itemIds: string[], manager?: EntityManager): Promise<void> {
+    const repository = manager ? manager.getRepository(Item) : this.itemEntity;
+
+    await repository.softDelete({ id: In(itemIds) });
   }
 }

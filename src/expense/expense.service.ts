@@ -191,6 +191,15 @@ export class ExpenseService {
     return updateGroup;
   }
 
+  private async removeItems(itemIds: string[]): Promise<void> {
+    if (itemIds.length === 0) return;
+
+    await this.expenseRepository.removeItems(
+      itemIds,
+      this.queryRunnerFactory.manager,
+    );
+  }
+
   async update(
     expenseId: string,
     updateExpenseDto: UpdateExpenseDto,
@@ -218,46 +227,75 @@ export class ExpenseService {
         updateExpenseDto.payment = updatePayment;
       }
 
+      // Remover os items do DTO antes de atualizar a expense
+      const {
+        items: itemsToUpdate,
+        removedItemIds,
+        ...expenseData
+      } = updateExpenseDto;
+
+      // Atualizar apenas os dados da expense, sem mexer nos items
+      const expenseToUpdate = {
+        ...expenseData,
+        items: expense.items, // Mantém os items existentes
+      };
+
       await this.expenseRepository.update(
         expense,
-        updateExpenseDto,
+        expenseToUpdate,
         this.queryRunnerFactory.manager,
       );
 
-      // TODO - trocar para updateItem separadamente, para cada item
-      // const itens = [] as Item[];
+      // Remover itens que foram marcados para remoção
+      if (removedItemIds && removedItemIds.length > 0) {
+        await this.removeItems(removedItemIds);
+      }
 
-      // if (updateExpenseDto.items && updateExpenseDto.items.length > 0) {
-      //   for (const item of updateExpenseDto.items) {
-      //     if (item.group) {
-      //       let updateGroup = await this.groupService.findByName(
-      //         item.group.name,
-      //       );
+      // Atualizar ou criar novos itens
+      if (itemsToUpdate && itemsToUpdate.length > 0) {
+        for (const item of itemsToUpdate) {
+          if (item.group) {
+            let updateGroup = await this.groupService.findByName(
+              item.group.name,
+            );
 
-      //       if (!updateGroup) {
-      //         const savedGroup = await this.groupService.create(
-      //           item.group,
-      //           this.queryRunnerFactory.manager,
-      //         );
-      //         updateGroup = savedGroup;
-      //       }
-      //       item.group = updateGroup;
-      //     }
+            if (!updateGroup) {
+              const savedGroup = await this.groupService.create(
+                item.group,
+                this.queryRunnerFactory.manager,
+              );
+              updateGroup = savedGroup;
+            }
+            item.group = updateGroup;
+          }
 
-      //     const updateItem = await this.expenseRepository.findItemById(item.id);
+          if (!item.id || item.id === '') {
+            const { id, ...itemWithoutId } = item;
+            const savedItem = await this.expenseRepository.createItem(
+              expense,
+              item.group as Group,
+              itemWithoutId,
+              this.queryRunnerFactory.manager,
+            );
+          } else {
+            const updateItem = await this.expenseRepository.findItemById(
+              item.id,
+            );
 
-      //     const updatedItem = await this.expenseRepository.UpdateItem(
-      //       updateItem,
-      //       updatedExpense,
-      //       item,
-      //       this.queryRunnerFactory.manager,
-      //     );
+            if (!updateItem) {
+              throw new UpdateException();
+            }
 
-      //     itens.push(updatedItem);
-      //   }
-      // }
-
-      // updatedExpense.items = itens;
+            // Extrair apenas as propriedades que queremos atualizar
+            const { code, name, quantity, unit, value, total } = item;
+            await this.expenseRepository.UpdateItem(
+              updateItem,
+              { code, name, quantity, unit, value, total },
+              this.queryRunnerFactory.manager,
+            );
+          }
+        }
+      }
 
       await this.queryRunnerFactory.commitTransaction();
       return await this.expenseRepository.find(expenseId);

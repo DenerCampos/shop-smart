@@ -9,6 +9,10 @@ import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 export class UpdateItemDto extends PartialType(CreateItemDto) {
   @IsOptional()
   @IsString()
+  id: string;
+
+  @IsOptional()
+  @IsString()
   code: string;
 
   @IsOptional()
