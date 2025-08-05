@@ -6,6 +6,7 @@ import { Group } from '../entities/group.entity';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UpdateGroupDto } from '../dto/update-group.dto';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class GroupRepository implements IGroupRepository {
@@ -16,6 +17,7 @@ export class GroupRepository implements IGroupRepository {
 
   async create(
     createGroupDto: CreateGroupDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Group> {
     const repository = manager
@@ -25,6 +27,7 @@ export class GroupRepository implements IGroupRepository {
     const existingGroup = await repository.findOne({
       where: {
         name: ILike(`%${createGroupDto.name}%`),
+        user: user,
       },
     });
 
@@ -32,16 +35,22 @@ export class GroupRepository implements IGroupRepository {
       return existingGroup;
     }
 
-    const group = repository.create(createGroupDto);
+    const group = repository.create({
+      ...createGroupDto,
+      user: user,
+    });
     return repository.save(group);
   }
 
   async findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
   ): Promise<[Group[], number]> {
     const queryBuilder = this.groupEntity.createQueryBuilder('group');
+
+    queryBuilder.where('group.userId = :userId', { userId: user.id });
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);

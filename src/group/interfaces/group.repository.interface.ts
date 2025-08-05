@@ -2,13 +2,16 @@ import { EntityManager } from 'typeorm';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { Group } from '../entities/group.entity';
+import { User } from 'src/user/entities/user.entity';
 
 export interface IGroupRepository {
   create(
     createGroupDto: CreateGroupDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Group>;
   findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,

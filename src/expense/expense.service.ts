@@ -66,11 +66,13 @@ export class ExpenseService {
 
       const savedStore = await this.storeService.create(
         store,
+        user,
         this.queryRunnerFactory.manager,
       );
 
       const savedPayment = await this.paymentService.create(
         payment,
+        user,
         this.queryRunnerFactory.manager,
       );
 
@@ -89,6 +91,7 @@ export class ExpenseService {
 
         const savedGroup = await this.groupService.create(
           group,
+          user,
           this.queryRunnerFactory.manager,
         );
         const savedItem = await this.expenseRepository.createItem(
@@ -152,39 +155,48 @@ export class ExpenseService {
     return this.expenseRepository.find(expenseId);
   }
 
-  async findOrCreateStore(storeName: string): Promise<Store> {
+  async findOrCreateStore(storeName: string, user: User): Promise<Store> {
     let updateStore = await this.storeService.findByName(storeName);
 
     if (!updateStore) {
-      const savedStore = await this.storeService.create({
-        name: storeName,
-      });
+      const savedStore = await this.storeService.create(
+        {
+          name: storeName,
+        },
+        user,
+      );
       updateStore = savedStore;
     }
 
     return updateStore;
   }
 
-  async findOrCreatePayment(paymentName: string): Promise<Payment> {
+  async findOrCreatePayment(paymentName: string, user: User): Promise<Payment> {
     let updatePayment = await this.paymentService.findByName(paymentName);
 
     if (!updatePayment) {
-      const savedPayment = await this.paymentService.create({
-        name: paymentName,
-      });
+      const savedPayment = await this.paymentService.create(
+        {
+          name: paymentName,
+        },
+        user,
+      );
       updatePayment = savedPayment;
     }
 
     return updatePayment;
   }
 
-  async findOrCreateGroup(groupName: string): Promise<Group> {
+  async findOrCreateGroup(groupName: string, user: User): Promise<Group> {
     let updateGroup = await this.groupService.findByName(groupName);
 
     if (!updateGroup) {
-      const savedGroup = await this.groupService.create({
-        name: groupName,
-      });
+      const savedGroup = await this.groupService.create(
+        {
+          name: groupName,
+        },
+        user,
+      );
       updateGroup = savedGroup;
     }
 
@@ -203,6 +215,7 @@ export class ExpenseService {
   async update(
     expenseId: string,
     updateExpenseDto: UpdateExpenseDto,
+    user: User,
   ): Promise<Expense> {
     try {
       await this.queryRunnerFactory.startTransaction();
@@ -216,6 +229,7 @@ export class ExpenseService {
       if (updateExpenseDto.store) {
         const updateStore = await this.findOrCreateStore(
           updateExpenseDto.store.name,
+          user,
         );
         updateExpenseDto.store = updateStore;
       }
@@ -223,6 +237,7 @@ export class ExpenseService {
       if (updateExpenseDto.payment) {
         const updatePayment = await this.findOrCreatePayment(
           updateExpenseDto.payment.name,
+          user,
         );
         updateExpenseDto.payment = updatePayment;
       }
@@ -262,6 +277,7 @@ export class ExpenseService {
             if (!updateGroup) {
               const savedGroup = await this.groupService.create(
                 item.group,
+                user,
                 this.queryRunnerFactory.manager,
               );
               updateGroup = savedGroup;

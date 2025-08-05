@@ -17,6 +17,8 @@ import { ResponseService } from 'src/common/response/response';
 import { GroupResponseDto } from './dto/group-response.dto';
 import { GroupListDto } from './dto/group-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { User } from 'src/user/entities/user.entity';
 
 @Controller('/group')
 export class GroupController {
@@ -29,8 +31,9 @@ export class GroupController {
   @Post()
   async create(
     @Body() createStoreDto: CreateGroupDto,
+    @CurrentUser() user: User,
   ): Promise<GroupResponseDto> {
-    const createGroup = await this.groupService.create(createStoreDto);
+    const createGroup = await this.groupService.create(createStoreDto, user);
 
     return this.responseService.mapToDto(GroupResponseDto, createGroup);
   }
@@ -39,8 +42,9 @@ export class GroupController {
   @Get()
   async findAll(
     @Query() listDto: GroupListDto,
+    @CurrentUser() user: User,
   ): Promise<paginationData<GroupResponseDto>> {
-    const groups = await this.groupService.findAll(listDto);
+    const groups = await this.groupService.findAll(listDto, user);
 
     return this.responseService.mapPaginatedToDto(GroupResponseDto, groups);
   }

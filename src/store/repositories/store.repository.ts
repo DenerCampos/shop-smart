@@ -6,6 +6,7 @@ import { Store } from '../entities/store.entity';
 import { CreateStoreDto } from '../dto/create-store.dto';
 import { UpdateStoreDto } from '../dto/update-store.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class StoreRepository implements IStoreRepository {
@@ -16,6 +17,7 @@ export class StoreRepository implements IStoreRepository {
 
   async create(
     createStoreDto: CreateStoreDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Store> {
     const repository = manager
@@ -26,6 +28,7 @@ export class StoreRepository implements IStoreRepository {
     const existingStore = await repository.findOne({
       where: {
         name: ILike(`%${createStoreDto.name}%`),
+        user: user,
       },
     });
 
@@ -35,7 +38,10 @@ export class StoreRepository implements IStoreRepository {
     }
 
     // Se não existe, cria novo
-    const store = repository.create(createStoreDto);
+    const store = repository.create({
+      ...createStoreDto,
+      user: user,
+    });
     return repository.save(store);
   }
 
@@ -46,11 +52,14 @@ export class StoreRepository implements IStoreRepository {
   }
 
   async findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
   ): Promise<[Store[], number]> {
     const queryBuilder = this.storeEntity.createQueryBuilder('store');
+
+    queryBuilder.where('store.userId = :userId', { userId: user.id });
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
