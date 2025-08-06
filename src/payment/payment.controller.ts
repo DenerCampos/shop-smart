@@ -17,6 +17,8 @@ import { PaymentResponseDto } from './dto/payment-response.dto';
 import { ResponseService } from 'src/common/response/response';
 import { paginationData } from 'src/common/pagination/pagination';
 import { PaymentListDto } from './dto/payment-list.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { User } from 'src/user/entities/user.entity';
 
 @Controller('/payment')
 export class PaymentController {
@@ -29,8 +31,12 @@ export class PaymentController {
   @Post()
   async create(
     @Body() createPaymentDto: CreatePaymentDto,
+    @CurrentUser() user: User,
   ): Promise<PaymentResponseDto> {
-    const createPayment = await this.paymentService.create(createPaymentDto);
+    const createPayment = await this.paymentService.create(
+      createPaymentDto,
+      user,
+    );
 
     return this.responseService.mapToDto(PaymentResponseDto, createPayment);
   }
@@ -39,8 +45,9 @@ export class PaymentController {
   @Get()
   async findAll(
     @Query() listDto: PaymentListDto,
+    @CurrentUser() user: User,
   ): Promise<paginationData<PaymentResponseDto>> {
-    const payments = await this.paymentService.findAll(listDto);
+    const payments = await this.paymentService.findAll(listDto, user);
 
     return this.responseService.mapPaginatedToDto(PaymentResponseDto, payments);
   }

@@ -17,6 +17,8 @@ import { StoreResponseDto } from './dto/store-response.dto';
 import { ResponseService } from 'src/common/response/response';
 import { StoreListDto } from './dto/store-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
+import { User } from 'src/user/entities/user.entity';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @Controller('/store')
 export class StoreController {
@@ -29,8 +31,9 @@ export class StoreController {
   @Post()
   async create(
     @Body() createStoreDto: CreateStoreDto,
+    @CurrentUser() user: User,
   ): Promise<StoreResponseDto> {
-    const createStore = await this.storeService.create(createStoreDto);
+    const createStore = await this.storeService.create(createStoreDto, user);
 
     return this.responseService.mapToDto(StoreResponseDto, createStore);
   }
@@ -39,8 +42,9 @@ export class StoreController {
   @Get()
   async findAll(
     @Query() listDto: StoreListDto,
+    @CurrentUser() user: User,
   ): Promise<paginationData<StoreResponseDto>> {
-    const stores = await this.storeService.findAll(listDto);
+    const stores = await this.storeService.findAll(listDto, user);
 
     return this.responseService.mapPaginatedToDto(StoreResponseDto, stores);
   }

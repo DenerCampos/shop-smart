@@ -1,6 +1,9 @@
 import { Coin } from 'src/coin/entities/coin.entity';
 import { CoinTransaction } from 'src/coin/entities/coinTransaction.entity';
+import { Group } from 'src/group/entities/group.entity';
+import { Payment } from 'src/payment/entities/payment.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
+import { Store } from 'src/store/entities/store.entity';
 import {
   Column,
   CreateDateColumn,
@@ -59,4 +62,13 @@ export class User {
 
   @OneToMany(() => CoinTransaction, (coinTransactions) => coinTransactions.user)
   coinTransactions: CoinTransaction[];
+
+  @OneToMany(() => Group, (group) => group.user)
+  groups: Group[];
+
+  @OneToMany(() => Payment, (payment) => payment.user)
+  payments: Payment[];
+
+  @OneToMany(() => Store, (store) => store.user)
+  stores: Store[];
 }

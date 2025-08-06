@@ -9,6 +9,7 @@ import { PaymentListDto } from './dto/payment-list.dto';
 import { EntityManager } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class PaymentService {
@@ -23,18 +24,23 @@ export class PaymentService {
 
   async create(
     createPaymentDto: CreatePaymentDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Payment> {
-    return this.paymentRepository.create(createPaymentDto, manager);
+    return this.paymentRepository.create(createPaymentDto, user, manager);
   }
 
-  async findAll(paymentList: PaymentListDto): Promise<paginationData<Payment>> {
+  async findAll(
+    paymentList: PaymentListDto,
+    user: User,
+  ): Promise<paginationData<Payment>> {
     const offset = this.pagination.getOffset(
       paymentList.page,
       paymentList.limit,
     );
 
     const [payments, total] = await this.paymentRepository.findAll(
+      user,
       offset,
       paymentList.limit,
       paymentList.search,

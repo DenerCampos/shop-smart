@@ -9,6 +9,7 @@ import { AppConfig } from 'src/common/app-config/app.config';
 import { EntityManager } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class StoreService {
@@ -23,15 +24,20 @@ export class StoreService {
 
   async create(
     createStoreDto: CreateStoreDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Store> {
-    return this.storeRepository.create(createStoreDto, manager);
+    return this.storeRepository.create(createStoreDto, user, manager);
   }
 
-  async findAll(userList: StoreListDto): Promise<paginationData<Store>> {
+  async findAll(
+    userList: StoreListDto,
+    user: User,
+  ): Promise<paginationData<Store>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
 
     const [users, total] = await this.storeRepository.findAll(
+      user,
       offset,
       userList.limit,
       userList.search,

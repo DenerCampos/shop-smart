@@ -1,9 +1,12 @@
 import { Expense } from 'src/expense/entities/expense.entity';
+import { User } from 'src/user/entities/user.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   UpdateDateColumn,
 } from 'typeorm';
@@ -32,4 +35,8 @@ export class Payment {
 
   @OneToMany(() => Expense, (expense) => expense.payment)
   expenses: Expense[];
+
+  @ManyToOne(() => User, (user) => user.payments)
+  @JoinColumn({ name: 'userId' })
+  user: User;
 }

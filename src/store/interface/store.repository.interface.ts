@@ -2,13 +2,16 @@ import { EntityManager } from 'typeorm';
 import { CreateStoreDto } from '../dto/create-store.dto';
 import { UpdateStoreDto } from '../dto/update-store.dto';
 import { Store } from '../entities/store.entity';
+import { User } from 'src/user/entities/user.entity';
 
 export interface IStoreRepository {
   create(
     createStoreDto: CreateStoreDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Store>;
   findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,

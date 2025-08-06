@@ -9,6 +9,7 @@ import { GroupListDto } from './dto/group-list.dto';
 import { EntityManager } from 'typeorm';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class GroupService {
@@ -23,19 +24,24 @@ export class GroupService {
 
   async create(
     createGroupDto: CreateGroupDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Group> {
-    return this.groupRepository.create(createGroupDto, manager);
+    return this.groupRepository.create(createGroupDto, user, manager);
   }
 
   async findByName(name: string): Promise<Group | null> {
     return this.groupRepository.findByName(name);
   }
 
-  async findAll(userList: GroupListDto): Promise<paginationData<Group>> {
+  async findAll(
+    userList: GroupListDto,
+    user: User,
+  ): Promise<paginationData<Group>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
 
     const [users, total] = await this.groupRepository.findAll(
+      user,
       offset,
       userList.limit,
       userList.search,

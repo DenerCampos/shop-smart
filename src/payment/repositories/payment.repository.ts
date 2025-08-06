@@ -6,6 +6,7 @@ import { Payment } from '../entities/payment.entity';
 import { CreatePaymentDto } from '../dto/create-payment.dto';
 import { UpdatePaymentDto } from '../dto/update-payment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class PaymentRepository implements IPaymentRepository {
@@ -16,6 +17,7 @@ export class PaymentRepository implements IPaymentRepository {
 
   async create(
     createPaymentDto: CreatePaymentDto,
+    user: User,
     manager?: EntityManager,
   ): Promise<Payment> {
     const repository = manager
@@ -25,6 +27,7 @@ export class PaymentRepository implements IPaymentRepository {
     const existingPayment = await repository.findOne({
       where: {
         name: ILike(`%${createPaymentDto.name}%`),
+        user: user,
       },
     });
 
@@ -32,16 +35,22 @@ export class PaymentRepository implements IPaymentRepository {
       return existingPayment;
     }
 
-    const payment = repository.create(createPaymentDto);
+    const payment = repository.create({
+      ...createPaymentDto,
+      user: user,
+    });
     return repository.save(payment);
   }
 
   async findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
   ): Promise<[Payment[], number]> {
     const queryBuilder = this.paymentEntity.createQueryBuilder('payment');
+
+    queryBuilder.where('payment.userId = :userId', { userId: user.id });
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
