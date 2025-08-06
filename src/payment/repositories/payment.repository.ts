@@ -27,7 +27,7 @@ export class PaymentRepository implements IPaymentRepository {
     const existingPayment = await repository.findOne({
       where: {
         name: ILike(`%${createPaymentDto.name}%`),
-        user: user,
+        user: { id: user.id },
       },
     });
 
