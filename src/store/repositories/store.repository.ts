@@ -28,7 +28,7 @@ export class StoreRepository implements IStoreRepository {
     const existingStore = await repository.findOne({
       where: {
         name: ILike(`%${createStoreDto.name}%`),
-        user: user,
+        user: { id: user.id },
       },
     });
 

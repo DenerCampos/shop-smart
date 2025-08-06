@@ -27,7 +27,7 @@ export class GroupRepository implements IGroupRepository {
     const existingGroup = await repository.findOne({
       where: {
         name: ILike(`%${createGroupDto.name}%`),
-        user: user,
+        user: { id: user.id },
       },
     });
 
