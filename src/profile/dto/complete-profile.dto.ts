@@ -14,6 +14,10 @@ export class CompleteProfileDto {
   income: number;
 
   @IsNotEmpty()
+  @IsString()
+  date: string;
+
+  @IsNotEmpty()
   @IsBoolean()
   repeatMonthly?: boolean;
 }
