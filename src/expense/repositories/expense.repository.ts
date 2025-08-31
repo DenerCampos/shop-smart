@@ -227,9 +227,10 @@ export class ExpenseRepository implements IExpenseRepository {
     return await query.getMany();
   }
 
-  async exist(): Promise<boolean> {
+  async exist(userId: string): Promise<boolean> {
     const hasData = await this.expenseEntity
       .createQueryBuilder('expense')
+      .where('expense.user = :userId', { userId })
       .limit(1)
       .getOne();
 

@@ -163,8 +163,8 @@ export class RevenueService {
     return await this.revenueRepository.findByMonth(user.id, month);
   }
 
-  async exist(): Promise<boolean> {
-    return this.revenueRepository.exist();
+  async exist(user: User): Promise<boolean> {
+    return this.revenueRepository.exist(user.id);
   }
 
   async getLatest(

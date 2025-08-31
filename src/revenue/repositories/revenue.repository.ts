@@ -117,9 +117,10 @@ export class RevenueRepository implements IRevenueRepository {
     return await query.getMany();
   }
 
-  async exist(): Promise<boolean> {
+  async exist(userId: string): Promise<boolean> {
     const hasData = await this.revenueEntity
       .createQueryBuilder('revenue')
+      .where('revenue.user = :userId', { userId })
       .limit(1)
       .getOne();
 
