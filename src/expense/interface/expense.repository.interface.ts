@@ -25,6 +25,7 @@ export interface IExpenseRepository {
     manager?: EntityManager,
   ): Promise<Item>;
   findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,

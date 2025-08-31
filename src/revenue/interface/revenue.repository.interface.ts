@@ -7,6 +7,7 @@ import { EntityManager } from 'typeorm';
 export interface IRevenueRepository {
   create(user: User, createRevenueDto: CreateRevenueDto): Promise<Revenue>;
   findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,

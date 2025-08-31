@@ -48,8 +48,9 @@ export class RevenueController {
   @Get()
   async findAll(
     @Query() listDto: RevenueListDto,
+    @CurrentUser() user: User,
   ): Promise<paginationData<RevenueResponseDto>> {
-    const revenues = await this.revenueService.findAll(listDto);
+    const revenues = await this.revenueService.findAll(listDto, user);
 
     return this.responseService.mapPaginatedToDto(RevenueResponseDto, revenues);
   }

@@ -63,10 +63,14 @@ export class RevenueService {
     await this.coinService.addCoins(user, { type: typeCoins });
   }
 
-  async findAll(userList: RevenueListDto): Promise<paginationData<Revenue>> {
+  async findAll(
+    userList: RevenueListDto,
+    user: User,
+  ): Promise<paginationData<Revenue>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
 
     const [revenues, total] = await this.revenueRepository.findAll(
+      user,
       offset,
       userList.limit,
       userList.search,
