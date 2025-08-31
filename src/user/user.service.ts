@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter } from 'events';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AppConfig } from '../common/app-config/app.config';
@@ -9,6 +10,7 @@ import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { UserListDto } from './dto/user-list.dto';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { UserCreatedEvent } from './events/user-created.event';
 
 @Injectable()
 export class UserService {
@@ -20,6 +22,7 @@ export class UserService {
     private userRepository: IUserRepository,
     private appConfig: AppConfig,
     private pagination: Pagination,
+    private eventEmitter: EventEmitter,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
@@ -33,10 +36,15 @@ export class UserService {
     }
 
     if (createUserDto.coatOfArms === undefined) {
-      createUserDto.coatOfArms = '/assets/images/coat_of_arms_solare.png';
+      createUserDto.coatOfArms = '/assets/images/brasao/brasao-1.png';
     }
 
-    return await this.userRepository.create(createUserDto);
+    const user = await this.userRepository.create(createUserDto);
+
+    // Emite o evento de usuário criado
+    this.eventEmitter.emit('user.created', new UserCreatedEvent(user));
+
+    return user;
   }
 
   async findAll(userList: UserListDto): Promise<paginationData<User>> {

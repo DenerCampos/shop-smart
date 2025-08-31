@@ -25,6 +25,7 @@ export interface IExpenseRepository {
     manager?: EntityManager,
   ): Promise<Item>;
   findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
@@ -48,7 +49,7 @@ export interface IExpenseRepository {
     endDate: string,
   ): Promise<Expense[] | []>;
   findByMonth(userId: string, month: number): Promise<Expense[] | []>;
-  exist(): Promise<boolean>;
+  exist(userId: string): Promise<boolean>;
   getLatest(userId: string, limit: number): Promise<Expense[] | []>;
   countAll(): Promise<number>;
   findItemById(id: string): Promise<Item | null>;

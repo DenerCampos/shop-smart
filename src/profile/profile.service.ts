@@ -30,7 +30,7 @@ export class ProfileService {
     const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
     const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
     const coins = await this.coinService.getCoinsByUser(user);
-    const existRevenue = await this.revenueService.exist();
+    const existRevenue = await this.revenueService.exist(user);
     const hasRecurringRevenues =
       await this.revenueService.hasRecurringPreviousMonth(user);
     const hasRecurringExpenses =

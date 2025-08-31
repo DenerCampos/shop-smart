@@ -28,14 +28,17 @@ export class RevenueRepository implements IRevenueRepository {
   }
 
   async findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
   ): Promise<[Revenue[], number]> {
     const queryBuilder = this.revenueEntity.createQueryBuilder('revenue');
 
+    queryBuilder.where('revenue.user = :userId', { userId: user.id });
+
     if (search) {
-      queryBuilder.where('LOWER(revenue.name) LIKE LOWER(:search)', {
+      queryBuilder.andWhere('LOWER(revenue.name) LIKE LOWER(:search)', {
         search: `%${search}%`,
       });
     }
@@ -117,9 +120,10 @@ export class RevenueRepository implements IRevenueRepository {
     return await query.getMany();
   }
 
-  async exist(): Promise<boolean> {
+  async exist(userId: string): Promise<boolean> {
     const hasData = await this.revenueEntity
       .createQueryBuilder('revenue')
+      .where('revenue.user = :userId', { userId })
       .limit(1)
       .getOne();
 

@@ -4,6 +4,7 @@ import { Group } from 'src/group/entities/group.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
 import { Store } from 'src/store/entities/store.entity';
+import { UserTheme } from 'src/theme/entities/user-theme.entity';
 import {
   Column,
   CreateDateColumn,
@@ -71,4 +72,7 @@ export class User {
 
   @OneToMany(() => Store, (store) => store.user)
   stores: Store[];
+
+  @OneToMany(() => UserTheme, (userTheme) => userTheme.user)
+  themes: UserTheme[];
 }

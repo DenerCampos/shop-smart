@@ -3,9 +3,22 @@ import { Pagination } from './pagination/pagination';
 import { AppConfig } from './app-config/app.config';
 import { ResponseService } from './response/response';
 import { QueryRunnerFactory } from './query-runner/queryRunner.factory';
+import { EventEmitterProvider } from './events/events.provider';
 
 @Module({
-  providers: [Pagination, AppConfig, ResponseService, QueryRunnerFactory],
-  exports: [Pagination, AppConfig, ResponseService, QueryRunnerFactory],
+  providers: [
+    Pagination,
+    AppConfig,
+    ResponseService,
+    QueryRunnerFactory,
+    EventEmitterProvider,
+  ],
+  exports: [
+    Pagination,
+    AppConfig,
+    ResponseService,
+    QueryRunnerFactory,
+    EventEmitterProvider,
+  ],
 })
 export class CommonModule {}

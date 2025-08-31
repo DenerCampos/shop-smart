@@ -62,6 +62,7 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
@@ -75,12 +76,13 @@ export class ExpenseRepository implements IExpenseRepository {
     queryBuilder.leftJoinAndSelect('expense.store', 'store');
     queryBuilder.leftJoinAndSelect('item.group', 'group');
 
+    queryBuilder.where('expense.user = :userId', { userId: user.id });
     // Filtrar para não trazer expense e item deletados
-    queryBuilder.where('expense.deletedAt IS NULL');
+    queryBuilder.andWhere('expense.deletedAt IS NULL');
     queryBuilder.andWhere('(item.deletedAt IS NULL OR item.id IS NULL)');
 
     if (search) {
-      queryBuilder.where('LOWER(expense.name) LIKE LOWER(:search)', {
+      queryBuilder.andWhere('LOWER(expense.name) LIKE LOWER(:search)', {
         search: `%${search}%`,
       });
     }
@@ -227,9 +229,10 @@ export class ExpenseRepository implements IExpenseRepository {
     return await query.getMany();
   }
 
-  async exist(): Promise<boolean> {
+  async exist(userId: string): Promise<boolean> {
     const hasData = await this.expenseEntity
       .createQueryBuilder('expense')
+      .where('expense.user = :userId', { userId })
       .limit(1)
       .getOne();
 

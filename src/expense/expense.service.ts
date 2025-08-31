@@ -128,13 +128,17 @@ export class ExpenseService {
     await this.coinService.addCoins(user, { type: typeCoins });
   }
 
-  async findAll(expenseList: ExpenseListDto): Promise<paginationData<Expense>> {
+  async findAll(
+    expenseList: ExpenseListDto,
+    user: User,
+  ): Promise<paginationData<Expense>> {
     const offset = this.pagination.getOffset(
       expenseList.page,
       expenseList.limit,
     );
 
     const [expenses, total] = await this.expenseRepository.findAll(
+      user,
       offset,
       expenseList.limit,
       expenseList.search,

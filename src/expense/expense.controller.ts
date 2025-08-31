@@ -49,8 +49,9 @@ export class ExpenseController {
   @Get()
   async findAll(
     @Query() listDto: ExpenseListDto,
+    @CurrentUser() user: User,
   ): Promise<paginationData<ExpenseResponseDto>> {
-    const expenses = await this.expenseService.findAll(listDto);
+    const expenses = await this.expenseService.findAll(listDto, user);
 
     return this.responseService.mapPaginatedToDto(ExpenseResponseDto, expenses);
   }

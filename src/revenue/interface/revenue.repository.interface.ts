@@ -7,6 +7,7 @@ import { EntityManager } from 'typeorm';
 export interface IRevenueRepository {
   create(user: User, createRevenueDto: CreateRevenueDto): Promise<Revenue>;
   findAll(
+    user: User,
     page: number,
     limit: number,
     search?: string,
@@ -25,7 +26,7 @@ export interface IRevenueRepository {
     endDate: string,
   ): Promise<Revenue[] | []>;
   findByMonth(userId: string, month: number): Promise<Revenue[] | []>;
-  exist(): Promise<boolean>;
+  exist(userId: string): Promise<boolean>;
   getLatest(userId: string, limit: number): Promise<Revenue[] | []>;
   countAll(): Promise<number>;
   findRecurringByMonthAndDay(

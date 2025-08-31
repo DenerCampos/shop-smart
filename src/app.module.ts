@@ -13,6 +13,7 @@ import { StoreModule } from './store/store.module';
 import { CoinModule } from './coin/coin.module';
 import { ProfileModule } from './profile/profile.module';
 import { ReportsModule } from './reports/reports.module';
+import { ThemeModule } from './theme/theme.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ReportsModule } from './reports/reports.module';
     CoinModule,
     ProfileModule,
     ReportsModule,
+    ThemeModule,
   ],
   controllers: [],
   providers: [],
