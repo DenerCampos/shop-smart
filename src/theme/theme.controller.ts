@@ -19,6 +19,7 @@ import { ThemeResponseDto } from './dto/theme-response.dto';
 import { paginationData } from 'src/common/pagination/pagination';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/user/entities/user.entity';
+import { BuyThemeDto } from './dto/buy-theme.dto';
 
 @Controller('/theme')
 export class ThemeController {
@@ -31,6 +32,15 @@ export class ThemeController {
   @Post('create-default-theme')
   async createDefaultTheme(@CurrentUser() user: User): Promise<void> {
     await this.themeService.createDefaultTheme(user);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('buy')
+  async buyTheme(
+    @CurrentUser() user: User,
+    @Body() body: BuyThemeDto,
+  ): Promise<void> {
+    await this.themeService.buyTheme(user, body.id);
   }
 
   @UseGuards(AuthGuard)

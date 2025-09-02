@@ -21,6 +21,7 @@ import { ResponseService } from 'src/common/response/response';
 import { CoinResponseDto } from './dto/coin-response.dto';
 import { paginationData } from 'src/common/pagination/pagination';
 import { CoinListDto } from './dto/coin-list.dto';
+import { BalanceCoinDto } from './dto/balance-coin.dto';
 
 @Controller('/coin')
 export class CoinController {
@@ -48,6 +49,14 @@ export class CoinController {
     const coins = await this.coinService.findAll(listDto);
 
     return this.responseService.mapPaginatedToDto(CoinResponseDto, coins);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/balance')
+  async getCoinsByUser(@CurrentUser() user: User): Promise<BalanceCoinDto> {
+    const coins = await this.coinService.getCoinsByUser(user);
+
+    return this.responseService.mapToDto(BalanceCoinDto, { balance: coins });
   }
 
   @UseGuards(AuthGuard)

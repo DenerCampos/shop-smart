@@ -1,4 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateCoinDto } from './dto/create-coin.dto';
 import { UpdateCoinDto } from './dto/update-coin.dto';
 import {
@@ -22,8 +24,8 @@ import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory'
 
 @Injectable()
 export class CoinService {
-  private url = `${this.appConfig.getBaseUrl()}/coin`;
-  private addCoinsTypes = {
+  private readonly url = `${this.appConfig.getBaseUrl()}/coin`;
+  private readonly addCoinsTypes = {
     coupon: 5,
     group: 2,
     payment: 2,
@@ -31,19 +33,51 @@ export class CoinService {
     resource: 2,
     revenue: 10,
   };
-  private removeCoinsTypes = {
+  private readonly removeCoinsTypes = {
     imagem: 50,
-    theme: 200,
+    theme: 500,
     color: 10,
   };
 
   constructor(
     @Inject('ICoinRepository')
-    private coinRepository: ICoinRepository,
-    private appConfig: AppConfig,
-    private pagination: Pagination,
-    private queryRunnerFactory: QueryRunnerFactory,
-  ) {}
+    private readonly coinRepository: ICoinRepository,
+    private readonly appConfig: AppConfig,
+    private readonly pagination: Pagination,
+    private readonly queryRunnerFactory: QueryRunnerFactory,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
+  ) {
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners() {
+    this.eventEmitter.on(
+      'coin.remove',
+      async (user: User, type: coinType, metadata?: Record<string, any>) => {
+        try {
+          await this.removeCoins(user, { type });
+          this.eventEmitter.emit('coin.success');
+        } catch (error) {
+          console.error('Error removing coins:', error);
+          this.eventEmitter.emit('coin.error', error);
+        }
+      },
+    );
+
+    this.eventEmitter.on(
+      'coin.add',
+      async (user: User, type: coinType, metadata?: Record<string, any>) => {
+        try {
+          await this.addCoins(user, { type });
+          this.eventEmitter.emit('coin.success');
+        } catch (error) {
+          console.error('Error adding coins:', error);
+          this.eventEmitter.emit('coin.error', error);
+        }
+      },
+    );
+  }
 
   async create(
     user: User,

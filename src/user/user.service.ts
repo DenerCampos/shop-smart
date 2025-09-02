@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AppConfig } from '../common/app-config/app.config';
@@ -14,15 +15,16 @@ import { UserCreatedEvent } from './events/user-created.event';
 
 @Injectable()
 export class UserService {
-  private saltOrRounds: number;
-  private url = `${this.appConfig.getBaseUrl()}/user`;
+  private readonly saltOrRounds: number;
+  private readonly url = `${this.appConfig.getBaseUrl()}/user`;
 
   constructor(
     @Inject('IUserRepository')
-    private userRepository: IUserRepository,
-    private appConfig: AppConfig,
-    private pagination: Pagination,
-    private eventEmitter: EventEmitter,
+    private readonly userRepository: IUserRepository,
+    private readonly appConfig: AppConfig,
+    private readonly pagination: Pagination,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
