@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -17,6 +17,7 @@ import { UserCreatedEvent } from './events/user-created.event';
 export class UserService {
   private readonly saltOrRounds: number;
   private readonly url = `${this.appConfig.getBaseUrl()}/user`;
+  private readonly limitUsers: number = 15;
 
   constructor(
     @Inject('IUserRepository')
@@ -30,6 +31,12 @@ export class UserService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    const totalUsers = await this.userRepository.countAll();
+
+    if (totalUsers >= this.limitUsers) {
+      throw new ConflictException('O limite de usuários foi atingido');
+    }
+
     const hash = await bcrypt.hash(createUserDto.password, this.saltOrRounds);
     createUserDto.password = hash;
 
