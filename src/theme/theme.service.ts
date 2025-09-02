@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { UserCreatedEvent } from '../user/events/user-created.event';
 import { IThemeRepository } from './interfaces/theme.repository.interface';
 import { CreateThemeDto } from './dto/create-theme.dto';
@@ -10,23 +11,46 @@ import { ThemeListDto } from './dto/theme-list.dto';
 import { EntityManager } from 'typeorm';
 import { Theme } from './entities/theme.entity';
 import { UpdateException } from 'src/exception/updateException';
-import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
 import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class ThemeService {
-  private url = `${this.appConfig.getBaseUrl()}/theme`;
+  private readonly url = `${this.appConfig.getBaseUrl()}/theme`;
 
   constructor(
     @Inject('IThemeRepository')
-    private themeRepository: IThemeRepository,
-    private appConfig: AppConfig,
-    private pagination: Pagination,
-    private eventEmitter: EventEmitter,
+    private readonly themeRepository: IThemeRepository,
+    private readonly appConfig: AppConfig,
+    private readonly pagination: Pagination,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {
     // Registra o listener para o evento user.created
     this.eventEmitter.on('user.created', this.handleUserCreated.bind(this));
+  }
+
+  private emitAndWait<T = any>(
+    emitEvent: string,
+    successEvent: string,
+    errorEvent: string,
+    ...args: any[]
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const successHandler = (result?: T) => {
+        this.eventEmitter.removeListener(errorEvent, errorHandler);
+        resolve(result || (true as T));
+      };
+
+      const errorHandler = (error: Error) => {
+        this.eventEmitter.removeListener(successEvent, successHandler);
+        reject(error);
+      };
+
+      this.eventEmitter.once(successEvent, successHandler);
+      this.eventEmitter.once(errorEvent, errorHandler);
+      this.eventEmitter.emit(emitEvent, ...args);
+    });
   }
 
   async create(
@@ -113,8 +137,6 @@ export class ThemeService {
   async activeTheme(user: User): Promise<Theme & { isUnlocked: boolean }> {
     const theme = await this.themeRepository.getActiveTheme(user.id);
 
-    console.log('theme', theme);
-
     if (!theme) {
       const defaultTheme = await this.themeRepository.getDefaultTheme();
 
@@ -179,5 +201,38 @@ export class ThemeService {
       ...theme,
       isUnlocked: true,
     }));
+  }
+
+  async buyTheme(user: User, themeId: string): Promise<boolean> {
+    const theme = await this.themeRepository.find(themeId);
+
+    if (!theme) {
+      throw new NotFoundException('Theme not found');
+    }
+
+    const removeCoinsPromise = this.emitAndWait(
+      'coin.remove',
+      'coin.success',
+      'coin.error',
+      user,
+      'theme',
+      { themeId },
+    );
+
+    try {
+      // Aguarda a remoção das moedas
+      await removeCoinsPromise;
+
+      await this.themeRepository.clearActiveTheme(user.id);
+      await this.themeRepository.createUserTheme(user.id, themeId);
+
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createUserTheme(user: User, themeId: string): Promise<boolean> {
+    return await this.themeRepository.createUserTheme(user.id, themeId);
   }
 }

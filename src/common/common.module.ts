@@ -3,7 +3,10 @@ import { Pagination } from './pagination/pagination';
 import { AppConfig } from './app-config/app.config';
 import { ResponseService } from './response/response';
 import { QueryRunnerFactory } from './query-runner/queryRunner.factory';
-import { EventEmitterProvider } from './events/events.provider';
+import {
+  EventEmitterProvider,
+  EVENT_EMITTER,
+} from './event-emitter/event-emitter.provider';
 
 @Module({
   providers: [
@@ -19,6 +22,7 @@ import { EventEmitterProvider } from './events/events.provider';
     ResponseService,
     QueryRunnerFactory,
     EventEmitterProvider,
+    EVENT_EMITTER,
   ],
 })
 export class CommonModule {}
