@@ -1,21 +1,29 @@
+# Estágio 1: Build da aplicação
+FROM node:18.10-alpine AS builder
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# Estágio 2: Imagem final
 FROM node:18.10-alpine
 
 WORKDIR /usr/src/app
 
-# 1. Copia APENAS os arquivos necessários para instalação
-COPY package.json package-lock.json ./
+ENV NODE_ENV=production
 
-# 2. Instala dependências de DEV também (necessárias para o build)
-RUN npm ci
+COPY --from=builder /usr/src/app/package*.json ./
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/dist ./dist
 
-# 3. Copia o restante do código
-COPY . .
+# Criar usuário não-root
+RUN addgroup -S app && adduser -S app -G app
+USER app
 
-# 4. Executa o build
-RUN npm run build
+EXPOSE 3000
 
-# 5. Remove as devDependencies para reduzir tamanho da imagem
-RUN npm prune --production
-
-# 6. Comando de execução
-CMD [ "node", "dist/src/main.js" ]
+CMD ["node", "dist/src/main.js"]

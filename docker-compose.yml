@@ -1,34 +1,48 @@
 version: '3'
+
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '3001:3000'
+      - "${API_PORT}:3000"
     depends_on:
       - db
       - redis
-    command: sh -c "npm run migration:run && npm run start:dev"
+    env_file:
+      - .env
     networks:
       - shop_smart
+    restart: always
+    volumes:
+      - ./logs:/usr/src/app/logs
+
   db:
-    image: mysql:latest
-    ports:
-      - '3308:3306'
+    image: mysql:8.0
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: r00t
-      MYSQL_DATABASE: shop_smart
-      MYSQL_USER: shop_smart
-      MYSQL_PASSWORD: shop_smart
-    networks:
-      - shop_smart
-  redis:
-    image: redis:latest
+      MYSQL_ROOT_PASSWORD: ${API_DB_ROOT_PASS}
+      MYSQL_DATABASE: ${API_DB_NAME}
+      MYSQL_USER: ${API_DB_USER}
+      MYSQL_PASSWORD: ${API_DB_PASS}
+    volumes:
+      - db_data:/var/lib/mysql
     ports:
-      - '6380:6379'
+      - "${API_DB_PORT}:3306"
     networks:
       - shop_smart
+    restart: always
+
+  redis:
+    image: redis:7.2.4
+    networks:
+      - shop_smart
+    restart: always
 
 networks:
   shop_smart:
+
+volumes:
+  db_data:
