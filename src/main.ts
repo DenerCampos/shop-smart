@@ -36,7 +36,19 @@ async function bootstrap() {
   // class-validator resolve dependencias igual o nest
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-  app.enableCors();
+  // CORS configurado por ambiente
+  const corsConfig =
+    process.env.NODE_ENV === 'production'
+      ? {
+          origin: process.env.FRONTEND_URL,
+          methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+          credentials: true, // necessário se usar cookies
+        }
+      : {};
+
+  app.enableCors(corsConfig);
+
+  // app.enableCors();
 
   await app.listen(port, host);
 }
