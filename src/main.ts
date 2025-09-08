@@ -37,18 +37,14 @@ async function bootstrap() {
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   // CORS configurado por ambiente
-  const corsConfig =
-    process.env.NODE_ENV === 'production'
-      ? {
-          origin: process.env.FRONTEND_URL,
-          methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-          credentials: true, // necessário se usar cookies
-        }
-      : {};
+  const corsConfig = {
+    origin:
+      process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true, // necessário para o ngrok e cookies
+  };
 
   app.enableCors(corsConfig);
-
-  // app.enableCors();
 
   await app.listen(port, host);
 }
