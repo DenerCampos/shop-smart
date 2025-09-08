@@ -39,14 +39,18 @@ async function bootstrap() {
   // CORS configurado por ambiente
   const corsConfig = {
     origin:
-      process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : true,
+      process.env.NODE_ENV === 'production'
+        ? [process.env.FRONTEND_URL, /\.ngrok-free\.app$/]
+        : [
+            'http://localhost:3000',
+            'http://localhost:5173', // Vite dev server
+            'https://superfamilyquest.netlify.app',
+            /\.ngrok-free\.app$/,
+          ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true, // necessário para o ngrok e cookies
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'ngrok-skip-browser-warning', // Header específico do ngrok
-    ],
+    credentials: true,
+    allowedHeaders: '*',
+    exposedHeaders: '*',
   };
 
   app.enableCors(corsConfig);
