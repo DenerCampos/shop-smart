@@ -42,6 +42,11 @@ async function bootstrap() {
       process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true, // necessário para o ngrok e cookies
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'ngrok-skip-browser-warning', // Header específico do ngrok
+    ],
   };
 
   app.enableCors(corsConfig);
