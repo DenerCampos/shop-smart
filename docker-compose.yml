@@ -29,6 +29,7 @@ services:
       MYSQL_PASSWORD: ${API_DB_PASS}
     volumes:
       - db_data:/var/lib/mysql
+      - ./mysql-config/my.cnf:/etc/mysql/conf.d/custom.cnf 
     ports:
       - "${API_DB_PORT}:3306"
     networks:
