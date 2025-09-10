@@ -160,7 +160,7 @@ export class ExpenseService {
   }
 
   async findOrCreateStore(storeName: string, user: User): Promise<Store> {
-    let updateStore = await this.storeService.findByName(storeName);
+    let updateStore = await this.storeService.findByName(storeName, user);
 
     if (!updateStore) {
       const savedStore = await this.storeService.create(
@@ -176,7 +176,7 @@ export class ExpenseService {
   }
 
   async findOrCreatePayment(paymentName: string, user: User): Promise<Payment> {
-    let updatePayment = await this.paymentService.findByName(paymentName);
+    let updatePayment = await this.paymentService.findByName(paymentName, user);
 
     if (!updatePayment) {
       const savedPayment = await this.paymentService.create(
@@ -192,7 +192,7 @@ export class ExpenseService {
   }
 
   async findOrCreateGroup(groupName: string, user: User): Promise<Group> {
-    let updateGroup = await this.groupService.findByName(groupName);
+    let updateGroup = await this.groupService.findByName(groupName, user);
 
     if (!updateGroup) {
       const savedGroup = await this.groupService.create(
@@ -276,6 +276,7 @@ export class ExpenseService {
           if (item.group) {
             let updateGroup = await this.groupService.findByName(
               item.group.name,
+              user,
             );
 
             if (!updateGroup) {
@@ -343,6 +344,7 @@ export class ExpenseService {
   async updateItem(
     itemId: string,
     updateItemDto: UpdateItemDto,
+    user: User,
   ): Promise<Item> {
     try {
       await this.queryRunnerFactory.startTransaction();
@@ -350,6 +352,7 @@ export class ExpenseService {
       if (updateItemDto.group) {
         const updateGroup = await this.groupService.findByName(
           updateItemDto.group.name,
+          user,
         );
         updateItemDto.group = updateGroup;
       }

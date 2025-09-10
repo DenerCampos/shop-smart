@@ -26,6 +26,6 @@ export interface IStoreRepository {
   delete(id: string): Promise<boolean>;
   countAll(): Promise<number>;
   exist(name: string, store: Store): Promise<boolean>;
-  findByName(name: string): Promise<Store | null>;
+  findByName(name: string, user: User): Promise<Store | null>;
   getAllNames(max: number): Promise<string[]>;
 }

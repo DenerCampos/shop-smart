@@ -126,8 +126,9 @@ export class ExpenseController {
   async updateItem(
     @Param('id') id: string,
     @Body() updateItemDto: UpdateItemDto,
+    @CurrentUser() user: User,
   ): Promise<ItemResponseDto> {
-    const item = await this.expenseService.updateItem(id, updateItemDto);
+    const item = await this.expenseService.updateItem(id, updateItemDto, user);
 
     return this.responseService.mapToDto(ItemResponseDto, item);
   }

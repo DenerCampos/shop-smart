@@ -88,8 +88,8 @@ export class PaymentService {
     );
   }
 
-  async findByName(name: string): Promise<Payment | null> {
-    return this.paymentRepository.findByName(name);
+  async findByName(name: string, user: User): Promise<Payment | null> {
+    return this.paymentRepository.findByName(name, user);
   }
 
   async delete(paymentId: string): Promise<boolean> {

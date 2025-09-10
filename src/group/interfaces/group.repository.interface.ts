@@ -27,5 +27,5 @@ export interface IGroupRepository {
   findByItemIdOrName(id: string, name: string): Promise<Group | null>;
   countAll(): Promise<number>;
   exist(name: string, group: Group): Promise<boolean>;
-  findByName(name: string): Promise<Group | null>;
+  findByName(name: string, user: User): Promise<Group | null>;
 }

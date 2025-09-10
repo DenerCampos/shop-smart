@@ -97,10 +97,11 @@ export class GroupRepository implements IGroupRepository {
     return existGroup ? true : false;
   }
 
-  async findByName(name: string): Promise<Group | null> {
+  async findByName(name: string, user: User): Promise<Group | null> {
     return await this.groupEntity.findOne({
       where: {
         name: ILike(`%${name}%`),
+        user: { id: user.id },
       },
     });
   }

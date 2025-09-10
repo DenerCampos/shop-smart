@@ -30,8 +30,8 @@ export class GroupService {
     return this.groupRepository.create(createGroupDto, user, manager);
   }
 
-  async findByName(name: string): Promise<Group | null> {
-    return this.groupRepository.findByName(name);
+  async findByName(name: string, user: User): Promise<Group | null> {
+    return this.groupRepository.findByName(name, user);
   }
 
   async findAll(
