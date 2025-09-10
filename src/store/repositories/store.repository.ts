@@ -106,10 +106,11 @@ export class StoreRepository implements IStoreRepository {
     return existStore ? true : false;
   }
 
-  async findByName(name: string): Promise<Store | null> {
+  async findByName(name: string, user: User): Promise<Store | null> {
     return await this.storeEntity.findOne({
       where: {
         name: ILike(`%${name}%`),
+        user: { id: user.id },
       },
     });
   }

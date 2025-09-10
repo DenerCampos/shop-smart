@@ -26,5 +26,5 @@ export interface IPaymentRepository {
   delete(id: string): Promise<boolean>;
   countAll(): Promise<number>;
   exist(name: string, payment: Payment): Promise<boolean>;
-  findByName(name: string): Promise<Payment | null>;
+  findByName(name: string, user: User): Promise<Payment | null>;
 }

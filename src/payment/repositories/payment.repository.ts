@@ -103,10 +103,11 @@ export class PaymentRepository implements IPaymentRepository {
     return existPayment ? true : false;
   }
 
-  async findByName(name: string): Promise<Payment | null> {
+  async findByName(name: string, user: User): Promise<Payment | null> {
     return await this.paymentEntity.findOne({
       where: {
         name: ILike(`%${name}%`),
+        user: { id: user.id },
       },
     });
   }

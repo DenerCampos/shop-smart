@@ -62,8 +62,8 @@ export class StoreService {
     return this.storeRepository.find(storeId);
   }
 
-  async findByName(name: string): Promise<Store | null> {
-    return this.storeRepository.findByName(name);
+  async findByName(name: string, user: User): Promise<Store | null> {
+    return this.storeRepository.findByName(name, user);
   }
 
   async update(
