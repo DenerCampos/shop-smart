@@ -8,11 +8,10 @@ BACKUP_FILE="/backups/manual_backup_${TIMESTAMP}.sql"
 mysqldump -h db \
     -u ${MYSQL_USER} \
     -p${MYSQL_PASSWORD} \
-    --ssl-mode=DISABLED \
-    --set-gtid-purged=OFF \
-    --no-tablespaces \
+    --skip-ssl \
     --single-transaction \
     --quick \
+    --no-tablespaces \
     ${MYSQL_DATABASE} > ${BACKUP_FILE}
 
 # Verifica se o backup foi bem sucedido
