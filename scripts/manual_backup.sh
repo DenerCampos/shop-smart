@@ -19,13 +19,31 @@ if [ -z "$CONTAINER_NAME" ]; then
     exit 1
 fi
 
+# Testa a conexão primeiro
+echo "Testando conexão com o MySQL..."
+if ! docker exec $CONTAINER_NAME mysql -uroot -p${MYSQL_ROOT_PASSWORD} -e "SELECT 1;" > /dev/null 2>&1; then
+    echo "Erro ao conectar ao MySQL. Verifique as credenciais."
+    echo "Tentando com usuário padrão..."
+    docker exec $CONTAINER_NAME mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} -e "SELECT 1;"
+    exit 1
+fi
+
+echo "Conexão OK. Iniciando backup..."
 docker exec $CONTAINER_NAME mysqldump \
     -uroot \
     -p${MYSQL_ROOT_PASSWORD} \
     --single-transaction \
     --quick \
     --no-tablespaces \
-    ${MYSQL_DATABASE} > ${BACKUP_FILE}
+    --set-gtid-purged=OFF \
+    --column-statistics=0 \
+    ${MYSQL_DATABASE} > ${BACKUP_FILE} 2>${BACKUP_DIR}/backup_error.log
+
+# Se houver erro, mostra o log
+if [ $? -ne 0 ]; then
+    echo "Erro detalhado do backup:"
+    cat ${BACKUP_DIR}/backup_error.log
+fi
 
 # Verifica se o backup foi bem sucedido
 if [ $? -ne 0 ] || [ ! -s ${BACKUP_FILE} ]; then
