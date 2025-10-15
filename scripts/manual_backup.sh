@@ -1,14 +1,18 @@
 #!/bin/sh
 
-# Define o timestamp para o nome do arquivo
+# Define os diretórios e nome do arquivo
+BACKUP_DIR="/home/ubuntu/shop-smart/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="/backups/manual_backup_${TIMESTAMP}.sql"
+BACKUP_FILE="${BACKUP_DIR}/manual_backup_${TIMESTAMP}.sql"
+
+# Cria o diretório de backup se não existir
+mkdir -p ${BACKUP_DIR}
 
 # Executa o backup
 # Executa o backup diretamente do container do MySQL
 docker exec db mysqldump \
-    -u${MYSQL_USER} \
-    -p${MYSQL_PASSWORD} \
+    -uroot \
+    -p${MYSQL_ROOT_PASSWORD} \
     --single-transaction \
     --quick \
     --no-tablespaces \
