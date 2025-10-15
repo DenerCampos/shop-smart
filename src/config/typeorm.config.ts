@@ -23,10 +23,11 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
           ? ['query', 'error']
           : ['error', 'warn'], // Em produção mostra apenas erros e warnings
       maxQueryExecutionTime: 1000, // Loga queries lentas (>1s)
-      ssl: {
-        ca: process.env.SSL_CERT ?? null,
-        rejectUnauthorized: false,
-      },
+      // ssl: {
+      //   ca: process.env.SSL_CERT ?? null,
+      //   rejectUnauthorized: false,
+      // },
+      ssl: false,
       // Configurações para evitar problemas com UUID e migrations
       migrationsTableName: 'migrations',
       migrationsRun: false,
@@ -40,7 +41,11 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
         connectionLimit: 2, // Igual ao poolSize
         idleTimeout: 30000, // Fecha conexões ociosas após 30s
         enableKeepAlive: true, // Mantém conexões vivas
+        allowPublicKeyRetrieval: true, // Permite recuperação de chave pública
+        ssl: false, // Desabilita SSL na conexão
       },
+      retryAttempts: 3, // Número de tentativas de reconexão
+      retryDelay: 3000, // Delay entre tentativas (3 segundos)
     };
   }
 }
