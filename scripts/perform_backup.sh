@@ -1,17 +1,35 @@
 #!/bin/sh
 
-# Define o timestamp para o nome do arquivo
+# Define os diretórios e nome do arquivo
+BACKUP_DIR="/home/ubuntu/shop-smart/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="/backups/backup_${TIMESTAMP}.sql"
+BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql"
 
-# Executa o backup
-mysqldump -h db -u ${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} > ${BACKUP_FILE}
+# Cria o diretório de backup se não existir
+mkdir -p ${BACKUP_DIR}
+
+# Executa o backup diretamente do container do MySQL
+docker exec db mysqldump \
+    -uroot \
+    -p${MYSQL_ROOT_PASSWORD} \
+    --single-transaction \
+    --quick \
+    --no-tablespaces \
+    ${MYSQL_DATABASE} > ${BACKUP_FILE}
+
+# Verifica se o backup foi bem sucedido
+if [ $? -ne 0 ] || [ ! -s ${BACKUP_FILE} ]; then
+    echo "Erro ao criar o backup!"
+    exit 1
+fi
 
 # Comprime o arquivo
 gzip ${BACKUP_FILE}
 
 # Remove backups mais antigos que 7 dias
-find /backups -type f -name "*.sql.gz" -mtime +7 -delete
+find ${BACKUP_DIR} -type f -name "*.sql.gz" -mtime +7 -delete
 
 # Log do backup
-echo "Backup completed at $(date)" >> /backups/backup.log
+echo "Backup automático completed at $(date)" >> ${BACKUP_DIR}/backup.log
+
+echo "Backup concluído com sucesso! Arquivo: backup_${TIMESTAMP}.sql.gz"

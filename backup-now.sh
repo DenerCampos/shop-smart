@@ -13,4 +13,4 @@ echo "Iniciando backup manual..."
 sh ${PROJECT_DIR}/scripts/manual_backup.sh
 
 echo "Para ver os backups disponíveis, execute:"
-echo "ls -la ${PROJECT_DIR}/backups/"
+echo "ls -la /home/ubuntu/shop-smart/backups/"
