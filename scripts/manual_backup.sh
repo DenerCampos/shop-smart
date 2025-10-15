@@ -10,7 +10,16 @@ mkdir -p ${BACKUP_DIR}
 
 # Executa o backup
 # Executa o backup diretamente do container do MySQL
-docker exec db mysqldump \
+# Garante que estamos no diretório correto
+cd /home/ubuntu/shop-smart
+
+CONTAINER_NAME=$(docker-compose ps -q db)
+if [ -z "$CONTAINER_NAME" ]; then
+    echo "Container do MySQL não está rodando!"
+    exit 1
+fi
+
+docker exec $CONTAINER_NAME mysqldump \
     -uroot \
     -p${MYSQL_ROOT_PASSWORD} \
     --single-transaction \
