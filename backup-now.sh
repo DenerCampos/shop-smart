@@ -15,11 +15,20 @@ else
 fi
 
 # Verifica se as variáveis necessárias estão definidas
-if [ -z "${MYSQL_ROOT_PASSWORD}" ] || [ -z "${MYSQL_DATABASE}" ]; then
+if [ -z "${API_DB_ROOT_PASS}" ] || [ -z "${API_DB_NAME}" ]; then
     echo "Erro: Variáveis de ambiente necessárias não estão definidas!"
-    echo "Necessário: MYSQL_ROOT_PASSWORD, MYSQL_DATABASE"
+    echo "Necessário: API_DB_ROOT_PASS, API_DB_NAME"
+    echo "Conteúdo atual das variáveis:"
+    echo "API_DB_ROOT_PASS=${API_DB_ROOT_PASS}"
+    echo "API_DB_NAME=${API_DB_NAME}"
     exit 1
 fi
+
+# Define as variáveis que o script de backup espera
+export MYSQL_ROOT_PASSWORD="${API_DB_ROOT_PASS}"
+export MYSQL_DATABASE="${API_DB_NAME}"
+export MYSQL_USER="${API_DB_USER}"
+export MYSQL_PASSWORD="${API_DB_PASS}"
 
 # Executa o backup manual
 echo "Iniciando backup manual..."
