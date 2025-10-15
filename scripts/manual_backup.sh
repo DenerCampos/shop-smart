@@ -5,18 +5,10 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="/backups/manual_backup_${TIMESTAMP}.sql"
 
 # Executa o backup
-# Instala o cliente MySQL se não estiver instalado
-if ! command -v mysql >/dev/null 2>&1; then
-    apk add --no-cache mysql-client
-fi
-
-# Executa o backup usando o cliente MySQL
-mysql_config_editor set --login-path=backup --host=db --user=${MYSQL_USER} --password=${MYSQL_PASSWORD}
-
-mysqldump --login-path=backup \
-    -u ${MYSQL_USER} \
+# Executa o backup diretamente do container do MySQL
+docker exec db mysqldump \
+    -u${MYSQL_USER} \
     -p${MYSQL_PASSWORD} \
-    --skip-ssl \
     --single-transaction \
     --quick \
     --no-tablespaces \
