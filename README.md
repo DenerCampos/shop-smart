@@ -240,6 +240,26 @@ npm run migration:show
 
 💡 **Dica**: Sempre mantenha suas entidades TypeORM sincronizadas com suas models/DTOs para evitar inconsistências!
 
+# Backup do Banco de Dados
+
+## Backup Automático
+O sistema está configurado para realizar backups automáticos diariamente às 02:00. Os backups são armazenados no diretório `/opt/shop_smart/backups` (na instância Oracle) ou no diretório `./backups` (em ambiente local).
+
+## Backup Manual
+Para realizar um backup manual do banco de dados:
+
+```bash
+# Execute o script de backup
+./backup-now.sh
+```
+
+O backup será salvo no diretório de backups com o formato `manual_backup_YYYYMMDD_HHMMSS.sql.gz`.
+
+Para verificar os backups disponíveis:
+```bash
+ls -la backups/
+```
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).

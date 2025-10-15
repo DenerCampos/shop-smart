@@ -42,6 +42,22 @@ services:
       - shop_smart
     restart: always
 
+  backup:
+    image: alpine:latest
+    depends_on:
+      - db
+    volumes:
+      - /opt/shop_smart/backups:/backups
+      - ./scripts:/scripts
+    environment:
+      MYSQL_ROOT_PASSWORD: ${API_DB_ROOT_PASS}
+      MYSQL_DATABASE: ${API_DB_NAME}
+      MYSQL_USER: ${API_DB_USER}
+      MYSQL_PASSWORD: ${API_DB_PASS}
+    networks:
+      - shop_smart
+    entrypoint: ["sh", "/scripts/backup.sh"]
+
 networks:
   shop_smart:
 
