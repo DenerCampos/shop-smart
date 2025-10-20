@@ -14,16 +14,16 @@ MYSQL_PORT=${MYSQL_PORT:-"3306"}
 
 # Testa a conexão primeiro
 echo "Testando conexão com o MySQL..."
-if ! mysql --ssl-mode=DISABLED -h${MYSQL_HOST} -P${MYSQL_PORT} -uroot -p${MYSQL_ROOT_PASSWORD} -e "SELECT 1;" > /dev/null 2>&1; then
+if ! mysql --skip-ssl -h${MYSQL_HOST} -P${MYSQL_PORT} -uroot -p${MYSQL_ROOT_PASSWORD} -e "SELECT 1;" > /dev/null 2>&1; then
     echo "Erro ao conectar ao MySQL. Verifique as credenciais."
     echo "Tentando com usuário padrão..."
-    mysql --ssl-mode=DISABLED -h${MYSQL_HOST} -P${MYSQL_PORT} -u${MYSQL_USER} -p${MYSQL_PASSWORD} -e "SELECT 1;"
+    mysql --skip-ssl -h${MYSQL_HOST} -P${MYSQL_PORT} -u${MYSQL_USER} -p${MYSQL_PASSWORD} -e "SELECT 1;"
     exit 1
 fi
 
 echo "Conexão OK. Iniciando backup..."
 mysqldump \
-    --ssl-mode=DISABLED \
+    --skip-ssl \
     -h${MYSQL_HOST} \
     -P${MYSQL_PORT} \
     -uroot \
