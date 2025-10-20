@@ -15,7 +15,7 @@ MYSQL_PORT=${MYSQL_PORT:-"3306"}
 # Executa o backup
 echo "Iniciando backup automático..."
 mysqldump \
-    --ssl-mode=DISABLED \
+    --skip-ssl \
     -h${MYSQL_HOST} \
     -P${MYSQL_PORT} \
     -uroot \
