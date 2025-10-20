@@ -79,14 +79,17 @@ mysqldump \
     --port=${MYSQL_PORT} \
     --user=${MYSQL_USER} \
     --password=${MYSQL_PASSWORD} \
-    --default-auth=mysql_native_password \
     --protocol=TCP \
-    --single-transaction \
     --quick \
+    --compress \
+    --single-transaction \
+    --skip-triggers \
     --no-tablespaces \
+    --no-create-info \
     --skip-extended-insert \
     --skip-comments \
     --skip-lock-tables \
+    --max-allowed-packet=32M \
     ${MYSQL_DATABASE} > ${BACKUP_FILE} 2>${ERROR_LOG}
 
 # Verifica se o backup foi bem sucedido
