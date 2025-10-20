@@ -59,6 +59,8 @@ mysql --skip-ssl \
     -P${MYSQL_PORT} \
     -u${MYSQL_USER} \
     -p${MYSQL_PASSWORD} \
+    --default-auth=mysql_native_password \
+    --protocol=TCP \
     -e "SELECT 1;" ${MYSQL_DATABASE}
 
 # Função para log
@@ -77,6 +79,8 @@ mysqldump \
     --port=${MYSQL_PORT} \
     --user=${MYSQL_USER} \
     --password=${MYSQL_PASSWORD} \
+    --default-auth=mysql_native_password \
+    --protocol=TCP \
     --single-transaction \
     --quick \
     --no-tablespaces \

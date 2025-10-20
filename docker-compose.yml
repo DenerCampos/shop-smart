@@ -65,7 +65,7 @@ services:
       - shop_smart
     command: >
       sh -c "
-        apk add --no-cache mysql-client tzdata &&
+        apk add --no-cache mysql mysql-client tzdata &&
         chmod +x /scripts/*.sh &&
         if [ -n \"$$MANUAL\" ]; then
           /scripts/manual_backup_db.sh \"$$@\"

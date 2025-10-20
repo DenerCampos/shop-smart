@@ -33,6 +33,8 @@ mysqldump \
     --port=${MYSQL_PORT} \
     --user=${MYSQL_USER} \
     --password=${MYSQL_PASSWORD} \
+    --default-auth=mysql_native_password \
+    --protocol=TCP \
     --single-transaction \
     --quick \
     --no-tablespaces \
