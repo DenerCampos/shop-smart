@@ -47,26 +47,6 @@ services:
       - shop_smart
     restart: always
 
-  backup:
-    image: mysql:8.0
-    depends_on:
-      - db
-    volumes:
-      - /opt/shop_smart/backups:/backups
-      - ./scripts:/scripts
-    environment:
-      MYSQL_ROOT_PASSWORD: ${API_DB_ROOT_PASS}
-      MYSQL_DATABASE: ${API_DB_NAME}
-      MYSQL_USER: ${API_DB_USER}
-      MYSQL_PASSWORD: ${API_DB_PASS}
-      MYSQL_HOST: ${API_DB_HOST}
-      MYSQL_PORT: ${API_DB_PORT}
-      TZ: America/Sao_Paulo
-    networks:
-      - shop_smart
-    restart: always
-    entrypoint: ["sh", "/scripts/backup.sh"]
-
 networks:
   shop_smart:
 
