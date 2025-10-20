@@ -48,7 +48,18 @@ LOG_FILE="${BACKUP_DIR}/logs/manual_backup.log"
 ERROR_LOG="${BACKUP_DIR}/logs/manual_error.log"
 
 # Cria diretórios necessários
+echo "Criando diretórios de backup..."
 mkdir -p ${BACKUP_DIR}/logs
+ls -la ${BACKUP_DIR}
+echo "Permissões do diretório de backup:"
+stat ${BACKUP_DIR}
+echo "Testando conexão com o banco..."
+mysql --skip-ssl \
+    -h${MYSQL_HOST} \
+    -P${MYSQL_PORT} \
+    -u${MYSQL_USER} \
+    -p${MYSQL_PASSWORD} \
+    -e "SELECT 1;" ${MYSQL_DATABASE}
 
 # Função para log
 log_message() {
@@ -69,7 +80,6 @@ mysqldump \
     --single-transaction \
     --quick \
     --no-tablespaces \
-    --set-gtid-purged=OFF \
     --skip-extended-insert \
     --skip-comments \
     --skip-lock-tables \
@@ -77,8 +87,19 @@ mysqldump \
 
 # Verifica se o backup foi bem sucedido
 if [ $? -ne 0 ] || [ ! -s ${BACKUP_FILE} ]; then
-    log_message "ERRO: Falha ao criar backup. Verifique ${ERROR_LOG}"
-    cat ${ERROR_LOG} >> ${LOG_FILE}
+    log_message "ERRO: Falha ao criar backup."
+    echo "Conteúdo do erro:"
+    cat ${ERROR_LOG}
+    echo "Tentando mostrar erro diretamente:"
+    mysqldump \
+        --skip-ssl \
+        --host=${MYSQL_HOST} \
+        --port=${MYSQL_PORT} \
+        --user=${MYSQL_USER} \
+        --password=${MYSQL_PASSWORD} \
+        --single-transaction \
+        --quick \
+        ${MYSQL_DATABASE}
     exit 1
 fi
 

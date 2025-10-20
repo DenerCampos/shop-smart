@@ -36,7 +36,6 @@ mysqldump \
     --single-transaction \
     --quick \
     --no-tablespaces \
-    --set-gtid-purged=OFF \
     --skip-extended-insert \
     --skip-comments \
     --skip-lock-tables \
