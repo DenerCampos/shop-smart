@@ -56,8 +56,11 @@ services:
       MYSQL_DATABASE: ${API_DB_NAME}
       MYSQL_USER: ${API_DB_USER}
       MYSQL_PASSWORD: ${API_DB_PASS}
+      MYSQL_HOST: ${API_DB_HOST}
+      MYSQL_PORT: ${API_DB_PORT}
     networks:
       - shop_smart
+    restart: always
     entrypoint: ["sh", "/scripts/backup.sh"]
 
 networks:

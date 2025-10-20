@@ -1,35 +1,30 @@
 #!/bin/sh
 
 # Define os diretórios e nome do arquivo
-BACKUP_DIR="/home/ubuntu/shop-smart/backups"
+BACKUP_DIR="/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/manual_backup_${TIMESTAMP}.sql"
 
-# Cria o diretório de backup se não existir
-mkdir -p ${BACKUP_DIR}
+# Cria diretório para logs se não existir
+mkdir -p ${BACKUP_DIR}/logs
 
-# Executa o backup
-# Executa o backup diretamente do container do MySQL
-# Garante que estamos no diretório correto
-cd /home/ubuntu/shop-smart
-
-CONTAINER_NAME=$(docker-compose ps -q db)
-if [ -z "$CONTAINER_NAME" ]; then
-    echo "Container do MySQL não está rodando!"
-    exit 1
-fi
+# Configurações do MySQL
+MYSQL_HOST=${MYSQL_HOST:-"db"}
+MYSQL_PORT=${MYSQL_PORT:-"3306"}
 
 # Testa a conexão primeiro
 echo "Testando conexão com o MySQL..."
-if ! docker exec $CONTAINER_NAME mysql -uroot -p${MYSQL_ROOT_PASSWORD} -e "SELECT 1;" > /dev/null 2>&1; then
+if ! mysql -h${MYSQL_HOST} -P${MYSQL_PORT} -uroot -p${MYSQL_ROOT_PASSWORD} -e "SELECT 1;" > /dev/null 2>&1; then
     echo "Erro ao conectar ao MySQL. Verifique as credenciais."
     echo "Tentando com usuário padrão..."
-    docker exec $CONTAINER_NAME mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} -e "SELECT 1;"
+    mysql -h${MYSQL_HOST} -P${MYSQL_PORT} -u${MYSQL_USER} -p${MYSQL_PASSWORD} -e "SELECT 1;"
     exit 1
 fi
 
 echo "Conexão OK. Iniciando backup..."
-docker exec $CONTAINER_NAME mysqldump \
+mysqldump \
+    -h${MYSQL_HOST} \
+    -P${MYSQL_PORT} \
     -uroot \
     -p${MYSQL_ROOT_PASSWORD} \
     --single-transaction \
@@ -37,7 +32,14 @@ docker exec $CONTAINER_NAME mysqldump \
     --no-tablespaces \
     --set-gtid-purged=OFF \
     --column-statistics=0 \
-    ${MYSQL_DATABASE} > ${BACKUP_FILE} 2>${BACKUP_DIR}/backup_error.log
+    ${MYSQL_DATABASE} > ${BACKUP_FILE} 2>${BACKUP_DIR}/logs/manual_backup_error.log
+
+# Se houver erro, mostra o log
+if [ $? -ne 0 ]; then
+    echo "Erro detalhado do backup:"
+    cat ${BACKUP_DIR}/logs/manual_backup_error.log
+    exit 1
+fi
 
 # Se houver erro, mostra o log
 if [ $? -ne 0 ]; then

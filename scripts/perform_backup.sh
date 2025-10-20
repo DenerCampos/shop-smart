@@ -1,30 +1,37 @@
 #!/bin/sh
 
 # Define os diretórios e nome do arquivo
-BACKUP_DIR="/home/ubuntu/shop-smart/backups"
+BACKUP_DIR="/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.sql"
 
-# Cria o diretório de backup se não existir
-mkdir -p ${BACKUP_DIR}
+# Cria diretório para logs se não existir
+mkdir -p ${BACKUP_DIR}/logs
 
-# Executa o backup diretamente do container do MySQL
-# Garante que estamos no diretório correto
-cd /home/ubuntu/shop-smart
+# Configurações do MySQL
+MYSQL_HOST=${MYSQL_HOST:-"db"}
+MYSQL_PORT=${MYSQL_PORT:-"3306"}
 
-CONTAINER_NAME=$(docker-compose ps -q db)
-if [ -z "$CONTAINER_NAME" ]; then
-    echo "Container do MySQL não está rodando!"
-    exit 1
-fi
-
-docker exec $CONTAINER_NAME mysqldump \
+# Executa o backup
+echo "Iniciando backup automático..."
+mysqldump \
+    -h${MYSQL_HOST} \
+    -P${MYSQL_PORT} \
     -uroot \
     -p${MYSQL_ROOT_PASSWORD} \
     --single-transaction \
     --quick \
     --no-tablespaces \
-    ${MYSQL_DATABASE} > ${BACKUP_FILE}
+    --set-gtid-purged=OFF \
+    --column-statistics=0 \
+    ${MYSQL_DATABASE} > ${BACKUP_FILE} 2>${BACKUP_DIR}/logs/auto_backup_error.log
+
+# Se houver erro, mostra o log
+if [ $? -ne 0 ]; then
+    echo "Erro detalhado do backup:"
+    cat ${BACKUP_DIR}/logs/auto_backup_error.log
+    exit 1
+fi
 
 # Verifica se o backup foi bem sucedido
 if [ $? -ne 0 ] || [ ! -s ${BACKUP_FILE} ]; then
