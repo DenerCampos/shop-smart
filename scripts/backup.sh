@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Instala as dependências necessárias
-apk update && apk add --no-cache mysql-client dcron
+# Instala o cron
+microdnf install -y cronie
 
 # Cria diretório para logs
 mkdir -p /backups/logs
