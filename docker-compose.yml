@@ -48,14 +48,13 @@ services:
     restart: always
 
   backup:
-    image: mysql:8.0
+    image: alpine:3.19
     depends_on:
       - db
     volumes:
       - /opt/shop_smart/backups:/backups
       - ./scripts:/scripts
     environment:
-      MYSQL_ROOT_PASSWORD: ${API_DB_ROOT_PASS}
       MYSQL_DATABASE: ${API_DB_NAME}
       MYSQL_USER: ${API_DB_USER}
       MYSQL_PASSWORD: ${API_DB_PASS}
@@ -64,8 +63,20 @@ services:
       TZ: America/Sao_Paulo
     networks:
       - shop_smart
-    restart: always
-    entrypoint: ["sh", "/scripts/backup.sh"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    command: >
+      sh -c "
+        apk add --no-cache mysql-client tzdata &&
+        if [ -n \"$$MANUAL\" ]; then
+          /scripts/manual_backup_db.sh \"$$@\"
+        else
+          /scripts/backup_db.sh
+        fi
+      "
 
 networks:
   shop_smart:
