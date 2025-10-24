@@ -54,13 +54,13 @@ ls -la ${BACKUP_DIR}
 echo "Permissões do diretório de backup:"
 stat ${BACKUP_DIR}
 echo "Testando conexão com o banco..."
-mysql --skip-ssl \
+mysql \
     -h${MYSQL_HOST} \
     -P${MYSQL_PORT} \
     -u${MYSQL_USER} \
     -p${MYSQL_PASSWORD} \
-    --default-auth=mysql_native_password \
     --protocol=TCP \
+    --ssl-mode=DISABLED \
     -e "SELECT 1;" ${MYSQL_DATABASE}
 
 # Função para log
@@ -74,12 +74,12 @@ log_message "Arquivo de backup: ${BACKUP_FILE}"
 
 # Executa o backup com configurações otimizadas
 mysqldump \
-    --skip-ssl \
     --host=${MYSQL_HOST} \
     --port=${MYSQL_PORT} \
     --user=${MYSQL_USER} \
     --password=${MYSQL_PASSWORD} \
     --protocol=TCP \
+    --ssl-mode=DISABLED \
     --quick \
     --compress \
     --single-transaction \

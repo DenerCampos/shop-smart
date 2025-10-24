@@ -28,12 +28,12 @@ log_message "Iniciando backup do banco ${MYSQL_DATABASE}..."
 
 # Configurações otimizadas do mysqldump
 mysqldump \
-    --skip-ssl \
     --host=${MYSQL_HOST} \
     --port=${MYSQL_PORT} \
     --user=${MYSQL_USER} \
     --password=${MYSQL_PASSWORD} \
     --protocol=TCP \
+    --ssl-mode=DISABLED \
     --quick \
     --compress \
     --single-transaction \
