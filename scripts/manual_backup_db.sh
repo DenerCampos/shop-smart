@@ -54,14 +54,24 @@ ls -la ${BACKUP_DIR}
 echo "Permissões do diretório de backup:"
 stat ${BACKUP_DIR}
 echo "Testando conexão com o banco..."
-mysql \
-    -h${MYSQL_HOST} \
-    -P${MYSQL_PORT} \
-    -u${MYSQL_USER} \
-    -p${MYSQL_PASSWORD} \
-    --protocol=TCP \
-    --ssl-mode=DISABLED \
+# Cria arquivo temporário de configuração
+MYSQL_CNF=$(mktemp)
+cat > ${MYSQL_CNF} << EOF
+[client]
+host=${MYSQL_HOST}
+port=${MYSQL_PORT}
+user=${MYSQL_USER}
+password=${MYSQL_PASSWORD}
+protocol=TCP
+ssl-mode=DISABLED
+EOF
+
+# Testa a conexão
+mysql --defaults-file=${MYSQL_CNF} \
     -e "SELECT 1;" ${MYSQL_DATABASE}
+
+# Remove o arquivo temporário
+rm ${MYSQL_CNF}
 
 # Função para log
 log_message() {
@@ -73,13 +83,20 @@ log_message "Iniciando backup manual do banco ${MYSQL_DATABASE}..."
 log_message "Arquivo de backup: ${BACKUP_FILE}"
 
 # Executa o backup com configurações otimizadas
-mysqldump \
-    --host=${MYSQL_HOST} \
-    --port=${MYSQL_PORT} \
-    --user=${MYSQL_USER} \
-    --password=${MYSQL_PASSWORD} \
-    --protocol=TCP \
-    --ssl-mode=DISABLED \
+# Cria arquivo temporário de configuração
+MYSQL_CNF=$(mktemp)
+cat > ${MYSQL_CNF} << EOF
+[client]
+host=${MYSQL_HOST}
+port=${MYSQL_PORT}
+user=${MYSQL_USER}
+password=${MYSQL_PASSWORD}
+protocol=TCP
+ssl-mode=DISABLED
+EOF
+
+# Executa o backup
+mysqldump --defaults-file=${MYSQL_CNF} \
     --quick \
     --compress \
     --single-transaction \
