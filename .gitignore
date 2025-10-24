@@ -38,4 +38,4 @@ lerna-debug.log*
 .env
 
 #backups
-backups/*
+/db/backup/*
