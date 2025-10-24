@@ -27,13 +27,20 @@ cleanup_old_backups() {
 log_message "Iniciando backup do banco ${MYSQL_DATABASE}..."
 
 # Configurações otimizadas do mysqldump
-mysqldump \
-    --host=${MYSQL_HOST} \
-    --port=${MYSQL_PORT} \
-    --user=${MYSQL_USER} \
-    --password=${MYSQL_PASSWORD} \
-    --protocol=TCP \
-    --ssl-mode=DISABLED \
+# Cria arquivo temporário de configuração
+MYSQL_CNF=$(mktemp)
+cat > ${MYSQL_CNF} << EOF
+[client]
+host=${MYSQL_HOST}
+port=${MYSQL_PORT}
+user=${MYSQL_USER}
+password=${MYSQL_PASSWORD}
+protocol=TCP
+ssl-mode=DISABLED
+EOF
+
+# Executa o backup
+mysqldump --defaults-file=${MYSQL_CNF} \
     --quick \
     --compress \
     --single-transaction \
