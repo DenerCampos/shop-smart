@@ -242,23 +242,147 @@ npm run migration:show
 
 # Backup do Banco de Dados
 
-## Backup Automático
-O sistema está configurado para realizar backups automáticos diariamente às 02:00. Os backups são armazenados no diretório `/opt/shop_smart/backups` (na instância Oracle) ou no diretório `./backups` (em ambiente local).
+O sistema oferece duas formas de backup do banco de dados, utilizando containers Docker otimizados para ambientes com recursos limitados.
 
-## Backup Manual
-Para realizar um backup manual do banco de dados:
+## 📊 Características dos Backups
+
+- Compressão automática dos arquivos
+- Otimizado para baixo consumo de memória
+- Backups incrementais (apenas dados, sem estrutura)
+- Limpeza automática de backups antigos (7 dias)
+- Logs detalhados de todas as operações
+
+## 🔄 Backup Automático
+
+O sistema realiza backups automáticos diariamente. Os arquivos são salvos em:
+- Produção: `/opt/shop_smart/backups`
+- Local: `./backups`
+
+Para executar o backup automático manualmente:
 
 ```bash
-# Execute o script de backup
-./backup-now.sh
+# Executa o backup automático
+docker-compose run --rm backup
 ```
 
-O backup será salvo no diretório de backups com o formato `manual_backup_YYYYMMDD_HHMMSS.sql.gz`.
+## 📋 Backup Manual
 
-Para verificar os backups disponíveis:
+O backup manual oferece mais opções de personalização:
+
 ```bash
-ls -la backups/
+# Backup manual básico
+docker-compose run --rm -e MANUAL=1 backup
+
+# Backup com nome personalizado
+docker-compose run --rm -e MANUAL=1 backup --name pre_deploy
+
+# Backup em diretório específico
+docker-compose run --rm -e MANUAL=1 backup --dir /backups/especial
+
+# Backup sem compressão
+docker-compose run --rm -e MANUAL=1 backup --no-compress
+
+# Ver todas as opções disponíveis
+docker-compose run --rm -e MANUAL=1 backup --help
 ```
+
+## 📁 Estrutura dos Arquivos de Backup
+
+```
+/backups/
+├── backup_YYYYMMDD_HHMMSS.sql.gz     # Backups automáticos
+├── manual_YYYYMMDD_HHMMSS.sql.gz     # Backups manuais
+└── logs/                             # Logs detalhados
+    ├── backup.log                    # Log geral
+    ├── error.log                     # Log de erros automáticos
+    └── manual_error.log             # Log de erros manuais
+```
+
+## 🔍 Verificando Backups
+
+Para listar todos os backups disponíveis:
+```bash
+# Lista todos os backups
+ls -la /opt/shop_smart/backups/
+
+# Ver logs de backup
+cat /opt/shop_smart/backups/logs/backup.log
+```
+
+## ⚠️ Observações Importantes
+
+- Os backups são comprimidos automaticamente para economizar espaço
+- Backups mais antigos que 7 dias são removidos automaticamente
+- O diretório de backup deve ter permissões adequadas (chmod 755)
+- Recomenda-se manter uma cópia externa dos backups importantes
+
+## 📥 Download de Backups da Oracle Cloud
+
+O script `download_from_oracle.sh` permite baixar backups da instância Oracle Cloud para seu ambiente local.
+
+### 🔧 Pré-requisitos
+
+1. Arquivo `.env` configurado com as variáveis necessárias
+2. Chave SSH configurada
+3. Permissões adequadas na chave SSH (chmod 600)
+
+### ⚙️ Configuração do Ambiente
+
+Crie ou edite o arquivo `.env` na raiz do projeto e adicione as seguintes variáveis:
+
+```bash
+# Configurações da Oracle Cloud
+ORACLE_INSTANCE_IP=IP_DA_INSTANCIA
+ORACLE_SSH_KEY_PATH=~/.ssh/ssh-key-oracle-super-family-quest.key
+ORACLE_BACKUP_PATH=/opt/shop_smart/backups
+LOCAL_BACKUP_PATH=/home/dener/projetos/shop_smart/api/db/backup
+```
+
+#### Variáveis Disponíveis:
+
+| Variável | Obrigatória | Padrão | Descrição |
+|----------|-------------|---------|-----------|
+| `ORACLE_INSTANCE_IP` | Sim | - | IP da instância Oracle Cloud |
+| `ORACLE_SSH_KEY_PATH` | Sim | - | Caminho da chave SSH |
+| `ORACLE_BACKUP_PATH` | Não | `/opt/shop_smart/backups` | Diretório remoto dos backups |
+| `LOCAL_BACKUP_PATH` | Não | `./db/backup` | Diretório local para salvar backups |
+
+### 📋 Comandos Disponíveis
+
+```bash
+# Listar backups disponíveis na Oracle Cloud
+./download_from_oracle.sh list
+
+# Baixar apenas o backup mais recente
+./download_from_oracle.sh latest
+
+# Baixar todos os backups
+./download_from_oracle.sh all
+```
+
+### 📁 Localização dos Arquivos
+
+- **Origem (Oracle Cloud)**: `/opt/shop_smart/backups/*.sql.gz`
+- **Destino (Local)**: `/home/dener/projetos/shop_smart/api/db/backup/`
+
+### 🚀 Exemplo de Uso
+
+```bash
+# 1. Primeiro, veja quais backups estão disponíveis
+./download_from_oracle.sh list
+
+# 2. Baixe o backup mais recente
+./download_from_oracle.sh latest
+
+# 3. Verifique o arquivo baixado
+ls -lh /home/dener/projetos/shop_smart/api/db/backup/
+```
+
+### ⚠️ Observações
+
+- O script criará automaticamente o diretório de destino se não existir
+- Os backups são mantidos comprimidos (.sql.gz) para economizar espaço
+- Certifique-se de ter espaço suficiente no disco local antes de baixar todos os backups
 
 ## Support
 
