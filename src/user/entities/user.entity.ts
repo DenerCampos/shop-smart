@@ -1,6 +1,7 @@
 import { Coin } from 'src/coin/entities/coin.entity';
 import { CoinTransaction } from 'src/coin/entities/coinTransaction.entity';
 import { Group } from 'src/group/entities/group.entity';
+import { ImageRecognition } from 'src/image-recognition/entities/imageRecognition.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
 import { Store } from 'src/store/entities/store.entity';
@@ -75,4 +76,10 @@ export class User {
 
   @OneToMany(() => UserTheme, (userTheme) => userTheme.user)
   themes: UserTheme[];
+
+  @OneToMany(
+    () => ImageRecognition,
+    (imageRecognition) => imageRecognition.user,
+  )
+  imageRecognitions: ImageRecognition[];
 }

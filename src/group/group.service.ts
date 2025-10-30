@@ -92,4 +92,8 @@ export class GroupService {
   async delete(groupId: string): Promise<boolean> {
     return this.groupRepository.delete(groupId);
   }
+
+  async findAllNames(user?: User): Promise<string[]> {
+    return this.groupRepository.findAllNames(user);
+  }
 }
