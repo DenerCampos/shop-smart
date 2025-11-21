@@ -20,7 +20,7 @@ import { memoryStorage } from 'multer';
 @Controller('/image-recognition')
 export class ImageRecognitionController {
   constructor(
-    private readonly imagerecognitionService: ImageRecognitionService,
+    private readonly imageRecognitionService: ImageRecognitionService,
     private readonly responseService: ResponseService,
   ) {}
 
@@ -54,7 +54,7 @@ export class ImageRecognitionController {
       throw new BadRequestException('Imagem não fornecida');
     }
 
-    const result = await this.imagerecognitionService.analyzeImage(
+    const result = await this.imageRecognitionService.analyzeImage(
       image.buffer,
       user,
     );
@@ -68,7 +68,7 @@ export class ImageRecognitionController {
   @UseGuards(AuthGuard)
   @Get('quota')
   async getQuota(): Promise<QuotaResponseDto> {
-    const quotaInfo = await this.imagerecognitionService.getProviderQuota();
+    const quotaInfo = await this.imageRecognitionService.getProviderQuota();
     return this.responseService.mapToDto(QuotaResponseDto, quotaInfo);
   }
 }

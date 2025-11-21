@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import {
   IImageRecognitionProvider,
   AnalyzeOptions,
@@ -13,7 +13,7 @@ import { ApiQuotaService } from '../../services/apiQuota.service';
 export class GeminiProvider implements IImageRecognitionProvider {
   name = 'gemini';
   private readonly genAI: GoogleGenerativeAI;
-  private readonly model: any;
+  private readonly model: GenerativeModel | null;
   private readonly dailyLimit: number;
 
   constructor(
@@ -70,20 +70,16 @@ export class GeminiProvider implements IImageRecognitionProvider {
       Retorne apenas o JSON, sem explicações adicionais.`;
 
       // Prepara a imagem para o Gemini
-      const parts = [
-        {
-          text: prompt,
-        },
+      const result = await this.model.generateContent([
+        prompt,
         {
           inlineData: {
             mimeType: imageData.split(';')[0].split(':')[1],
             data: imageData.split(',')[1],
           },
         },
-      ];
-
-      const result = await this.model.generateContent(parts);
-      const response = await result.response;
+      ]);
+      const response = result.response;
       const responseText = response.text();
 
       // Remove marcadores de código markdown se existirem

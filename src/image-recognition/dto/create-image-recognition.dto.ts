@@ -11,7 +11,6 @@ import { RecognitionStatus } from '../types/imageRecognitionType';
 export class CreateImageRecognitionDto {
   @IsNotEmpty()
   @IsString()
-  @IsUrl()
   imageUrl: string;
 
   @IsNotEmpty()
