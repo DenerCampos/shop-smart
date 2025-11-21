@@ -8,7 +8,7 @@ import { AppConfig } from 'src/common/app-config/app.config';
 export class ImageRecognitionProviderFactory {
   constructor(
     @Inject('RECOGNITION_PROVIDERS')
-    private providers: IImageRecognitionProvider[],
+    private readonly providers: IImageRecognitionProvider[],
     private readonly appConfig: AppConfig,
   ) {}
 

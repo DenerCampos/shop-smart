@@ -7,16 +7,26 @@ import {
 import { ImageRecognitionResult } from '../../types/imageRecognitionType';
 import { ImageRecognitionException } from '../../exceptions/imageRecognition.exception';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { ApiQuotaService } from '../../services/apiQuota.service';
 
 @Injectable()
 export class GeminiProvider implements IImageRecognitionProvider {
   name = 'gemini';
   private readonly genAI: GoogleGenerativeAI;
   private readonly model: any;
+  private readonly dailyLimit: number;
 
-  constructor(private readonly appConfig: AppConfig) {
+  constructor(
+    private readonly appConfig: AppConfig,
+    private readonly apiQuotaService: ApiQuotaService,
+  ) {
     this.genAI = new GoogleGenerativeAI(this.appConfig.getGoogleApiKey());
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Define o limite diário de requisições (você pode mover isso para o .env)
+    this.dailyLimit = Number.parseInt(
+      process.env.GEMINI_DAILY_LIMIT || '50',
+      10,
+    );
   }
 
   async analyze(
@@ -24,6 +34,12 @@ export class GeminiProvider implements IImageRecognitionProvider {
     options?: AnalyzeOptions,
   ): Promise<ImageRecognitionResult> {
     try {
+      // Verifica a quota antes de fazer a requisição
+      await this.apiQuotaService.checkAndIncrementQuota(
+        this.name,
+        this.dailyLimit,
+      );
+
       // Verifica se a imagem está em formato base64 data URL
       if (!imageData.startsWith('data:image/')) {
         throw new Error('Formato de imagem inválido');
@@ -70,8 +86,6 @@ export class GeminiProvider implements IImageRecognitionProvider {
       const response = await result.response;
       const responseText = response.text();
 
-      console.log('response', responseText);
-
       // Remove marcadores de código markdown se existirem
       let cleanedText = responseText.trim();
       if (cleanedText.startsWith('```json')) {
@@ -99,9 +113,27 @@ export class GeminiProvider implements IImageRecognitionProvider {
   async isAvailable(): Promise<boolean> {
     try {
       const apiKey = this.appConfig.getGoogleApiKey();
-      return !!apiKey;
+      if (!apiKey) return false;
+
+      // Verifica se ainda há quota disponível
+      const usage = await this.apiQuotaService.getCurrentUsage(this.name);
+
+      // Se não há registro ainda (dailyLimit é 0), considera disponível
+      // Caso contrário, verifica se há quota restante
+      return usage.dailyLimit === 0 || usage.remaining > 0;
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Retorna informações sobre o uso da quota
+   */
+  async getQuotaInfo(): Promise<{
+    requestCount: number;
+    dailyLimit: number;
+    remaining: number;
+  }> {
+    return await this.apiQuotaService.getCurrentUsage(this.name);
   }
 }

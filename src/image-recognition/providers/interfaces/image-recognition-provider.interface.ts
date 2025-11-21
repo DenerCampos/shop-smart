@@ -5,6 +5,12 @@ export interface AnalyzeOptions {
   defaultPayment?: string;
 }
 
+export interface QuotaInfo {
+  requestCount: number;
+  dailyLimit: number;
+  remaining: number;
+}
+
 export interface IImageRecognitionProvider {
   name: string;
   analyze(
@@ -12,4 +18,5 @@ export interface IImageRecognitionProvider {
     options?: AnalyzeOptions,
   ): Promise<ImageRecognitionResult>;
   isAvailable(): Promise<boolean>;
+  getQuotaInfo(): Promise<QuotaInfo>;
 }

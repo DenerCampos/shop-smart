@@ -2,7 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IImageRecognitionRepository } from './interfaces/imageRecognition.repository.interface';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ImageRecognitionProviderFactory } from './providers/factory/image-recognition-provider.factory';
-import { ImageRecognitionResult } from './types/imageRecognitionType';
+import {
+  ImageRecognitionResult,
+  RecognitionStatus,
+} from './types/imageRecognitionType';
 import { User } from 'src/user/entities/user.entity';
 import { GroupService } from 'src/group/group.service';
 import { PaymentService } from 'src/payment/payment.service';
@@ -44,36 +47,51 @@ export class ImageRecognitionService {
     try {
       // Análise da imagem
       const result = await provider.analyze(imageData, options);
-      console.log('result', result);
 
       // Salva o resultado no banco
-      // await this.imageRecognitionRepository.create(
-      //   {
-      //     imageUrl: 'memory', // Indicando que a imagem veio da memória
-      //     provider: provider.name,
-      //     confidence: result.confidence,
-      //     result: result,
-      //     status: RecognitionStatus.COMPLETED, // Já está completo neste ponto
-      //   },
-      //   user,
-      // );
+      await this.imageRecognitionRepository.create(
+        {
+          imageUrl: 'memory', // Indicando que a imagem veio da memória
+          provider: provider.name,
+          confidence: result.confidence,
+          result: result,
+          status: RecognitionStatus.COMPLETED, // Já está completo neste ponto
+        },
+        user,
+      );
 
       return result;
     } catch (error) {
-      // Salva o erro no banco
-      // await this.imageRecognitionRepository.create(
-      //   {
-      //     imageUrl: 'memory',
-      //     provider: provider.name,
-      //     confidence: 0,
-      //     result: null,
-      //     status: RecognitionStatus.FAILED,
-      //     error: error.message,
-      //   },
-      //   user,
-      // );
+      await this.imageRecognitionRepository.create(
+        {
+          imageUrl: 'memory',
+          provider: provider.name,
+          confidence: 0,
+          result: null,
+          status: RecognitionStatus.FAILED,
+          error: error.message,
+        },
+        user,
+      );
 
       throw error;
     }
+  }
+
+  async getProviderQuota(): Promise<{
+    provider: string;
+    requestCount: number;
+    dailyLimit: number;
+    remaining: number;
+  }> {
+    const provider = await this.providerFactory.getProvider(
+      this.appConfig.getDefaultRecognitionProvider(),
+    );
+
+    const quotaInfo = await provider.getQuotaInfo();
+    return {
+      provider: provider.name,
+      ...quotaInfo,
+    };
   }
 }

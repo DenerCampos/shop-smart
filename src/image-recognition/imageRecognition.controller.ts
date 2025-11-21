@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -13,6 +14,7 @@ import { ResponseService } from 'src/common/response/response';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/user/entities/user.entity';
 import { AnalyzeImageRecognitionResponseDto } from './dto/analyze-image-recognition-response.dto';
+import { QuotaResponseDto } from './dto/quota-response.dto';
 import { memoryStorage } from 'multer';
 
 @Controller('/image-recognition')
@@ -33,7 +35,8 @@ export class ImageRecognitionController {
       },
       fileFilter: (req, file, callback) => {
         // Valida o tipo do arquivo
-        if (!file.mimetype.match(/^image\/(jpg|jpeg|png|gif)$/)) {
+        const imageRegex = /^image\/(jpg|jpeg|png|gif)$/;
+        if (!imageRegex.exec(file.mimetype)) {
           return callback(
             new BadRequestException('Apenas imagens são permitidas'),
             false,
@@ -60,5 +63,12 @@ export class ImageRecognitionController {
       AnalyzeImageRecognitionResponseDto,
       result,
     );
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('quota')
+  async getQuota(): Promise<QuotaResponseDto> {
+    const quotaInfo = await this.imagerecognitionService.getProviderQuota();
+    return this.responseService.mapToDto(QuotaResponseDto, quotaInfo);
   }
 }

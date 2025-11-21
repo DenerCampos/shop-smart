@@ -9,7 +9,7 @@ import { CreateImageRecognitionDto } from '../dto/create-image-recognition.dto';
 export class ImageRecognitionRepository implements IImageRecognitionRepository {
   constructor(
     @InjectRepository(ImageRecognition)
-    private imagerecognitionEntity: Repository<ImageRecognition>,
+    private readonly imagerecognitionEntity: Repository<ImageRecognition>,
   ) {}
 
   async create(
