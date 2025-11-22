@@ -95,4 +95,8 @@ export class PaymentService {
   async delete(paymentId: string): Promise<boolean> {
     return this.paymentRepository.delete(paymentId);
   }
+
+  async getDefaultPayment(): Promise<string> {
+    return 'Cartão de crédito';
+  }
 }

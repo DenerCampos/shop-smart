@@ -28,4 +28,5 @@ export interface IGroupRepository {
   countAll(): Promise<number>;
   exist(name: string, group: Group): Promise<boolean>;
   findByName(name: string, user: User): Promise<Group | null>;
+  findAllNames(user?: User): Promise<string[]>;
 }

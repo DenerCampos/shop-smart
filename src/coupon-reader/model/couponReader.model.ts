@@ -1,7 +1,6 @@
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import { ItemReaderModel } from './itemReader.model';
-import { val } from 'cheerio/lib/api/attributes';
 
 interface IDescriptionAndCode {
   code: string;

@@ -1,0 +1,1106 @@
+# Code Review - Shop Smart API
+
+## 📋 Sobre este Documento
+
+Este documento estabelece as diretrizes e padrões para realizar code review no projeto **Shop Smart API**. O objetivo é garantir a qualidade do código, aderência à arquitetura estabelecida, segurança, performance e manutenibilidade.
+
+---
+
+## 🏗️ Princípios Fundamentais
+
+### 1. Arquitetura em Camadas
+
+O projeto segue uma **Arquitetura em Camadas** com **Domain-Driven Design (DDD)**. Cada camada tem responsabilidades bem definidas:
+
+#### Controller Layer (Apresentação)
+**Responsabilidades:**
+- Receber requisições HTTP
+- Validar DTOs automaticamente (class-validator)
+- Chamar métodos do Service Layer
+- Mapear entidades para DTOs de resposta
+- Retornar respostas HTTP padronizadas
+
+**NÃO deve:**
+- ❌ Conter lógica de negócio
+- ❌ Acessar repositórios diretamente
+- ❌ Fazer queries ao banco
+- ❌ Manipular entidades diretamente
+
+**Exemplo Correto:**
+```typescript
+@Controller('expenses')
+@UseGuards(AuthGuard)
+@ApiTags('Expenses')
+export class ExpenseController {
+  constructor(private readonly expenseService: ExpenseService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new expense' })
+  async create(@Body() dto: CreateExpenseDto, @Request() req) {
+    return this.expenseService.create(dto, req.user.id);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'List all expenses' })
+  async findAll(@Query() filters: FilterExpenseDto, @Request() req) {
+    return this.expenseService.findAll(filters, req.user.id);
+  }
+}
+```
+
+#### Service Layer (Lógica de Negócio)
+**Responsabilidades:**
+- Conter **TODA** a lógica de negócio
+- Implementar regras de domínio
+- Orquestrar repositórios
+- Gerenciar transações
+- Emitir eventos de domínio
+- Aplicar filtros, ordenação e paginação
+- Validações de negócio
+
+**NÃO deve:**
+- ❌ Lidar com requisições HTTP diretamente
+- ❌ Conhecer detalhes de implementação do banco
+
+**Exemplo Correto:**
+```typescript
+@Injectable()
+export class ExpenseService {
+  constructor(
+    @InjectRepository(Expense)
+    private readonly expenseRepository: ExpenseRepository,
+    private readonly coinService: CoinService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  async create(dto: CreateExpenseDto, userId: string): Promise<Expense> {
+    // Validação de negócio
+    if (dto.value <= 0) {
+      throw new BadRequestException('Expense value must be positive');
+    }
+
+    // Criar despesa
+    const expense = this.expenseRepository.create({
+      ...dto,
+      userId,
+    });
+
+    // Salvar no banco
+    const savedExpense = await this.expenseRepository.save(expense);
+
+    // Emitir evento (desacoplamento)
+    this.eventEmitter.emit('expense.created', {
+      userId,
+      expenseId: savedExpense.id,
+      value: savedExpense.value,
+    });
+
+    return savedExpense;
+  }
+
+  async findAll(
+    filters: FilterExpenseDto,
+    userId: string,
+  ): Promise<PaginatedResult<Expense>> {
+    // Sempre filtrar por userId (multi-tenant)
+    return this.expenseRepository.findAllPaginated(filters, userId);
+  }
+}
+```
+
+#### Repository Layer (Acesso a Dados)
+**Responsabilidades:**
+- Abstração de acesso ao banco de dados
+- Construção de queries complexas
+- Otimizações de queries
+- Queries customizadas reutilizáveis
+
+**NÃO deve:**
+- ❌ Conter lógica de negócio
+- ❌ Fazer validações de negócio
+
+**Exemplo Correto:**
+```typescript
+@Injectable()
+export class ExpenseRepository extends Repository<Expense> {
+  constructor(private dataSource: DataSource) {
+    super(Expense, dataSource.createEntityManager());
+  }
+
+  async findAllPaginated(
+    filters: FilterExpenseDto,
+    userId: string,
+  ): Promise<PaginatedResult<Expense>> {
+    const queryBuilder = this.createQueryBuilder('expense')
+      .where('expense.userId = :userId', { userId })
+      .leftJoinAndSelect('expense.group', 'group')
+      .leftJoinAndSelect('expense.store', 'store')
+      .leftJoinAndSelect('expense.payment', 'payment');
+
+    // Aplicar filtros
+    if (filters.month) {
+      queryBuilder.andWhere('MONTH(expense.date) = :month', {
+        month: filters.month,
+      });
+    }
+
+    if (filters.year) {
+      queryBuilder.andWhere('YEAR(expense.date) = :year', {
+        year: filters.year,
+      });
+    }
+
+    // Paginação
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+
+    queryBuilder.skip(skip).take(limit);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+}
+```
+
+#### Entity Layer (Modelo de Dados)
+**Responsabilidades:**
+- Definição de entidades TypeORM
+- Mapeamento objeto-relacional
+- Relacionamentos entre entidades
+- Constraints e validações de banco
+
+**NÃO deve:**
+- ❌ Conter lógica de negócio
+- ❌ Fazer operações de banco
+
+**Exemplo Correto:**
+```typescript
+@Entity('expenses')
+@Index(['userId', 'date'])
+export class Expense {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  value: number;
+
+  @Column({ length: 200 })
+  description: string;
+
+  @Column({ type: 'date' })
+  date: Date;
+
+  @Column({ type: 'uuid' })
+  userId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column({ type: 'uuid', nullable: true })
+  groupId: string;
+
+  @ManyToOne(() => Group, { eager: false })
+  @JoinColumn({ name: 'groupId' })
+  group: Group;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
+```
+
+#### DTO Layer (Data Transfer Objects)
+**Responsabilidades:**
+- Validação de entrada (class-validator)
+- Transformação de dados (class-transformer)
+- Documentação da API (Swagger)
+- Separação entre request e response
+
+**Tipos de DTOs:**
+- `CreateXDto`: Criação de recurso
+- `UpdateXDto`: Atualização de recurso
+- `FilterXDto`: Filtros de listagem
+- `ResponseXDto`: Resposta da API
+
+**Exemplo Correto:**
+```typescript
+// Create DTO
+export class CreateExpenseDto {
+  @ApiProperty({ example: 150.5, description: 'Expense value' })
+  @IsNumber()
+  @Min(0.01)
+  value: number;
+
+  @ApiProperty({ example: 'Grocery shopping', description: 'Description' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(3, 200)
+  description: string;
+
+  @ApiProperty({ example: '2024-01-15', description: 'Expense date' })
+  @IsDateString()
+  date: string;
+
+  @ApiProperty({ example: 'uuid', description: 'Group ID', required: false })
+  @IsUUID()
+  @IsOptional()
+  groupId?: string;
+}
+
+// Response DTO
+export class ResponseExpenseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  value: number;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty()
+  date: Date;
+
+  @ApiProperty()
+  group: ResponseGroupDto;
+
+  @ApiProperty()
+  createdAt: Date;
+}
+```
+
+---
+
+## 🛡️ Segurança
+
+### 1. Autenticação e Autorização
+
+#### JWT e Guards
+```typescript
+// CORRETO: Proteger rotas com AuthGuard
+@Controller('expenses')
+@UseGuards(AuthGuard)
+export class ExpenseController {
+  @Get()
+  async findAll(@Request() req) {
+    const userId = req.user.id; // Obtido do JWT
+    return this.expenseService.findAll(userId);
+  }
+}
+
+// ERRADO: Rota desprotegida
+@Controller('expenses')
+export class ExpenseController {
+  @Get()
+  async findAll(@Query('userId') userId: string) { // ❌ Usuário pode passar qualquer ID
+    return this.expenseService.findAll(userId);
+  }
+}
+```
+
+#### Hash de Senhas
+```typescript
+// CORRETO: Hash com BCrypt
+import * as bcrypt from 'bcrypt';
+
+async hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
+}
+
+// ERRADO: Senha em plain text
+async savePassword(password: string): Promise<void> {
+  await this.userRepository.save({ password }); // ❌ Nunca!
+}
+```
+
+#### Proteção de Dados Sensíveis
+```typescript
+// CORRETO: Excluir dados sensíveis
+@Entity()
+export class User {
+  @Column()
+  @Exclude() // Não será exposto nas respostas
+  password: string;
+
+  @Column()
+  @Exclude()
+  refreshToken: string;
+}
+
+// ERRADO: Expor senha
+@Entity()
+export class User {
+  @Column()
+  password: string; // ❌ Será exposto!
+}
+```
+
+### 2. Validação de Entrada
+
+#### Sempre Validar DTOs
+```typescript
+// CORRETO: DTO validado
+export class CreateUserDto {
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+    message: 'Password must contain uppercase, lowercase, and number',
+  })
+  password: string;
+
+  @IsString()
+  @Length(3, 50)
+  name: string;
+}
+
+// ERRADO: Sem validação
+export class CreateUserDto {
+  email: string; // ❌ Sem validação
+  password: string; // ❌ Sem validação
+  name: string; // ❌ Sem validação
+}
+```
+
+#### Prevenir SQL Injection
+```typescript
+// CORRETO: Usar ORM ou prepared statements
+async findByEmail(email: string): Promise<User> {
+  return this.userRepository.findOne({ where: { email } });
+}
+
+// ERRADO: Concatenação de strings
+async findByEmail(email: string): Promise<User> {
+  return this.userRepository.query(
+    `SELECT * FROM users WHERE email = '${email}'` // ❌ SQL Injection!
+  );
+}
+```
+
+### 3. Multi-tenant e Ownership
+
+#### Sempre Filtrar por User ID
+```typescript
+// CORRETO: Filtrar por userId
+async findAll(userId: string): Promise<Expense[]> {
+  return this.expenseRepository.find({ where: { userId } });
+}
+
+// ERRADO: Retornar todos os dados
+async findAll(): Promise<Expense[]> {
+  return this.expenseRepository.find(); // ❌ Expõe dados de todos os usuários!
+}
+```
+
+#### Validar Ownership
+```typescript
+// CORRETO: Validar propriedade antes de operações
+async update(id: string, dto: UpdateExpenseDto, userId: string): Promise<Expense> {
+  const expense = await this.expenseRepository.findOne({
+    where: { id, userId },
+  });
+
+  if (!expense) {
+    throw new NotFoundException('Expense not found');
+  }
+
+  Object.assign(expense, dto);
+  return this.expenseRepository.save(expense);
+}
+
+// ERRADO: Não validar propriedade
+async update(id: string, dto: UpdateExpenseDto): Promise<Expense> {
+  const expense = await this.expenseRepository.findOne({ where: { id } });
+  // ❌ Usuário pode atualizar despesa de outro usuário!
+  Object.assign(expense, dto);
+  return this.expenseRepository.save(expense);
+}
+```
+
+---
+
+## ⚡ Performance
+
+### 1. Paginação Obrigatória
+
+#### Sempre Paginar Listagens
+```typescript
+// CORRETO: Com paginação
+async findAll(
+  page: number = 1,
+  limit: number = 10,
+): Promise<PaginatedResult<Expense>> {
+  const [data, total] = await this.expenseRepository.findAndCount({
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+// ERRADO: Sem paginação
+async findAll(): Promise<Expense[]> {
+  return this.expenseRepository.find(); // ❌ Pode retornar milhares de registros
+}
+```
+
+### 2. Otimização de Queries
+
+#### Select Específico
+```typescript
+// CORRETO: Selecionar apenas campos necessários
+async findAllLight(): Promise<Expense[]> {
+  return this.expenseRepository
+    .createQueryBuilder('expense')
+    .select(['expense.id', 'expense.value', 'expense.description'])
+    .getMany();
+}
+
+// ERRADO: SELECT *
+async findAllLight(): Promise<Expense[]> {
+  return this.expenseRepository.find(); // ❌ Retorna todos os campos
+}
+```
+
+#### Evitar N+1 Queries
+```typescript
+// CORRETO: Eager loading
+async findAllWithRelations(): Promise<Expense[]> {
+  return this.expenseRepository.find({
+    relations: ['group', 'store', 'payment'],
+  });
+}
+
+// ERRADO: N+1 queries
+async findAllWithRelations(): Promise<Expense[]> {
+  const expenses = await this.expenseRepository.find();
+  for (const expense of expenses) {
+    expense.group = await this.groupRepository.findOne(expense.groupId); // ❌ Query por iteração
+  }
+  return expenses;
+}
+```
+
+### 3. Índices
+
+#### Adicionar Índices Apropriados
+```typescript
+// CORRETO: Índices em campos de busca
+@Entity('expenses')
+@Index(['userId', 'date']) // Índice composto
+@Index(['createdAt'])
+export class Expense {
+  @Column({ type: 'uuid' })
+  @Index() // Índice simples
+  userId: string;
+
+  @Column({ type: 'date' })
+  date: Date;
+}
+```
+
+---
+
+## 🧹 Clean Code
+
+### 1. Nomenclatura
+
+#### Padrões de Nomenclatura
+```typescript
+// Classes: PascalCase
+class ExpenseService {}
+class UserController {}
+
+// Métodos e Variáveis: camelCase
+async findAllExpenses() {}
+const userEmail = 'test@example.com';
+
+// Constantes: UPPER_SNAKE_CASE
+const MAX_UPLOAD_SIZE = 5242880;
+const DEFAULT_PAGE_SIZE = 10;
+
+// Interfaces: PascalCase com I
+interface IUserRepository {}
+interface IExpenseFilters {}
+
+// Enums: PascalCase
+enum ExpenseStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  CANCELLED = 'cancelled',
+}
+```
+
+#### Nomes Descritivos
+```typescript
+// CORRETO: Nomes claros
+const calculateTotalExpensesForMonth = (expenses: Expense[]) => {
+  return expenses.reduce((sum, expense) => sum + expense.value, 0);
+};
+
+// ERRADO: Nomes vagos
+const calc = (arr: any[]) => { // ❌ Nome não descritivo
+  return arr.reduce((s, e) => s + e.v, 0); // ❌ Variáveis de uma letra
+};
+```
+
+### 2. Funções
+
+#### Single Responsibility
+```typescript
+// CORRETO: Função faz UMA coisa
+async createExpense(dto: CreateExpenseDto, userId: string): Promise<Expense> {
+  const expense = await this.saveExpense(dto, userId);
+  await this.notifyUser(userId, expense);
+  await this.updateStatistics(userId);
+  return expense;
+}
+
+private async saveExpense(dto: CreateExpenseDto, userId: string): Promise<Expense> {
+  const expense = this.expenseRepository.create({ ...dto, userId });
+  return this.expenseRepository.save(expense);
+}
+
+// ERRADO: Função faz muitas coisas
+async createExpense(dto: CreateExpenseDto, userId: string): Promise<Expense> {
+  // Validação
+  if (!dto.value || dto.value <= 0) throw new Error();
+  if (!dto.description) throw new Error();
+  
+  // Criar
+  const expense = this.expenseRepository.create({ ...dto, userId });
+  const saved = await this.expenseRepository.save(expense);
+  
+  // Notificar
+  await this.emailService.send(userId, 'Expense created');
+  
+  // Atualizar estatísticas
+  const stats = await this.statsRepository.findOne({ userId });
+  stats.totalExpenses += saved.value;
+  await this.statsRepository.save(stats);
+  
+  // ❌ Função muito longa e faz muitas coisas
+  return saved;
+}
+```
+
+#### Máximo 3-4 Parâmetros
+```typescript
+// CORRETO: Usar objetos para múltiplos parâmetros
+interface CreateExpenseParams {
+  value: number;
+  description: string;
+  date: Date;
+  userId: string;
+  groupId?: string;
+  storeId?: string;
+  paymentId?: string;
+}
+
+async create(params: CreateExpenseParams): Promise<Expense> {
+  // ...
+}
+
+// ERRADO: Muitos parâmetros
+async create(
+  value: number,
+  description: string,
+  date: Date,
+  userId: string,
+  groupId?: string,
+  storeId?: string,
+  paymentId?: string,
+) {
+  // ❌ Difícil de ler e usar
+}
+```
+
+### 3. Código Limpo
+
+#### DRY (Don't Repeat Yourself)
+```typescript
+// CORRETO: Reutilizar código
+private validateOwnership(resource: any, userId: string): void {
+  if (resource.userId !== userId) {
+    throw new ForbiddenException('You do not own this resource');
+  }
+}
+
+async updateExpense(id: string, dto: UpdateExpenseDto, userId: string) {
+  const expense = await this.findOne(id);
+  this.validateOwnership(expense, userId);
+  // ...
+}
+
+async deleteExpense(id: string, userId: string) {
+  const expense = await this.findOne(id);
+  this.validateOwnership(expense, userId);
+  // ...
+}
+
+// ERRADO: Código duplicado
+async updateExpense(id: string, dto: UpdateExpenseDto, userId: string) {
+  const expense = await this.findOne(id);
+  if (expense.userId !== userId) { // ❌ Duplicado
+    throw new ForbiddenException('You do not own this resource');
+  }
+  // ...
+}
+
+async deleteExpense(id: string, userId: string) {
+  const expense = await this.findOne(id);
+  if (expense.userId !== userId) { // ❌ Duplicado
+    throw new ForbiddenException('You do not own this resource');
+  }
+  // ...
+}
+```
+
+#### Return Early
+```typescript
+// CORRETO: Return early
+async findExpense(id: string, userId: string): Promise<Expense> {
+  const expense = await this.expenseRepository.findOne({ where: { id } });
+  
+  if (!expense) {
+    throw new NotFoundException('Expense not found');
+  }
+  
+  if (expense.userId !== userId) {
+    throw new ForbiddenException('Access denied');
+  }
+  
+  return expense;
+}
+
+// ERRADO: Nested ifs
+async findExpense(id: string, userId: string): Promise<Expense> {
+  const expense = await this.expenseRepository.findOne({ where: { id } });
+  
+  if (expense) {
+    if (expense.userId === userId) {
+      return expense;
+    } else {
+      throw new ForbiddenException('Access denied');
+    }
+  } else {
+    throw new NotFoundException('Expense not found');
+  }
+  // ❌ Difícil de ler
+}
+```
+
+---
+
+## 🧪 Testes
+
+### 1. Estrutura de Testes
+
+#### Testes Unitários
+```typescript
+describe('ExpenseService', () => {
+  let service: ExpenseService;
+  let repository: MockRepository<Expense>;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ExpenseService,
+        {
+          provide: getRepositoryToken(Expense),
+          useClass: MockRepository,
+        },
+      ],
+    }).compile();
+
+    service = module.get<ExpenseService>(ExpenseService);
+    repository = module.get(getRepositoryToken(Expense));
+  });
+
+  describe('create', () => {
+    it('should create an expense successfully', async () => {
+      // Arrange
+      const dto: CreateExpenseDto = {
+        value: 100,
+        description: 'Test',
+        date: '2024-01-01',
+      };
+      const userId = 'user-123';
+      const expected = { id: '1', ...dto, userId };
+
+      repository.create.mockReturnValue(expected);
+      repository.save.mockResolvedValue(expected);
+
+      // Act
+      const result = await service.create(dto, userId);
+
+      // Assert
+      expect(result).toEqual(expected);
+      expect(repository.save).toHaveBeenCalledWith(expected);
+    });
+
+    it('should throw error if value is invalid', async () => {
+      // Arrange
+      const dto: CreateExpenseDto = {
+        value: -100, // Valor negativo
+        description: 'Test',
+        date: '2024-01-01',
+      };
+
+      // Act & Assert
+      await expect(service.create(dto, 'user-123')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+});
+```
+
+---
+
+## 📚 TypeScript
+
+### 1. Tipagem Forte
+
+#### Evitar `any`
+```typescript
+// CORRETO: Tipos específicos
+interface ExpenseFilters {
+  month?: number;
+  year?: number;
+  groupId?: string;
+  minValue?: number;
+  maxValue?: number;
+}
+
+async findAll(filters: ExpenseFilters): Promise<Expense[]> {
+  // ...
+}
+
+// ERRADO: Usar any
+async findAll(filters: any): Promise<any> { // ❌ Perde type safety
+  // ...
+}
+```
+
+#### Usar Generics
+```typescript
+// CORRETO: Generic para reutilização
+interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+async findAllPaginated(
+  page: number,
+  limit: number,
+): Promise<PaginatedResult<Expense>> {
+  // ...
+}
+
+// ERRADO: Sem generics
+interface PaginatedExpenseResult {
+  data: Expense[];
+  total: number;
+  // ...
+}
+
+interface PaginatedUserResult {
+  data: User[];
+  total: number;
+  // ...
+}
+// ❌ Duplicação de código
+```
+
+---
+
+## 📝 Documentação
+
+### 1. Swagger/OpenAPI
+
+#### Documentar Endpoints
+```typescript
+@Controller('expenses')
+@ApiTags('Expenses')
+@ApiBearerAuth()
+export class ExpenseController {
+  @Post()
+  @ApiOperation({ summary: 'Create a new expense' })
+  @ApiResponse({ status: 201, description: 'Expense created', type: ResponseExpenseDto })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async create(@Body() dto: CreateExpenseDto, @Request() req) {
+    return this.expenseService.create(dto, req.user.id);
+  }
+}
+```
+
+#### Documentar DTOs
+```typescript
+export class CreateExpenseDto {
+  @ApiProperty({
+    description: 'Expense value in currency',
+    example: 150.50,
+    minimum: 0.01,
+  })
+  @IsNumber()
+  @Min(0.01)
+  value: number;
+
+  @ApiProperty({
+    description: 'Expense description',
+    example: 'Grocery shopping',
+    minLength: 3,
+    maxLength: 200,
+  })
+  @IsString()
+  @Length(3, 200)
+  description: string;
+}
+```
+
+---
+
+## 🎯 Checklist de Code Review
+
+### Estrutura e Arquitetura
+- [ ] Código segue arquitetura em camadas
+- [ ] Controller não tem lógica de negócio
+- [ ] Service contém toda lógica de negócio
+- [ ] Repository apenas acessa dados
+- [ ] Entity apenas define estrutura
+- [ ] DTOs separados (request vs response)
+
+### Segurança
+- [ ] AuthGuard aplicado em rotas protegidas
+- [ ] Senhas hasheadas com BCrypt
+- [ ] Dados sensíveis excluídos das respostas (@Exclude)
+- [ ] Todas as entradas validadas (class-validator)
+- [ ] Queries seguras (sem SQL injection)
+- [ ] Multi-tenant: filtrar por userId
+- [ ] Ownership validado antes de operações
+
+### Performance
+- [ ] Paginação implementada em listagens
+- [ ] Select específico (não SELECT *)
+- [ ] Índices em campos de busca
+- [ ] N+1 queries evitadas
+- [ ] Transações usadas quando apropriado
+
+### Clean Code
+- [ ] Nomenclatura consistente e descritiva
+- [ ] Funções pequenas (< 50 linhas)
+- [ ] Single Responsibility Principle
+- [ ] DRY (sem código duplicado)
+- [ ] Return early pattern
+- [ ] Comentários úteis (quando necessário)
+
+### TypeScript
+- [ ] Tipagem forte (evitar any)
+- [ ] Interfaces/Types definidos
+- [ ] Generics usados apropriadamente
+- [ ] Null safety verificado
+
+### NestJS
+- [ ] @Injectable() em services
+- [ ] Constructor injection
+- [ ] @Module() configurado corretamente
+- [ ] Decorators aplicados corretamente
+- [ ] Pipes e Guards usados apropriadamente
+
+### TypeORM
+- [ ] Entities com decorators corretos
+- [ ] Relacionamentos configurados
+- [ ] Migrations usadas (não synchronize)
+- [ ] Queries otimizadas
+- [ ] Índices definidos
+
+### Validação
+- [ ] DTOs com class-validator
+- [ ] Mensagens de erro claras
+- [ ] Swagger decorators (@ApiProperty)
+- [ ] Validações de negócio no service
+
+### Testes
+- [ ] Testes unitários para lógica crítica
+- [ ] Arrange-Act-Assert pattern
+- [ ] Mocks apropriados
+- [ ] Coverage adequado
+
+### Documentação
+- [ ] Swagger/OpenAPI documentado
+- [ ] @ApiTags(), @ApiOperation(), @ApiResponse()
+- [ ] Comentários em código complexo
+- [ ] README atualizado se necessário
+
+### Git
+- [ ] Commits semânticos
+- [ ] Mensagens descritivas
+- [ ] .env não commitado
+- [ ] Código formatado (Prettier)
+
+---
+
+## 🚨 Red Flags (Problemas Críticos)
+
+### Segurança
+- 🔴 Senhas em plain text
+- 🔴 Dados sensíveis expostos
+- 🔴 SQL injection possível
+- 🔴 Falta de autenticação
+- 🔴 Falta de validação de ownership
+- 🔴 XSS vulnerabilities
+
+### Performance
+- 🔴 Listagens sem paginação
+- 🔴 N+1 queries
+- 🔴 SELECT * em queries
+- 🔴 Falta de índices
+
+### Arquitetura
+- 🔴 Lógica de negócio no controller
+- 🔴 Controller acessando repository diretamente
+- 🔴 Entidades expostas diretamente
+- 🔴 Violação de SOLID
+
+### Código
+- 🔴 Código duplicado extensivo
+- 🔴 Funções muito longas (> 100 linhas)
+- 🔴 Uso excessivo de `any`
+- 🔴 Falta de tratamento de erros
+- 🔴 Hardcoded values (sem constantes)
+
+---
+
+## 📖 Recursos Adicionais
+
+- **NestJS Documentation**: https://docs.nestjs.com/
+- **TypeORM Documentation**: https://typeorm.io/
+- **Clean Code Book**: Robert C. Martin
+- **SOLID Principles**: https://en.wikipedia.org/wiki/SOLID
+- **TypeScript Handbook**: https://www.typescriptlang.org/docs/
+
+---
+
+## 💬 Como Dar Feedback
+
+### Estrutura do Feedback
+
+**1. Seja Específico**
+- Indique arquivo, linha, e o que precisa mudar
+- Explique o motivo da mudança
+- Sugira alternativas
+
+**2. Priorize**
+- 🔴 **Crítico**: Deve ser corrigido (segurança, bugs)
+- 🟡 **Importante**: Deve ser melhorado (performance, manutenção)
+- 🟢 **Sugestão**: Opcional mas recomendado (estilo, otimizações)
+
+**3. Seja Construtivo**
+- Foque no código, não na pessoa
+- Explique o "porquê"
+- Ensine quando apropriado
+
+### Exemplo de Feedback
+
+```markdown
+## 🔴 CRÍTICO
+
+**Arquivo**: `src/expense/expense.service.ts`
+**Linha**: 45
+
+**Problema**: Listagem sem paginação
+```typescript
+async findAll(): Promise<Expense[]> {
+  return this.expenseRepository.find();
+}
+```
+
+**Motivo**: Pode retornar milhares de registros, causando problemas de performance e memória.
+
+**Solução**:
+```typescript
+async findAll(page: number = 1, limit: number = 10): Promise<PaginatedResult<Expense>> {
+  const [data, total] = await this.expenseRepository.findAndCount({
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+```
+
+---
+
+## 🟡 IMPORTANTE
+
+**Arquivo**: `src/user/user.entity.ts`
+**Linha**: 15
+
+**Problema**: Senha não está excluída das respostas
+```typescript
+@Column()
+password: string;
+```
+
+**Motivo**: Dados sensíveis nunca devem ser expostos nas respostas da API.
+
+**Solução**:
+```typescript
+@Column()
+@Exclude()
+password: string;
+```
+
+---
+
+## 🟢 SUGESTÃO
+
+**Arquivo**: `src/expense/expense.service.ts`
+**Linha**: 78-120
+
+**Problema**: Função muito longa (42 linhas)
+
+**Sugestão**: Quebrar em métodos menores para melhor legibilidade:
+- `validateExpenseData()`
+- `calculateTotals()`
+- `notifyUser()`
+
+**Benefício**: Código mais fácil de testar, entender e manter.
+```
+
+---
+
+**Lembre-se**: Code review é sobre melhorar o código e compartilhar conhecimento, não sobre criticar pessoas. Seja sempre respeitoso, construtivo e educativo! 🚀
+

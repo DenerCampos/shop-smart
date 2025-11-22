@@ -14,6 +14,7 @@ import { CoinModule } from './coin/coin.module';
 import { ProfileModule } from './profile/profile.module';
 import { ReportsModule } from './reports/reports.module';
 import { ThemeModule } from './theme/theme.module';
+import { ImageRecognitionModule } from './image-recognition/imageRecognition.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ThemeModule } from './theme/theme.module';
     ProfileModule,
     ReportsModule,
     ThemeModule,
+    ImageRecognitionModule,
   ],
   controllers: [],
   providers: [],

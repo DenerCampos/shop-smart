@@ -142,4 +142,17 @@ export class GroupRepository implements IGroupRepository {
       withDeleted: false,
     });
   }
+
+  async findAllNames(user?: User): Promise<string[]> {
+    const queryBuilder = this.groupEntity
+      .createQueryBuilder('group')
+      .select('DISTINCT group.name', 'name');
+
+    if (user) {
+      queryBuilder.where('group.userId = :userId', { userId: user.id });
+    }
+
+    const groups = await queryBuilder.getRawMany();
+    return groups.map((group) => group.name);
+  }
 }

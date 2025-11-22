@@ -72,4 +72,15 @@ export class AppConfig {
 
     return `https://${apiHost.host}:${apiHost.port}`;
   }
+
+  getDefaultRecognitionProvider(): string {
+    return this.configService.get<string>(
+      'DEFAULT_RECOGNITION_PROVIDER',
+      'gemini',
+    );
+  }
+
+  getGoogleApiKey(): string {
+    return this.configService.get<string>('GOOGLE_API_KEY');
+  }
 }
