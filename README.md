@@ -384,6 +384,472 @@ ls -lh /home/dener/projetos/shop_smart/api/db/backup/
 - Os backups são mantidos comprimidos (.sql.gz) para economizar espaço
 - Certifique-se de ter espaço suficiente no disco local antes de baixar todos os backups
 
+---
+
+# 🚀 Deploy e Monitoramento
+
+Este projeto possui scripts automatizados para facilitar o deploy em produção e monitoramento de recursos.
+
+## 📊 Verificação Rápida de Recursos
+
+Antes de qualquer operação, é importante verificar os recursos disponíveis no servidor.
+
+### Comandos de Diagnóstico Rápido
+
+```bash
+# Análise única (snapshot rápido)
+echo "=== $(date) ===" && free -h && echo "" && docker stats --no-stream && echo "" && df -h /
+
+# Análise simplificada (só o essencial)
+free -h | grep -E "Mem:|Swap:" && df -h / | grep -v "Filesystem"
+
+# Monitoramento contínuo (atualiza a cada 2 segundos)
+watch -n 2 'echo "=== $(date) ==="; free -h; echo ""; docker stats --no-stream; echo ""; df -h /'
+
+# Verificação completa pré-build
+echo "=== CHECK PRÉ-BUILD ===" && \
+echo "RAM:" && free -h | grep Mem: && \
+echo "SWAP:" && free -h | grep Swap: && \
+echo "DISCO:" && df -h / | tail -1 && \
+echo "" && \
+echo "Containers rodando:" && docker ps
+```
+
+### Criar Atalho (Opcional)
+
+```bash
+# Adicionar alias ao ~/.bashrc
+echo 'alias checkres="free -h && echo && df -h / && echo && docker ps"' >> ~/.bashrc
+source ~/.bashrc
+
+# Usar o atalho
+checkres
+```
+
+---
+
+## 🔧 Script de Preparação para Build
+
+### `prepare-build.sh` - Prepara Servidor para Build
+
+Este script é **essencial** para servidores com recursos limitados (< 2GB RAM).
+
+#### O que ele faz:
+
+- ✅ Cria SWAP de 2GB automaticamente (se não existir)
+- ✅ Para containers Docker para liberar memória
+- ✅ Limpa cache do Docker (imagens antigas, build cache)
+- ✅ Libera cache do sistema operacional
+- ✅ Cria arquivo `.npmrc` otimizado para economia de memória
+- ✅ Verifica se há recursos suficientes para build
+- ✅ Avisa sobre possíveis problemas
+
+#### Como usar:
+
+```bash
+# Executar antes de qualquer build
+./prepare-build.sh
+```
+
+#### Quando usar:
+
+- **Sempre** antes de fazer build em produção com pouca RAM
+- Quando o build está falhando por falta de memória
+- Antes de executar `docker-compose build --no-cache`
+- Após adicionar novas dependências no `package.json`
+
+#### Exemplo de saída:
+
+```
+╔════════════════════════════════════════╗
+║   Preparação para Build - Low Memory  ║
+╚════════════════════════════════════════╝
+
+📊 Recursos Atuais:
+              total        used        free      shared  buff/cache   available
+Mem:          952Mi       337Mi        83Mi       1.0Mi       531Mi       429Mi
+Swap:            0B          0B          0B
+
+🔍 Verificando SWAP...
+❌ SWAP não configurado!
+   Criando SWAP de 2GB...
+✅ SWAP criado com sucesso!
+
+📊 Análise:
+   RAM Disponível: 429MB
+   SWAP Total: 2048MB
+   Total Disponível: 2477MB
+
+✅ Recursos suficientes para build!
+
+╔════════════════════════════════════════╗
+║     ✅ Preparação Concluída!           ║
+╚════════════════════════════════════════╝
+```
+
+---
+
+## 📦 Script de Deploy Automatizado
+
+### `deploy.sh` - Deploy Completo e Inteligente
+
+Script que automatiza todo o processo de deploy em produção com detecção inteligente de mudanças.
+
+#### Características:
+
+- 🔍 **Detecção Inteligente**: Identifica automaticamente o que mudou
+  - `package.json` → Rebuild completo com `--no-cache`
+  - Migrations → Executa automaticamente
+  - Dockerfile → Rebuild necessário
+  - Apenas código TypeScript → Build rápido com cache
+
+- 🛡️ **Segurança**: Backup automático do banco antes de qualquer mudança
+- ✅ **Validação**: Verifica se API iniciou corretamente
+- 📊 **Relatórios**: Mostra resumo detalhado do deploy
+- 🔄 **Rollback**: Facilita voltar atrás se necessário
+
+#### Como usar:
+
+```bash
+# Deploy completo automatizado
+./deploy.sh
+```
+
+#### Fluxo do Deploy:
+
+```
+1. 📊 Verifica status atual dos containers
+2. 📦 Cria backup do banco de dados
+3. 📌 Salva commit atual
+4. ⬇️  Faz git pull origin main
+5. 🔍 Analisa mudanças (package.json, migrations, Dockerfile)
+6. 🔨 Build inteligente (com ou sem cache)
+7. 🛑 Para containers
+8. 🚀 Inicia containers atualizados
+9. ⏳ Aguarda API inicializar
+10. 🗄️  Executa migrations (se houver)
+11. 📋 Mostra logs e status final
+12. ✅ Confirma sucesso do deploy
+```
+
+#### Exemplo de uso no servidor:
+
+```bash
+# 1. SSH no servidor
+ssh usuario@servidor-oracle
+
+# 2. Ir para o diretório do projeto
+cd /caminho/do/projeto
+
+# 3. Executar deploy
+./deploy.sh
+```
+
+#### Saída exemplo:
+
+```
+╔════════════════════════════════════════╗
+║     Shop Smart API - Deployment       ║
+╚════════════════════════════════════════╝
+
+📊 Verificando status atual...
+📦 Criando backup do banco de dados...
+✅ Backup criado com sucesso!
+
+📌 Commit atual: a1b2c3d
+⬇️  Baixando últimas alterações do repositório...
+✅ Código atualizado!
+
+🔍 Analisando mudanças...
+  📦 package.json alterado - rebuild completo necessário
+  🗄️  Migrations novas detectadas
+
+🔨 Rebuilding com --no-cache (pode demorar mais)...
+✅ Build concluído!
+
+🛑 Parando containers...
+✅ Containers parados!
+
+🚀 Iniciando containers...
+✅ Containers iniciados!
+
+✅ API está rodando!
+
+🗄️  Executando migrations...
+✅ Migrations executadas com sucesso!
+
+╔════════════════════════════════════════╗
+║     ✅ Deploy concluído com sucesso!   ║
+╚════════════════════════════════════════╝
+
+📝 Informações do Deploy:
+  • Commit anterior: a1b2c3d
+  • Commit atual: e4f5g6h
+  • Package.json alterado: Sim
+  • Migrations executadas: Sim
+  • Data/Hora: 2025-11-22 14:35:00
+
+🔍 Comandos úteis:
+  • Ver logs em tempo real: docker-compose logs -f api
+  • Verificar status: docker-compose ps
+  • Restart API: docker-compose restart api
+  • Parar tudo: docker-compose down
+
+🎉 Aplicação pronta para uso!
+```
+
+---
+
+## 📈 Script de Monitoramento de Build
+
+### `monitor-build.sh` - Monitora Build em Tempo Real
+
+Script que monitora recursos durante o build e detecta problemas automaticamente.
+
+#### Características:
+
+- 📊 Monitora CPU, RAM, SWAP e Disco em tempo real
+- 🌐 Detecta quedas de rede/conexão
+- 📝 Salva log detalhado de todo o processo
+- ⏱️ Timeout de 30 minutos (evita espera infinita)
+- ⚠️ Avisos proativos sobre recursos baixos
+- 🔍 Mostra progresso detalhado do build (`--progress=plain`)
+
+#### Como usar:
+
+```bash
+# Build monitorado automaticamente
+./monitor-build.sh
+```
+
+#### O que ele monitora:
+
+```
+- Uso de CPU (%)
+- RAM Total/Usada/Livre
+- SWAP Total/Usado
+- Espaço em Disco
+- Status dos containers Docker
+- Conectividade de rede
+- Processos sendo executados
+```
+
+#### Exemplo de saída:
+
+```
+╔════════════════════════════════════════╗
+║   Monitoramento de Build - Shop Smart ║
+╚════════════════════════════════════════╝
+
+📊 Recursos do Sistema:
+----------------------------------------
+  CPU: 45.2%
+  RAM Total: 952Mi
+  RAM Usada: 337Mi
+  RAM Livre: 83Mi
+  Disco Total: 45G
+  Disco Usado: 9.8G (22%)
+  Disco Livre: 36G
+----------------------------------------
+
+⚠️  AVISO: Menos de 512MB de RAM livre!
+   Build pode ser lento ou falhar.
+
+✅ Monitor iniciado (PID: 12345)
+   Para parar: kill 12345
+
+📝 Log será salvo em: build-monitor-20251122-143500.log
+
+🚀 Iniciando build monitorado...
+   Pressione Ctrl+C para cancelar
+
+========================================
+
+[... progresso do build ...]
+
+========================================
+
+✅ Build concluído com sucesso!
+
+📋 Para ver o log completo:
+   cat build-monitor-*.log
+```
+
+---
+
+## 🎯 Fluxo de Deploy Recomendado
+
+### Para Desenvolvimento Local:
+
+```bash
+# 1. Fazer alterações no código
+# 2. Testar localmente
+npm run start:dev
+
+# 3. Commitar e pushar
+git add .
+git commit -m "feat: sua alteração"
+git push origin main
+```
+
+### Para Produção (Servidor Oracle):
+
+```bash
+# 1. SSH no servidor
+ssh usuario@servidor-oracle
+
+# 2. Ir para o diretório do projeto
+cd /caminho/do/projeto
+
+# 3. (Opcional) Se servidor tem pouca RAM, preparar ambiente
+./prepare-build.sh
+
+# 4. Executar deploy automatizado
+./deploy.sh
+
+# 5. Verificar logs (se necessário)
+docker-compose logs -f api
+```
+
+---
+
+## 🆘 Troubleshooting de Deploy
+
+### Build está travando/falhando:
+
+**Problema**: Build trava ou falha com erro de memória
+
+**Solução**:
+```bash
+# 1. Verificar recursos
+free -h
+df -h /
+
+# 2. Se RAM < 1GB ou SWAP = 0, preparar ambiente
+./prepare-build.sh
+
+# 3. Tentar build monitorado
+./monitor-build.sh
+
+# 4. Ver logs para identificar onde travou
+cat build-monitor-*.log | tail -100
+```
+
+---
+
+### Conexão SSH cai durante build:
+
+**Problema**: SSH desconecta e perde o build
+
+**Solução - Usar TMUX**:
+```bash
+# 1. Instalar tmux
+sudo apt install tmux -y
+
+# 2. Criar sessão tmux (terminal persistente)
+tmux new -s build
+
+# 3. Executar deploy dentro do tmux
+./deploy.sh
+
+# 4. Para sair sem matar: Ctrl+B, depois D
+# 5. Se desconectar, reconectar: tmux attach -t build
+```
+
+---
+
+### Build demora muito (> 30 minutos):
+
+**Problema**: Build muito lento
+
+**Causas Possíveis**:
+- Rede lenta
+- Servidor com poucos recursos
+- Download de dependências travando
+
+**Soluções**:
+```bash
+# 1. Ver onde está travando
+./monitor-build.sh
+
+# 2. Se estiver no npm install, verificar rede
+ping -c 5 registry.npmjs.org
+
+# 3. Se rede OK mas lento, limpar cache
+docker builder prune -a
+npm cache clean --force
+
+# 4. Em último caso, aumentar timeout
+# Editar monitor-build.sh: timeout 30m → timeout 60m
+```
+
+---
+
+### Migrations falhando:
+
+**Problema**: Erro ao executar migrations
+
+**Solução**:
+```bash
+# 1. Ver status das migrations
+docker-compose exec api npm run migration:show
+
+# 2. Ver erro específico
+docker-compose logs api | grep -i migration
+
+# 3. Se necessário, reverter migration
+docker-compose exec api npm run migration:revert
+
+# 4. Corrigir migration e executar novamente
+docker-compose exec api npm run migration:run
+```
+
+---
+
+## 📋 Checklist de Deploy
+
+Antes de fazer deploy em produção:
+
+- [ ] ✅ Código testado localmente
+- [ ] ✅ Testes passando (`npm test`)
+- [ ] ✅ Linter sem erros (`npm run lint`)
+- [ ] ✅ Build local funcionando
+- [ ] ✅ Migrations testadas em desenvolvimento
+- [ ] ✅ Variáveis de ambiente atualizadas (se necessário)
+- [ ] ✅ Backup do banco será criado automaticamente (via `deploy.sh`)
+- [ ] ✅ Recursos do servidor verificados (RAM, Disco, SWAP)
+- [ ] ✅ Time avisado sobre o deploy (se aplicável)
+
+---
+
+## 🔧 Configuração SSH Keep Alive
+
+Para evitar desconexões SSH durante builds longos:
+
+```bash
+# No seu PC, editar ~/.ssh/config
+nano ~/.ssh/config
+
+# Adicionar:
+Host servidor-oracle
+    HostName ip-do-servidor
+    User seu-usuario
+    ServerAliveInterval 60
+    ServerAliveCountMax 120
+    TCPKeepAlive yes
+```
+
+---
+
+## 📚 Documentação Adicional
+
+- **Diagnóstico de Build**: `docs/DIAGNOSTICO-BUILD.md`
+- **Por que não fazer npm no container**: `docs/WHY-NOT-NPM-IN-CONTAINER.md`
+- **Regras do Projeto**: `.cursor/rules/regra-projeto.md`
+- **Code Review Guide**: `.cursor/rules/code-review.md`
+
+---
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
