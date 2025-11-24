@@ -28,34 +28,63 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
     this.dailyLimit = this.appConfig.getGeminiAudioDailyLimit();
   }
 
+  /**
+   * Normaliza o MIME type para formato aceito pelo Gemini
+   * Gemini aceita apenas audio/* para processamento de áudio
+   */
+  private normalizeMimeType(mimeType: string): string {
+    // Remove parâmetros (ex: video/webm;codecs=opus -> video/webm)
+    const cleanMimeType = mimeType.split(';')[0].trim().toLowerCase();
+
+    // Mapeamento de MIME types de vídeo para áudio
+    // Navegadores frequentemente gravam áudio como video/webm
+    const mimeTypeMapping: Record<string, string> = {
+      'video/webm': 'audio/webm',
+      'video/ogg': 'audio/ogg',
+      'video/mp4': 'audio/mp4',
+    };
+
+    return mimeTypeMapping[cleanMimeType] || cleanMimeType;
+  }
+
   async analyze(
     audioData: string | Buffer,
     options?: AnalyzeOptions,
   ): Promise<AudioRecognitionResult> {
     try {
-      // Verifica a quota antes de fazer a requisição
       await this.apiQuotaService.checkAndIncrementQuota(
         this.name,
         this.dailyLimit,
       );
 
-      // Converte buffer para base64 se necessário
       let base64Audio: string;
-      let mimeType = 'audio/webm';
+      let mimeType: string;
 
       if (Buffer.isBuffer(audioData)) {
+        if (audioData.length === 0) {
+          throw new Error('Buffer de áudio está vazio');
+        }
+
         base64Audio = audioData.toString('base64');
+        
+        if (!base64Audio || base64Audio.length === 0) {
+          throw new Error('Falha ao converter buffer para base64');
+        }
+
+        // Normaliza o MIME type (video/webm -> audio/webm)
+        const rawMimeType = options?.mimeType || 'audio/webm';
+        mimeType = this.normalizeMimeType(rawMimeType);
       } else if (
         audioData.startsWith('data:audio/') ||
         audioData.startsWith('data:video/')
       ) {
-        // Extrai o mimeType e base64 do data URL
-        // Nota: video/webm também é aceito pois alguns navegadores gravam áudio como video/webm
-        mimeType = audioData.split(';')[0].split(':')[1];
+        // Suporta data URL (backward compatibility)
+        const rawMimeType = audioData.split(';')[0].split(':')[1];
+        mimeType = this.normalizeMimeType(rawMimeType);
         base64Audio = audioData.split(',')[1];
       } else {
         throw new Error(
-          'Formato de áudio inválido. Esperado Buffer ou data URL (data:audio/* ou data:video/*)',
+          'Formato de áudio inválido. Esperado Buffer ou data URL',
         );
       }
 
@@ -66,45 +95,44 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
       const payment = options?.defaultPayment || 'Cartão de crédito';
 
       const prompt = `Você é um assistente que analisa áudios de despesas.
-      O usuário vai descrever uma despesa verbalmente (compra em estabelecimento).
+O usuário vai descrever uma despesa verbalmente (compra em estabelecimento).
 
-      Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown, sem explicações):
-      {
-        "name": "descrição da despesa/compra",
-        "value": valor total numérico da compra,
-        "date": "data da compra no formato YYYY-MM-DD (se não mencionada, use hoje)",
-        "repeat": boolean indicando se é uma despesa recorrente,
-        "items": [
-          {
-            "code": "código do produto (use '1' se não mencionado)",
-            "name": "nome do produto",
-            "quantity": quantidade numérica,
-            "unit": "unidade (unidade, quilograma, ou pacote)",
-            "value": valor unitário numérico,
-            "total": valor total do item (quantity * value),
-            "group": {
-              "name": "categoria do produto - ESCOLHA entre: ${groups}"
-            }
-          }
-        ],
-        "store": {
-          "name": "nome do estabelecimento/loja"
-        },
-        "payment": {
-          "name": "forma de pagamento (use '${payment}' se não mencionado)"
-        }
+Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown, sem explicações):
+{
+  "name": "descrição da despesa/compra",
+  "value": valor total numérico da compra,
+  "date": "data da compra no formato YYYY-MM-DD (se não mencionada, use hoje)",
+  "repeat": boolean indicando se é uma despesa recorrente,
+  "items": [
+    {
+      "code": "código do produto (use '1' se não mencionado)",
+      "name": "nome do produto",
+      "quantity": quantidade numérica,
+      "unit": "unidade (unidade, quilograma, ou pacote)",
+      "value": valor unitário numérico,
+      "total": valor total do item (quantity * value),
+      "group": {
+        "name": "categoria do produto - ESCOLHA entre: ${groups}"
       }
+    }
+  ],
+  "store": {
+    "name": "nome do estabelecimento/loja"
+  },
+  "payment": {
+    "method": "forma de pagamento (use '${payment}' se não mencionado)"
+  }
+}
 
-      IMPORTANTE:
-      - Todas as chaves devem estar em inglês
-      - Se o usuário mencionar múltiplos produtos, inclua todos no array items
-      - Se não mencionar quantidade, use 1
-      - Se não mencionar valor unitário mas mencionar total, calcule
-      - Se mencionar apenas o total geral, crie um item único com esse valor
-      - Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
-      `;
+IMPORTANTE:
+- Todas as chaves devem estar em inglês
+- Se o usuário mencionar múltiplos produtos, inclua todos no array items
+- Se não mencionar quantidade, use 1
+- Se não mencionar valor unitário mas mencionar total, calcule
+- Se mencionar apenas o total geral, crie um item único com esse valor
+- Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
+`;
 
-      // Envia o áudio para o Gemini
       const result = await this.model.generateContent([
         prompt,
         {
@@ -133,7 +161,7 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
       return {
         ...parsedResult,
         provider: this.name,
-        confidence: 0.85, // Confiança para áudio geralmente é um pouco menor
+        confidence: 0.85,
       };
     } catch (error) {
       throw new AudioRecognitionException(

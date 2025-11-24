@@ -32,13 +32,9 @@ export class AudioRecognitionService {
       this.appConfig.getDefaultRecognitionProvider() + '-audio',
     );
 
-    // Remove parâmetros do MIME type (ex: video/webm;codecs=opus -> video/webm)
-    const cleanMimeType = mimeType.split(';')[0].trim();
-
-    // Converte o buffer do áudio para base64
-    const base64Audio = audioBuffer.toString('base64');
-    // Cria data URL com MIME type limpo
-    const audioData = `data:${cleanMimeType};base64,${base64Audio}`;
+    if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+      throw new Error('Buffer de áudio inválido ou vazio');
+    }
 
     const groups = await this.groupService.findAllNames();
     const defaultPayment = await this.paymentService.getDefaultPayment();
@@ -46,11 +42,11 @@ export class AudioRecognitionService {
     const options = {
       groups: groups,
       defaultPayment: defaultPayment,
+      mimeType: mimeType,
     };
 
     try {
-      // Análise do áudio
-      const result = await provider.analyze(audioData, options);
+      const result = await provider.analyze(audioBuffer, options);
 
       // Salva o resultado no banco
       await this.audioRecognitionRepository.create(

@@ -3,6 +3,7 @@ import { AudioRecognitionResult } from '../../types/audioRecognitionType';
 export interface AnalyzeOptions {
   groups?: string[];
   defaultPayment?: string;
+  mimeType?: string; // MIME type do arquivo de áudio
 }
 
 export interface QuotaInfo {

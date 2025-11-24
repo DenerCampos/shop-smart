@@ -56,13 +56,20 @@ export class AudioRecognitionController {
     @UploadedFile() audio: Express.Multer.File,
     @CurrentUser() user: User,
   ): Promise<AnalyzeAudioRecognitionResponseDto> {
-    if (!audio?.buffer || audio.buffer.length === 0) {
-      throw new BadRequestException('Áudio não fornecido ou vazio');
+    if (!audio) {
+      throw new BadRequestException('Áudio não fornecido');
+    }
+
+    if (!audio.buffer || audio.buffer.length === 0) {
+      throw new BadRequestException('Buffer de áudio vazio');
     }
 
     if (audio.size < 1024) {
-      // Menos de 1KB
-      throw new BadRequestException('Áudio muito curto ou corrompido');
+      throw new BadRequestException('Áudio muito curto (menos de 1KB)');
+    }
+
+    if (!Buffer.isBuffer(audio.buffer)) {
+      throw new BadRequestException('Buffer inválido');
     }
 
     const result = await this.audioRecognitionService.analyzeAudio(
