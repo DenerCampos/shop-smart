@@ -66,7 +66,7 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
         }
 
         base64Audio = audioData.toString('base64');
-        
+
         if (!base64Audio || base64Audio.length === 0) {
           throw new Error('Falha ao converter buffer para base64');
         }
@@ -95,43 +95,43 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
       const payment = options?.defaultPayment || 'Cartão de crédito';
 
       const prompt = `Você é um assistente que analisa áudios de despesas.
-O usuário vai descrever uma despesa verbalmente (compra em estabelecimento).
+      O usuário vai descrever uma despesa verbalmente (compra em estabelecimento).
 
-Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown, sem explicações):
-{
-  "name": "descrição da despesa/compra",
-  "value": valor total numérico da compra,
-  "date": "data da compra no formato YYYY-MM-DD (se não mencionada, use hoje)",
-  "repeat": boolean indicando se é uma despesa recorrente,
-  "items": [
-    {
-      "code": "código do produto (use '1' se não mencionado)",
-      "name": "nome do produto",
-      "quantity": quantidade numérica,
-      "unit": "unidade (unidade, quilograma, ou pacote)",
-      "value": valor unitário numérico,
-      "total": valor total do item (quantity * value),
-      "group": {
-        "name": "categoria do produto - ESCOLHA entre: ${groups}"
+      Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown, sem explicações):
+      {
+        "name": "descrição da despesa/compra",
+        "value": valor total numérico da compra,
+        "date": "data da compra no formato YYYY-MM-DD (se não mencionada, use hoje)",
+        "repeat": boolean indicando se é uma despesa recorrente,
+        "items": [
+          {
+            "code": "código do produto (use '1' se não mencionado)",
+            "name": "nome do produto",
+            "quantity": quantidade numérica,
+            "unit": "unidade (unidade, quilograma, ou pacote)",
+            "value": valor unitário numérico,
+            "total": valor total do item (quantity * value),
+            "group": {
+              "name": "categoria do produto - ESCOLHA entre: ${groups}"
+            }
+          }
+        ],
+        "store": {
+          "name": "nome do estabelecimento/loja"
+        },
+        "payment": {
+          "method": "forma de pagamento (use '${payment}' se não mencionado)"
+        }
       }
-    }
-  ],
-  "store": {
-    "name": "nome do estabelecimento/loja"
-  },
-  "payment": {
-    "method": "forma de pagamento (use '${payment}' se não mencionado)"
-  }
-}
 
-IMPORTANTE:
-- Todas as chaves devem estar em inglês
-- Se o usuário mencionar múltiplos produtos, inclua todos no array items
-- Se não mencionar quantidade, use 1
-- Se não mencionar valor unitário mas mencionar total, calcule
-- Se mencionar apenas o total geral, crie um item único com esse valor
-- Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
-`;
+      IMPORTANTE:
+      - Todas as chaves devem estar em inglês
+      - Se o usuário mencionar múltiplos produtos, inclua todos no array items
+      - Se não mencionar quantidade, use 1
+      - Se não mencionar valor unitário mas mencionar total, calcule
+      - Se mencionar apenas o total geral, crie um item único com esse valor
+      - Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
+      `;
 
       const result = await this.model.generateContent([
         prompt,
