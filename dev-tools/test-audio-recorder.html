@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravador de Áudio - Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #startBtn {
+            background: #4CAF50;
+            color: white;
+        }
+        #startBtn:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        #stopBtn {
+            background: #f44336;
+            color: white;
+        }
+        #stopBtn:hover:not(:disabled) {
+            background: #da190b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
+        }
+        #downloadBtn {
+            background: #2196F3;
+            color: white;
+        }
+        #downloadBtn:hover:not(:disabled) {
+            background: #0b7dda;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+        }
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .status.idle {
+            background: #f5f5f5;
+            color: #666;
+        }
+        .status.recording {
+            background: #ffebee;
+            color: #c62828;
+            animation: pulse 1.5s infinite;
+        }
+        .status.stopped {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .timer {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        audio {
+            width: 100%;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+        .info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+        .info h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .info li {
+            color: #856404;
+            margin: 5px 0;
+        }
+        .suggestion {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+        .suggestion h4 {
+            margin: 0 0 10px 0;
+            color: #1565c0;
+        }
+        .suggestion p {
+            margin: 5px 0;
+            color: #1565c0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Gravador de Áudio</h1>
+        <p class="subtitle">Para testar API de reconhecimento de áudio</p>
+        
+        <div class="status idle" id="status">
+            Pronto para gravar
+        </div>
+
+        <div class="timer" id="timer">00:00</div>
+
+        <div class="controls">
+            <button id="startBtn">🔴 Iniciar Gravação</button>
+            <button id="stopBtn" disabled>⏹️ Parar Gravação</button>
+            <button id="downloadBtn" disabled>💾 Baixar Áudio (WebM)</button>
+        </div>
+
+        <audio id="audioPlayback" controls style="display: none;"></audio>
+
+        <div class="suggestion">
+            <h4>💡 Sugestão de Fala para Teste</h4>
+            <p><strong>Exemplo 1:</strong> "Comprei no supermercado Extra no dia 20 de novembro, gastei 150 reais. Comprei 2 quilos de arroz, 1 quilo de feijão, 500 gramas de carne moída e 1 litro de leite. Paguei no cartão de crédito."</p>
+            <br>
+            <p><strong>Exemplo 2:</strong> "Fui na farmacia Drogasil hoje, comprei remédios no valor de 85 reais, paguei em dinheiro."</p>
+            <br>
+            <p><strong>Exemplo 3:</strong> "Padaria do João, comprei 6 pães franceses, 1 litro de leite e 200 gramas de presunto, total de 18 reais e 50 centavos."</p>
+        </div>
+
+        <div class="info">
+            <h3>📋 Instruções de Uso</h3>
+            <ul>
+                <li>Clique em "Iniciar Gravação" e permita o acesso ao microfone</li>
+                <li>Fale descrevendo uma despesa (veja exemplos acima)</li>
+                <li>Clique em "Parar Gravação" quando terminar</li>
+                <li>Ouça o áudio gravado (opcional)</li>
+                <li>Clique em "Baixar Áudio" para salvar o arquivo</li>
+                <li>Use o arquivo baixado no Postman para testar a API</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let startTime;
+        let timerInterval;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const audioPlayback = document.getElementById('audioPlayback');
+        const status = document.getElementById('status');
+        const timer = document.getElementById('timer');
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    } 
+                });
+                
+                // Usar webm com opus codec (melhor compatibilidade)
+                const options = { mimeType: 'audio/webm;codecs=opus' };
+                mediaRecorder = new MediaRecorder(stream, options);
+                
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    audioPlayback.src = audioUrl;
+                    audioPlayback.style.display = 'block';
+                    
+                    // Preparar para download
+                    downloadBtn.onclick = () => {
+                        const link = document.createElement('a');
+                        link.href = audioUrl;
+                        link.download = `test-audio-${Date.now()}.webm`;
+                        link.click();
+                    };
+                    
+                    downloadBtn.disabled = false;
+                    status.className = 'status stopped';
+                    status.textContent = '✅ Gravação concluída! Você pode baixar o arquivo agora.';
+                    
+                    // Para o stream
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                startTime = Date.now();
+                
+                // Atualizar timer
+                timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    const seconds = (elapsed % 60).toString().padStart(2, '0');
+                    timer.textContent = `${minutes}:${seconds}`;
+                }, 1000);
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                downloadBtn.disabled = true;
+                audioPlayback.style.display = 'none';
+                
+                status.className = 'status recording';
+                status.textContent = '🔴 Gravando... Fale agora!';
+                
+            } catch (error) {
+                console.error('Erro ao acessar microfone:', error);
+                alert('Erro ao acessar o microfone. Verifique as permissões do navegador.');
+            }
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                clearInterval(timerInterval);
+                
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
+
+
