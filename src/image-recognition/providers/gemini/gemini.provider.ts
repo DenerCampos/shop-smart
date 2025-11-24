@@ -7,7 +7,7 @@ import {
 import { ImageRecognitionResult } from '../../types/imageRecognitionType';
 import { ImageRecognitionException } from '../../exceptions/imageRecognition.exception';
 import { AppConfig } from 'src/common/app-config/app.config';
-import { ApiQuotaService } from '../../services/apiQuota.service';
+import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 
 @Injectable()
 export class GeminiProvider implements IImageRecognitionProvider {
@@ -22,11 +22,7 @@ export class GeminiProvider implements IImageRecognitionProvider {
   ) {
     this.genAI = new GoogleGenerativeAI(this.appConfig.getGoogleApiKey());
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    // Define o limite diário de requisições (você pode mover isso para o .env)
-    this.dailyLimit = Number.parseInt(
-      process.env.GEMINI_DAILY_LIMIT || '50',
-      10,
-    );
+    this.dailyLimit = this.appConfig.getGeminiDailyLimit();
   }
 
   async analyze(

@@ -841,6 +841,59 @@ Host servidor-oracle
 
 ---
 
+## 🛠️ Ferramentas de Desenvolvimento
+
+### Ferramenta de Teste de Reconhecimento de Áudio
+
+O projeto inclui uma ferramenta web para testar o reconhecimento de áudio localmente.
+
+**Localização**: `dev-tools/test-audio-recorder.html`
+
+#### Como Usar:
+
+1. **Abrir a ferramenta**:
+   ```bash
+   # Opção 1: Abrir diretamente no navegador
+   open dev-tools/test-audio-recorder.html
+   
+   # Opção 2: Usar um servidor HTTP local
+   cd dev-tools
+   python3 -m http.server 8000
+   # Acessar: http://localhost:8000/test-audio-recorder.html
+   ```
+
+2. **Configurar a API**:
+   - Por padrão, a ferramenta aponta para `http://localhost:3000`
+   - Se sua API estiver em outra URL, atualize a variável `API_URL` no arquivo
+
+3. **Gravar e Testar**:
+   - Clique em "Iniciar Gravação" e permita acesso ao microfone
+   - Descreva uma despesa verbalmente (ex: "Comprei 2 leites por R$ 8,50 no Mercado XYZ")
+   - Clique em "Parar Gravação"
+   - Clique em "Enviar para API" para analisar o áudio
+   - Visualize o resultado da análise
+
+4. **Recursos da Ferramenta**:
+   - ✅ Gravação de áudio direto do navegador
+   - ✅ Visualização do formato e tamanho do áudio
+   - ✅ Envio para API de reconhecimento
+   - ✅ Exibição do resultado formatado (JSON)
+   - ✅ Informações de quota da API
+
+#### Requisitos:
+
+- Navegador moderno com suporte a `MediaRecorder` API
+- Permissão para acessar o microfone
+- API rodando localmente ou em servidor acessível
+
+#### Observações:
+
+- ⚠️ Esta ferramenta é apenas para **desenvolvimento/testes**
+- ⚠️ Não deve ser incluída no build de produção (já está no `.dockerignore`)
+- ⚠️ Funciona melhor no Chrome/Edge (suporte completo a `webm`)
+
+---
+
 ## 📚 Documentação Adicional
 
 - **Diagnóstico de Build**: `docs/DIAGNOSTICO-BUILD.md`

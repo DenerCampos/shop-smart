@@ -20,7 +20,7 @@ interface ICache {
 }
 @Injectable()
 export class AppConfig {
-  private configService = new ConfigService();
+  private readonly configService = new ConfigService();
 
   getEnvironment(): string {
     return this.configService.get<string>('NODE_ENV');
@@ -82,5 +82,19 @@ export class AppConfig {
 
   getGoogleApiKey(): string {
     return this.configService.get<string>('GOOGLE_API_KEY');
+  }
+
+  getGeminiDailyLimit(): number {
+    return Number.parseInt(
+      this.configService.get<string>('GEMINI_DAILY_LIMIT') || '50',
+      10,
+    );
+  }
+
+  getGeminiAudioDailyLimit(): number {
+    return Number.parseInt(
+      this.configService.get<string>('GEMINI_AUDIO_DAILY_LIMIT') || '50',
+      10,
+    );
   }
 }
