@@ -101,7 +101,7 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
       {
         "name": "descrição da despesa/compra",
         "value": valor total numérico da compra,
-        "date": "data da compra no formato YYYY-MM-DD (se não mencionada, use hoje)",
+        "date": "data da compra no formato YYYY-MM-DD (se não mencionada, use a data de hoje no Brasil/America do Sul)",
         "repeat": boolean indicando se é uma despesa recorrente,
         "items": [
           {
@@ -120,7 +120,7 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
           "name": "nome do estabelecimento/loja"
         },
         "payment": {
-          "method": "forma de pagamento (use '${payment}' se não mencionado)"
+          "name": "forma de pagamento (use '${payment}' se não mencionado)"
         }
       }
 
@@ -131,6 +131,7 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
       - Se não mencionar valor unitário mas mencionar total, calcule
       - Se mencionar apenas o total geral, crie um item único com esse valor
       - Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
+      - Se não mencionar a data, use a data de hoje no Brasil/America do Sul no formato YYYY-MM-DD no campo date (ex: 2025-11-24)
       `;
 
       const result = await this.model.generateContent([
