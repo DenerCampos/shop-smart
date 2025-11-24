@@ -32,10 +32,13 @@ export class AudioRecognitionService {
       this.appConfig.getDefaultRecognitionProvider() + '-audio',
     );
 
+    // Remove parâmetros do MIME type (ex: video/webm;codecs=opus -> video/webm)
+    const cleanMimeType = mimeType.split(';')[0].trim();
+
     // Converte o buffer do áudio para base64
     const base64Audio = audioBuffer.toString('base64');
-    // Usa o mimeType real do arquivo enviado
-    const audioData = `data:${mimeType};base64,${base64Audio}`;
+    // Cria data URL com MIME type limpo
+    const audioData = `data:${cleanMimeType};base64,${base64Audio}`;
 
     const groups = await this.groupService.findAllNames();
     const defaultPayment = await this.paymentService.getDefaultPayment();

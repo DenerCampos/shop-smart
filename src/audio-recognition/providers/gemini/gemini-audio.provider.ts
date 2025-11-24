@@ -45,12 +45,18 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
 
       if (Buffer.isBuffer(audioData)) {
         base64Audio = audioData.toString('base64');
-      } else if (audioData.startsWith('data:audio/')) {
+      } else if (
+        audioData.startsWith('data:audio/') ||
+        audioData.startsWith('data:video/')
+      ) {
         // Extrai o mimeType e base64 do data URL
+        // Nota: video/webm também é aceito pois alguns navegadores gravam áudio como video/webm
         mimeType = audioData.split(';')[0].split(':')[1];
         base64Audio = audioData.split(',')[1];
       } else {
-        throw new Error('Formato de áudio inválido');
+        throw new Error(
+          'Formato de áudio inválido. Esperado Buffer ou data URL (data:audio/* ou data:video/*)',
+        );
       }
 
       // Define valores padrão
