@@ -4,6 +4,7 @@ export interface AnalyzeOptions {
   groups?: string[];
   defaultPayment?: string;
   mimeType?: string; // MIME type do arquivo de áudio
+  context?: 'expense' | 'revenue'; // Contexto da análise: despesa ou receita
 }
 
 export interface QuotaInfo {

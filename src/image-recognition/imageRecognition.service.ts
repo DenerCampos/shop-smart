@@ -26,6 +26,7 @@ export class ImageRecognitionService {
   async analyzeImage(
     imageBuffer: Buffer,
     user: User,
+    context: 'expense' | 'revenue' = 'expense',
   ): Promise<ImageRecognitionResult> {
     const provider = await this.providerFactory.getProvider(
       this.appConfig.getDefaultRecognitionProvider(),
@@ -42,6 +43,7 @@ export class ImageRecognitionService {
     const options = {
       groups: groups,
       defaultPayment: defaultPayment,
+      context: context, // Passa o contexto para o provider
     };
 
     try {

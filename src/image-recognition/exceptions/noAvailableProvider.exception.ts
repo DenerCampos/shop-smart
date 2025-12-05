@@ -5,7 +5,8 @@ export class NoAvailableProviderException extends HttpException {
     super(
       {
         statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-        message: 'Nenhum provider de reconhecimento de imagem está disponível no momento',
+        message:
+          'Nenhum provider de reconhecimento de imagem está disponível no momento',
         error: 'No Available Provider',
       },
       HttpStatus.SERVICE_UNAVAILABLE,

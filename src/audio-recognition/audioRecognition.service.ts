@@ -27,6 +27,7 @@ export class AudioRecognitionService {
     audioBuffer: Buffer,
     mimeType: string,
     user: User,
+    context: 'expense' | 'revenue' = 'expense',
   ): Promise<AudioRecognitionResult> {
     const provider = await this.providerFactory.getProvider(
       this.appConfig.getDefaultRecognitionProvider() + '-audio',
@@ -43,6 +44,7 @@ export class AudioRecognitionService {
       groups: groups,
       defaultPayment: defaultPayment,
       mimeType: mimeType,
+      context: context, // Passa o contexto para o provider
     };
 
     try {

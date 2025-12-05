@@ -3,6 +3,7 @@ import { ImageRecognitionResult } from '../../types/imageRecognitionType';
 export interface AnalyzeOptions {
   groups?: string[];
   defaultPayment?: string;
+  context?: 'expense' | 'revenue'; // Contexto da análise: despesa ou receita
 }
 
 export interface QuotaInfo {

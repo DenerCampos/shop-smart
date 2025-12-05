@@ -46,24 +46,42 @@ export class GeminiProvider implements IImageRecognitionProvider {
         options?.groups?.join(', ') ||
         'Alimentação, Bebida, Limpeza, Higiene, Outros';
       const payment = options?.defaultPayment || 'Cartão de crédito';
+      const context = options?.context || 'expense';
 
-      const prompt = `Analise esta imagem de um cupom fiscal ou nota fiscal e extraia as seguintes informações em formato JSON:
-      - name: nome do estabelecimento
-      - value: valor total da nota (número)
-      - date: data da compra (formato: YYYY-MM-DD)
-      - items: array de produtos, cada item deve conter:
-        * code: código do produto, se não for possível identificar, retorne '1'
-        * name: nome do produto
-        * quantity: quantidade (número), se não for possível identificar, retorne 0
-        * unit: unidade - use 'unidade' para UN, 'quilograma' para KG, ou 'pacote' para PT, se não for possível identificar, retorne 'unidade'
-        * value: valor unitário (número), se não for possível identificar, retorne 0
-        * total: valor total do item (número), se não for possível identificar, retorne 0
-        * group: objeto com a propriedade 'name' contendo o nome do grupo de classificação. Os grupos possíveis são: ${groups}
-      - store: objeto com a propriedade 'name' contendo o nome do estabelecimento
-      - payment: objeto com a propriedade 'name' contendo o nome do método de pagamento. Se não for possível identificar, use '${payment}'
-      
-      IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment, name).
-      Retorne apenas o JSON, sem explicações adicionais.`;
+      // Monta o prompt de acordo com o contexto (despesa ou receita)
+      let prompt: string;
+
+      if (context === 'revenue') {
+        prompt = `Analise esta imagem de um comprovante, recibo ou documento de receita/entrada financeira e extraia as seguintes informações em formato JSON:
+        - name: descrição da receita (ex: Salário, Freelance, Venda, Comissão)
+        - value: valor total da receita (número)
+        - date: data da receita (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
+        - repeat: boolean indicando se é uma receita recorrente (ex: salário mensal = true, venda única = false)
+        
+        IMPORTANTE: 
+        - Todas as chaves devem estar em inglês (name, value, date, repeat).
+        - Se a imagem mencionar algo como "mensal", "recorrente", "fixo", defina repeat como true
+        - Se não for possível identificar se é recorrente, assuma false
+        - Retorne apenas o JSON, sem explicações adicionais.`;
+      } else {
+        prompt = `Analise esta imagem de um cupom fiscal ou nota fiscal e extraia as seguintes informações em formato JSON:
+        - name: nome do estabelecimento
+        - value: valor total da nota (número)
+        - date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
+        - items: array de produtos, cada item deve conter:
+          * code: código do produto, se não for possível identificar, retorne '1'
+          * name: nome do produto
+          * quantity: quantidade (número), se não for possível identificar, retorne 0
+          * unit: unidade - use 'unidade' para UN, 'quilograma' para KG, ou 'pacote' para PT, se não for possível identificar, retorne 'unidade'
+          * value: valor unitário (número), se não for possível identificar, retorne 0
+          * total: valor total do item (número), se não for possível identificar, retorne 0
+          * group: objeto com a propriedade 'name' contendo o nome do grupo de classificação. Os grupos possíveis são: ${groups}
+        - store: objeto com a propriedade 'name' contendo o nome do estabelecimento
+        - payment: objeto com a propriedade 'name' contendo o nome do método de pagamento. Se não for possível identificar, use '${payment}'
+        
+        IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment, name).
+        Retorne apenas o JSON, sem explicações adicionais.`;
+      }
 
       // Prepara a imagem para o Gemini
       const result = await this.model.generateContent([

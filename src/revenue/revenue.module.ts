@@ -7,12 +7,16 @@ import { RevenueRepository } from './repositories/revenue.repository';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Revenue } from './entities/revenue.entity';
 import { CoinModule } from 'src/coin/coin.module';
+import { AudioRecognitionModule } from 'src/audio-recognition/audioRecognition.module';
+import { ImageRecognitionModule } from 'src/image-recognition/imageRecognition.module';
 
 @Module({
   imports: [
     CommonModule,
     UserModule,
     CoinModule,
+    AudioRecognitionModule,
+    ImageRecognitionModule,
     TypeOrmModule.forFeature([Revenue]),
   ],
   controllers: [RevenueController],

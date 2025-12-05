@@ -11,6 +11,8 @@ import { StoreModule } from 'src/store/store.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { GroupModule } from 'src/group/group.module';
 import { CoinModule } from 'src/coin/coin.module';
+import { AudioRecognitionModule } from 'src/audio-recognition/audioRecognition.module';
+import { ImageRecognitionModule } from 'src/image-recognition/imageRecognition.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { CoinModule } from 'src/coin/coin.module';
     PaymentModule,
     GroupModule,
     CoinModule,
+    AudioRecognitionModule,
+    ImageRecognitionModule,
     TypeOrmModule.forFeature([Expense, Item]),
   ],
   controllers: [ExpenseController],
