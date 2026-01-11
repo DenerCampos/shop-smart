@@ -213,6 +213,9 @@ export class ExpenseRepository implements IExpenseRepository {
     month: number,
     day: number,
   ): Promise<Expense[] | []> {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+
     const query = this.expenseEntity
       .createQueryBuilder('expense')
       .leftJoinAndSelect('expense.items', 'item')
@@ -222,8 +225,23 @@ export class ExpenseRepository implements IExpenseRepository {
       .where('expense.user = :userId', { userId })
       .andWhere('expense.deletedAt IS NULL')
       .andWhere('expense.repeat = true')
-      .andWhere('EXTRACT(MONTH FROM expense.date) <= :month', { month })
-      .andWhere('EXTRACT(DAY FROM expense.date) <= :day', { day })
+      .andWhere(
+        `(
+          (EXTRACT(YEAR FROM expense.date) < :currentYear)
+          OR 
+          (
+            EXTRACT(YEAR FROM expense.date) = :currentYear 
+            AND EXTRACT(MONTH FROM expense.date) < :currentMonth
+          )
+          OR
+          (
+            EXTRACT(YEAR FROM expense.date) = :currentYear 
+            AND EXTRACT(MONTH FROM expense.date) = :month 
+            AND EXTRACT(DAY FROM expense.date) <= :day
+          )
+        )`,
+        { currentYear, currentMonth, month, day },
+      )
       .orderBy('expense.date', 'ASC');
 
     return await query.getMany();

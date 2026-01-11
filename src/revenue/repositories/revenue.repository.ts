@@ -153,13 +153,31 @@ export class RevenueRepository implements IRevenueRepository {
     month: number,
     day: number,
   ): Promise<Revenue[] | []> {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+
     const query = this.revenueEntity
       .createQueryBuilder('revenue')
       .where('revenue.user = :userId', { userId })
       .andWhere('revenue.deletedAt IS NULL')
       .andWhere('revenue.repeat = true')
-      .andWhere('EXTRACT(MONTH FROM revenue.date) <= :month', { month })
-      .andWhere('EXTRACT(DAY FROM revenue.date) <= :day', { day })
+      .andWhere(
+        `(
+          (EXTRACT(YEAR FROM revenue.date) < :currentYear)
+          OR 
+          (
+            EXTRACT(YEAR FROM revenue.date) = :currentYear 
+            AND EXTRACT(MONTH FROM revenue.date) < :currentMonth
+          )
+          OR
+          (
+            EXTRACT(YEAR FROM revenue.date) = :currentYear 
+            AND EXTRACT(MONTH FROM revenue.date) = :month 
+            AND EXTRACT(DAY FROM revenue.date) <= :day
+          )
+        )`,
+        { currentYear, currentMonth, month, day },
+      )
       .orderBy('revenue.date', 'ASC');
 
     return await query.getMany();
