@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build:light
+RUN npm run build
 
 # Limpeza: Remove devDependencies para economizar RAM e espaço na imagem final
 RUN npm prune --production
