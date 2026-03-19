@@ -39,4 +39,4 @@ USER app
 EXPOSE 3000
 
 # Dica: Use o caminho relativo correto baseado no seu output do Nest
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
