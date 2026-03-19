@@ -109,12 +109,13 @@ echo -e "${BLUE}🛑 Parando containers para liberar memória durante o build...
 docker-compose down
 echo ""
 
+# Usa builder legado com limite de 2GB para permitir uso de swap (BuildKit não suporta --memory)
 if [ "$PACKAGE_CHANGED" = true ] || [ "$DOCKERFILE_CHANGED" = true ]; then
     echo -e "${BLUE}🔨 Rebuilding com --no-cache (pode demorar mais)...${NC}"
-    docker-compose build --no-cache api
+    DOCKER_BUILDKIT=0 docker-compose build --no-cache api
 else
     echo -e "${BLUE}🔨 Building API...${NC}"
-    docker-compose build api
+    DOCKER_BUILDKIT=0 docker-compose build api
 fi
 echo -e "${GREEN}✅ Build concluído!${NC}"
 
