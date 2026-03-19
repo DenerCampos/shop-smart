@@ -118,19 +118,13 @@ else
 fi
 echo -e "${GREEN}✅ Build concluído!${NC}"
 
-# 7. Parar containers
-echo ""
-echo -e "${BLUE}🛑 Parando containers...${NC}"
-docker-compose down
-echo -e "${GREEN}✅ Containers parados!${NC}"
-
-# 8. Subir containers
+# 7. Subir containers
 echo ""
 echo -e "${BLUE}🚀 Iniciando containers...${NC}"
 docker-compose up -d
 echo -e "${GREEN}✅ Containers iniciados!${NC}"
 
-# 9. Aguardar API ficar pronta
+# 8. Aguardar API ficar pronta
 echo ""
 echo -e "${BLUE}⏳ Aguardando API inicializar...${NC}"
 sleep 5
@@ -156,7 +150,7 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     exit 1
 fi
 
-# 10. Executar migrations (se houver)
+# 9. Executar migrations (se houver)
 if [ "$MIGRATIONS_CHANGED" = true ]; then
     echo ""
     echo -e "${BLUE}🗄️  Executando migrations...${NC}"
@@ -164,7 +158,7 @@ if [ "$MIGRATIONS_CHANGED" = true ]; then
     # Aguardar mais um pouco para o banco estar pronto
     sleep 10
     
-    if docker-compose exec -T api npm run migration:run; then
+    if docker-compose exec -T api npm run migration:run:prod; then
         echo -e "${GREEN}✅ Migrations executadas com sucesso!${NC}"
     else
         echo -e "${RED}❌ Erro ao executar migrations!${NC}"
@@ -177,17 +171,17 @@ if [ "$MIGRATIONS_CHANGED" = true ]; then
     fi
 fi
 
-# 11. Mostrar logs recentes
+# 10. Mostrar logs recentes
 echo ""
 echo -e "${BLUE}📋 Últimos logs da API:${NC}"
 docker-compose logs --tail=30 api
 
-# 12. Status final
+# 11. Status final
 echo ""
 echo -e "${BLUE}📊 Status dos containers:${NC}"
 docker-compose ps
 
-# 13. Resumo do deploy
+# 12. Resumo do deploy
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║     ✅ Deploy concluído com sucesso!   ║${NC}"

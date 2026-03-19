@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN npm run build:light
 
 # Estágio 2: Imagem final
 FROM node:18.10-alpine
