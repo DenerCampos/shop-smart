@@ -3,6 +3,9 @@ FROM node:18.10-alpine AS builder
 
 WORKDIR /usr/src/app
 
+# Limita heap do Node para ambientes com pouca RAM (~512MB)
+ENV NODE_OPTIONS="--max-old-space-size=460"
+
 COPY package*.json ./
 RUN npm ci
 

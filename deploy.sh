@@ -105,6 +105,10 @@ fi
 
 # 6. Build da aplicação
 echo ""
+echo -e "${BLUE}🛑 Parando containers para liberar memória durante o build...${NC}"
+docker-compose down
+echo ""
+
 if [ "$PACKAGE_CHANGED" = true ] || [ "$DOCKERFILE_CHANGED" = true ]; then
     echo -e "${BLUE}🔨 Rebuilding com --no-cache (pode demorar mais)...${NC}"
     docker-compose build --no-cache api
