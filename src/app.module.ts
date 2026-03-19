@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
 import { ThemeModule } from './theme/theme.module';
 import { ImageRecognitionModule } from './image-recognition/imageRecognition.module';
 import { AudioRecognitionModule } from './audio-recognition/audioRecognition.module';
+import { FamilyGroupModule } from './family-group/family-group.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AudioRecognitionModule } from './audio-recognition/audioRecognition.mod
     ThemeModule,
     ImageRecognitionModule,
     AudioRecognitionModule,
+    FamilyGroupModule,
   ],
   controllers: [],
   providers: [],

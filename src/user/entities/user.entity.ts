@@ -1,5 +1,6 @@
 import { Coin } from 'src/coin/entities/coin.entity';
 import { CoinTransaction } from 'src/coin/entities/coinTransaction.entity';
+import { FamilyGroupMember } from 'src/family-group/entities/family-group-member.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { ImageRecognition } from 'src/image-recognition/entities/imageRecognition.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
@@ -47,6 +48,9 @@ export class User {
   @Column({ nullable: true })
   refreshtoken: string;
 
+  @Column({ nullable: true })
+  profileImage: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -82,4 +86,7 @@ export class User {
     (imageRecognition) => imageRecognition.user,
   )
   imageRecognitions: ImageRecognition[];
+
+  @OneToMany(() => FamilyGroupMember, (member) => member.user)
+  familyGroupMemberships: FamilyGroupMember[];
 }

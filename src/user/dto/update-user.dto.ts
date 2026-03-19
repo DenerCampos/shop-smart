@@ -25,4 +25,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsString()
   coatOfArms?: string;
+
+  @IsOptional()
+  @IsString()
+  profileImage?: string;
 }

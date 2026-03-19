@@ -29,6 +29,7 @@ export interface IRevenueRepository {
   exist(userId: string): Promise<boolean>;
   getLatest(userId: string, limit: number): Promise<Revenue[] | []>;
   countAll(): Promise<number>;
+  countByUser(userId: string): Promise<number>;
   findRecurringByMonthAndDay(
     userId: string,
     month: number,

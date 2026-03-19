@@ -148,6 +148,13 @@ export class RevenueRepository implements IRevenueRepository {
     });
   }
 
+  async countByUser(userId: string): Promise<number> {
+    return await this.revenueEntity.count({
+      where: { user: { id: userId } },
+      withDeleted: false,
+    });
+  }
+
   async findRecurringByMonthAndDay(
     userId: string,
     month: number,

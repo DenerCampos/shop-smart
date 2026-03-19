@@ -102,6 +102,13 @@ export class ExpenseRepository implements IExpenseRepository {
     });
   }
 
+  async countByUser(userId: string): Promise<number> {
+    return await this.expenseEntity.count({
+      where: { user: { id: userId } },
+      withDeleted: false,
+    });
+  }
+
   async find(id: string): Promise<Expense | null> {
     return await this.expenseEntity.findOne({
       where: { id },
