@@ -97,4 +97,24 @@ export class AppConfig {
       10,
     );
   }
+
+  getGoogleDrive() {
+    return {
+      clientId: this.configService.get<string>('GOOGLE_DRIVE_CLIENT_ID'),
+      clientSecret: this.configService.get<string>(
+        'GOOGLE_DRIVE_CLIENT_SECRET',
+      ),
+      refreshToken: this.configService.get<string>(
+        'GOOGLE_DRIVE_REFRESH_TOKEN',
+      ),
+      folderId: this.configService.get<string>('GOOGLE_DRIVE_FOLDER_ID'),
+    };
+  }
+
+  getGoogleDriveRateLimit(): number {
+    return Number.parseInt(
+      this.configService.get<string>('GOOGLE_DRIVE_RATE_LIMIT') || '50',
+      10,
+    );
+  }
 }

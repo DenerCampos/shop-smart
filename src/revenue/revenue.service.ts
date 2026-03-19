@@ -117,6 +117,14 @@ export class RevenueService {
     return this.revenueRepository.delete(revenueId);
   }
 
+  async getByPeriod(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<Revenue[]> {
+    return this.revenueRepository.findByPeriod(userId, startDate, endDate);
+  }
+
   async getAllByCurrentMonth(user: User): Promise<Revenue[] | []> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
@@ -176,6 +184,10 @@ export class RevenueService {
     limit = this.limitDefault,
   ): Promise<Revenue[] | []> {
     return this.revenueRepository.getLatest(user.id, limit);
+  }
+
+  async countByUser(userId: string): Promise<number> {
+    return this.revenueRepository.countByUser(userId);
   }
 
   async getRecurringRevenueByCurrentMonth(user: User): Promise<Revenue[] | []> {

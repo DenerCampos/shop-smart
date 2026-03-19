@@ -384,6 +384,14 @@ export class ExpenseService {
     return this.expenseRepository.delete(expenseId);
   }
 
+  async getByPeriod(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<Expense[]> {
+    return this.expenseRepository.findByPeriod(userId, startDate, endDate);
+  }
+
   async getAllByCurrentMonth(user: User): Promise<Expense[] | []> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 
@@ -427,6 +435,10 @@ export class ExpenseService {
     limit = this.limitDefault,
   ): Promise<Expense[] | []> {
     return this.expenseRepository.getLatest(user.id, limit);
+  }
+
+  async countByUser(userId: string): Promise<number> {
+    return this.expenseRepository.countByUser(userId);
   }
 
   private calculateTotalValue = (items: itemType[]): number => {

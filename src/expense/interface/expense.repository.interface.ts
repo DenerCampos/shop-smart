@@ -52,6 +52,7 @@ export interface IExpenseRepository {
   exist(userId: string): Promise<boolean>;
   getLatest(userId: string, limit: number): Promise<Expense[] | []>;
   countAll(): Promise<number>;
+  countByUser(userId: string): Promise<number>;
   findItemById(id: string): Promise<Item | null>;
   findAllItemsByExpenseId(expenseId: string): Promise<Item[]>;
   getMostUsedPaymentName(): Promise<string | null>;

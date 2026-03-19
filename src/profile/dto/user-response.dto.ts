@@ -26,6 +26,9 @@ export class UserResponseDto {
   refreshtoken: string;
 
   @Expose()
+  profileImage: string;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()
