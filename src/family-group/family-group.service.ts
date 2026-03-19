@@ -7,8 +7,6 @@ import {
 } from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
-import { AppConfig } from 'src/common/app-config/app.config';
-import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { IFamilyGroupRepository } from './interfaces/family-group.repository.interface';
 import { User } from 'src/user/entities/user.entity';
 import { UserService } from 'src/user/user.service';
@@ -28,20 +26,15 @@ import { UserCreatedEvent } from 'src/user/events/user-created.event';
 export class FamilyGroupService {
   private readonly logger = new Logger(FamilyGroupService.name);
 
-  private readonly url: string;
-
   constructor(
     @Inject('IFamilyGroupRepository')
     private readonly familyGroupRepository: IFamilyGroupRepository,
     private readonly userService: UserService,
     private readonly expenseService: ExpenseService,
     private readonly revenueService: RevenueService,
-    private readonly appConfig: AppConfig,
-    private readonly pagination: Pagination,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {
-    this.url = `${this.appConfig.getBaseUrl()}/family-group`;
     this.eventEmitter.on('user.created', this.handleUserCreated.bind(this));
   }
 
@@ -75,26 +68,6 @@ export class FamilyGroupService {
 
   async findGroupsByUser(userId: string): Promise<FamilyGroup[]> {
     return await this.familyGroupRepository.findGroupsByUserId(userId);
-  }
-
-  async findGroupsByUserPaginated(
-    userId: string,
-    page: number,
-    limit: number,
-  ): Promise<paginationData<FamilyGroup>> {
-    const [groups, totalItems] =
-      await this.familyGroupRepository.findGroupsByUserIdPaginated(
-        userId,
-        page,
-        limit,
-      );
-    return this.pagination.paginateData(
-      groups,
-      page,
-      limit,
-      totalItems,
-      this.url,
-    );
   }
 
   async findGroupById(groupId: string, userId: string): Promise<FamilyGroup> {

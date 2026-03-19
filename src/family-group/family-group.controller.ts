@@ -24,8 +24,6 @@ import { FamilyGroupMemberResponseDto } from './dto/family-group-member-response
 import { FamilyGroupSummaryFilterDto } from './dto/family-group-summary-filter.dto';
 import { FamilyGroupSummaryResponseDto } from './dto/family-group-summary-response.dto';
 import { FamilyGroupMemberDataResponseDto } from './dto/family-group-member-data-response.dto';
-import { FamilyGroupListDto } from './dto/family-group-list.dto';
-import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/family-group')
 @UseGuards(AuthGuard)
@@ -49,22 +47,9 @@ export class FamilyGroupController {
   }
 
   @Get()
-  async findAll(
-    @CurrentUser() user: User,
-    @Query() query: FamilyGroupListDto,
-  ): Promise<paginationData<FamilyGroupResponseDto>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const paginatedResult =
-      await this.familyGroupService.findGroupsByUserPaginated(
-        user.id,
-        page,
-        limit,
-      );
-    return this.responseService.mapPaginatedToDto(
-      FamilyGroupResponseDto,
-      paginatedResult,
-    );
+  async findAll(@CurrentUser() user: User): Promise<FamilyGroupResponseDto[]> {
+    const groups = await this.familyGroupService.findGroupsByUser(user.id);
+    return this.responseService.mapArrayToDto(FamilyGroupResponseDto, groups);
   }
 
   @Get('invitations')

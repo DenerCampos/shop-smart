@@ -8,11 +8,6 @@ export interface IFamilyGroupRepository {
   createGroup(name: string, owner: User): Promise<FamilyGroup>;
   findGroupById(id: string): Promise<FamilyGroup | null>;
   findGroupsByUserId(userId: string): Promise<FamilyGroup[]>;
-  findGroupsByUserIdPaginated(
-    userId: string,
-    page: number,
-    limit: number,
-  ): Promise<[FamilyGroup[], number]>;
   updateGroup(group: FamilyGroup, name: string): Promise<FamilyGroup>;
   deleteGroup(id: string): Promise<boolean>;
 

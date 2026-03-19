@@ -41,26 +41,6 @@ export class FamilyGroupRepository implements IFamilyGroupRepository {
       .getMany();
   }
 
-  async findGroupsByUserIdPaginated(
-    userId: string,
-    page: number,
-    limit: number,
-  ): Promise<[FamilyGroup[], number]> {
-    const queryBuilder = this.familyGroupEntity
-      .createQueryBuilder('fg')
-      .innerJoin('fg.members', 'member')
-      .leftJoinAndSelect('fg.owner', 'owner')
-      .leftJoinAndSelect('fg.members', 'allMembers')
-      .leftJoinAndSelect('allMembers.user', 'memberUser')
-      .where('member.userId = :userId', { userId })
-      .andWhere('member.status = :status', { status: 'accepted' })
-      .orderBy('fg.createdAt', 'DESC');
-
-    queryBuilder.skip((page - 1) * limit).take(limit);
-
-    return await queryBuilder.getManyAndCount();
-  }
-
   async updateGroup(group: FamilyGroup, name: string): Promise<FamilyGroup> {
     return await this.familyGroupEntity.save({ ...group, name });
   }
