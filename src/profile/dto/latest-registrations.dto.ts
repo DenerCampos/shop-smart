@@ -1,4 +1,5 @@
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
+import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
 
 export class LatestRegistrationsDto {
   @Expose()
@@ -18,4 +19,8 @@ export class LatestRegistrationsDto {
 
   @Expose()
   date: Date;
+
+  @Expose()
+  @Type(() => OwnerResponseDto)
+  user: OwnerResponseDto;
 }

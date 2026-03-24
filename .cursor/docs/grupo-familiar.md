@@ -72,26 +72,38 @@ Todas as rotas são protegidas com `@UseGuards(AuthGuard)`.
 | GET    | /family-group/:id/summary                         | Resumo financeiro do grupo          |
 | GET    | /family-group/:id/members/:memberId/data          | Dados financeiros de um membro      |
 
-## Regras de Permissão
+## Regras de Permissão e Visibilidade
 
 ### Admin
-- Pode ver dados financeiros de TODOS os membros
+- Pode ver dados financeiros de TODOS os membros (admins + members)
 - Pode ver o resumo/total do grupo inteiro
 - Pode convidar novos membros
 - Pode alterar roles (admin ↔ member)
 - Pode remover membros (exceto o owner)
 - Pode atualizar dados do grupo
+- Vê todos os membros na listagem (admins + members)
 
 ### Membro (member)
-- Pode ver APENAS seus próprios dados financeiros no contexto do grupo
-- NÃO vê receitas/despesas de outros membros
-- NÃO vê o total consolidado do grupo
+- Pode ver dados financeiros de outros **members** do grupo
+- **NÃO vê admins** na listagem de membros (API filtra automaticamente)
+- **NÃO vê dados financeiros de admins** (bloqueado pela API)
+- Vê o resumo/total consolidado apenas dos members (exclui admins dos cálculos)
 - Pode sair do grupo voluntariamente
 
 ### Owner (criador)
 - Possui todas as permissões de admin
 - Não pode ser removido por outros admins
 - Único que pode deletar o grupo
+
+### Filtragem por Role (Backend)
+A API filtra automaticamente os membros retornados com base na role do usuário logado. **O frontend NÃO precisa filtrar membros manualmente** — basta renderizar o que a API retorna.
+
+Endpoints afetados pela filtragem:
+- `GET /family-group` — members do grupo embutidos no response
+- `GET /family-group/:id` — members do grupo embutidos no response
+- `GET /family-group/:id/members` — listagem direta de membros
+- `GET /family-group/:id/summary` — resumo financeiro (members visíveis apenas)
+- `GET /family-group/:id/members/:targetUserId/data` — member pode ver outro member, mas não admin
 
 ## Fluxos
 
@@ -117,8 +129,17 @@ Todas as rotas são protegidas com `@UseGuards(AuthGuard)`.
 
 ### Dashboard
 - Filtros: `month` e `year` (query params)
-- Admin: soma de despesas e receitas de todos os membros aceitos
-- Membro: apenas seus próprios dados
+- Admin: soma de despesas e receitas de todos os membros aceitos (admins + members)
+- Membro: soma de despesas e receitas dos members aceitos (exclui admins dos cálculos e da listagem)
+- Members podem clicar nos "stories" de outros members e ver seus dados financeiros detalhados
+
+## Integração com Outras Rotas
+
+### Latest Registrations (`GET /profile/latest-registrations`)
+- Usa `FamilyMemberResolverService` para resolver os membros do grupo familiar
+- Se o usuário é admin do grupo: retorna registros (despesas + receitas) de todos os membros
+- Cada registro inclui o campo `user` (via `OwnerResponseDto`: id, name, profileImage) para identificar o dono
+- Métodos `getLatest` e `countByUser` nos services/repositórios de expense e revenue recebem `userIds: string[]` (array) em vez de um único userId
 
 ## Restrições Atuais
 - Um usuário pode participar de apenas UM grupo familiar por vez (código preparado para múltiplos no futuro)

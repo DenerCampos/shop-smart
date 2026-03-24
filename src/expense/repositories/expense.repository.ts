@@ -109,11 +109,14 @@ export class ExpenseRepository implements IExpenseRepository {
     });
   }
 
-  async countByUser(userId: string): Promise<number> {
-    return await this.expenseEntity.count({
-      where: { user: { id: userId } },
-      withDeleted: false,
-    });
+  async countByUser(userIds: string[]): Promise<number> {
+    if (!userIds || userIds.length === 0) return 0;
+
+    return await this.expenseEntity
+      .createQueryBuilder('expense')
+      .where('expense.userId IN (:...userIds)', { userIds })
+      .andWhere('expense.deletedAt IS NULL')
+      .getCount();
   }
 
   async find(id: string): Promise<Expense | null> {
@@ -271,13 +274,16 @@ export class ExpenseRepository implements IExpenseRepository {
     return hasData !== null;
   }
 
-  async getLatest(userId: string, limit: number): Promise<Expense[] | []> {
+  async getLatest(userIds: string[], limit: number): Promise<Expense[] | []> {
+    if (!userIds || userIds.length === 0) return [];
+
     const query = this.expenseEntity
       .createQueryBuilder('expense')
-      .leftJoinAndSelect('expense.user', 'user')
-      .where('expense.user = :userId', { userId })
+      .leftJoin('expense.user', 'user')
+      .addSelect(['user.id', 'user.name', 'user.profileImage'])
+      .where('expense.userId IN (:...userIds)', { userIds })
       .andWhere('expense.deletedAt IS NULL')
-      .limit(limit)
+      .take(limit)
       .orderBy('expense.createdAt', 'DESC');
 
     return await query.getMany();

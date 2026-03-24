@@ -142,13 +142,16 @@ export class RevenueRepository implements IRevenueRepository {
     return hasData !== null;
   }
 
-  async getLatest(userId: string, limit: number): Promise<Revenue[] | []> {
+  async getLatest(userIds: string[], limit: number): Promise<Revenue[] | []> {
+    if (!userIds || userIds.length === 0) return [];
+
     const query = this.revenueEntity
       .createQueryBuilder('revenue')
-      .leftJoinAndSelect('revenue.user', 'user')
-      .where('revenue.user = :userId', { userId })
+      .leftJoin('revenue.user', 'user')
+      .addSelect(['user.id', 'user.name', 'user.profileImage'])
+      .where('revenue.userId IN (:...userIds)', { userIds })
       .andWhere('revenue.deletedAt IS NULL')
-      .limit(limit)
+      .take(limit)
       .orderBy('revenue.createdAt', 'DESC');
 
     return await query.getMany();
@@ -160,11 +163,14 @@ export class RevenueRepository implements IRevenueRepository {
     });
   }
 
-  async countByUser(userId: string): Promise<number> {
-    return await this.revenueEntity.count({
-      where: { user: { id: userId } },
-      withDeleted: false,
-    });
+  async countByUser(userIds: string[]): Promise<number> {
+    if (!userIds || userIds.length === 0) return 0;
+
+    return await this.revenueEntity
+      .createQueryBuilder('revenue')
+      .where('revenue.userId IN (:...userIds)', { userIds })
+      .andWhere('revenue.deletedAt IS NULL')
+      .getCount();
   }
 
   async findRecurringByMonthAndDay(

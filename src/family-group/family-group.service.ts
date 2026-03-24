@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { IFamilyGroupRepository } from './interfaces/family-group.repository.interface';
@@ -32,6 +33,7 @@ export class FamilyGroupService {
     private readonly userService: UserService,
     private readonly expenseService: ExpenseService,
     private readonly revenueService: RevenueService,
+    private readonly dataSource: DataSource,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {
@@ -52,22 +54,36 @@ export class FamilyGroupService {
       );
     }
 
-    const group = await this.familyGroupRepository.createGroup(name, user);
+    const group = await this.dataSource.transaction(async (manager) => {
+      const groupRepo = manager.getRepository(FamilyGroup);
+      const memberRepo = manager.getRepository(FamilyGroupMember);
 
-    await this.familyGroupRepository.createMember(
-      group,
-      user,
-      user.email,
-      FAMILY_GROUP_ROLES.ADMIN,
-      FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
-      user,
-    );
+      const newGroup = groupRepo.create({ name, owner: user });
+      const savedGroup = await groupRepo.save(newGroup);
+
+      const member = memberRepo.create({
+        familyGroup: savedGroup,
+        user,
+        invitedEmail: user.email,
+        role: FAMILY_GROUP_ROLES.ADMIN,
+        status: FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+        invitedBy: user,
+        joinedAt: new Date(),
+      });
+      await memberRepo.save(member);
+
+      await manager.getRepository(User).update(user.id, { family: name });
+
+      return savedGroup;
+    });
 
     return await this.familyGroupRepository.findGroupById(group.id);
   }
 
   async findGroupsByUser(userId: string): Promise<FamilyGroup[]> {
-    return await this.familyGroupRepository.findGroupsByUserId(userId);
+    const groups = await this.familyGroupRepository.findGroupsByUserId(userId);
+
+    return groups.map((group) => this.filterMembersByRole(group, userId));
   }
 
   async findGroupById(groupId: string, userId: string): Promise<FamilyGroup> {
@@ -79,7 +95,7 @@ export class FamilyGroupService {
 
     await this.validateMembership(groupId, userId);
 
-    return group;
+    return this.filterMembersByRole(group, userId);
   }
 
   async updateGroup(
@@ -288,9 +304,17 @@ export class FamilyGroupService {
     groupId: string,
     userId: string,
   ): Promise<FamilyGroupMember[]> {
-    await this.validateMembership(groupId, userId);
+    const currentMember = await this.validateMembership(groupId, userId);
 
-    return await this.familyGroupRepository.findMembersByGroupId(groupId);
+    const members = await this.familyGroupRepository.findMembersByGroupId(
+      groupId,
+    );
+
+    if (currentMember.role === FAMILY_GROUP_ROLES.ADMIN) {
+      return members;
+    }
+
+    return members.filter((m) => m.role !== FAMILY_GROUP_ROLES.ADMIN);
   }
 
   async updateMemberRole(
@@ -395,51 +419,42 @@ export class FamilyGroupService {
       throw new ForbiddenException('Você não pertence a este grupo.');
     }
 
-    const acceptedMembers = group.members.filter(
-      (m) => m.status === 'accepted' && m.user,
+    const isAdmin = currentMember.role === FAMILY_GROUP_ROLES.ADMIN;
+
+    const visibleMembers = group.members.filter(
+      (m) =>
+        m.status === 'accepted' &&
+        m.user &&
+        (isAdmin || m.role !== FAMILY_GROUP_ROLES.ADMIN),
     );
 
     const { startDate, endDate } = this.buildDateRange(month, year);
 
-    if (currentMember.role === FAMILY_GROUP_ROLES.ADMIN) {
-      const membersSummary = await Promise.all(
-        acceptedMembers.map(async (member) => {
-          const { totalExpenses, totalRevenues } =
-            await this.getMemberFinancials(member.user, startDate, endDate);
+    const membersSummary = await Promise.all(
+      visibleMembers.map(async (member) => {
+        const { totalExpenses, totalRevenues } = await this.getMemberFinancials(
+          member.user,
+          startDate,
+          endDate,
+        );
 
-          return {
-            userId: member.user.id,
-            name: member.user.name,
-            profileImage: member.user.profileImage ?? null,
-            totalExpenses,
-            totalRevenues,
-          };
-        }),
-      );
+        return {
+          userId: member.user.id,
+          name: member.user.name,
+          profileImage: member.user.profileImage ?? null,
+          totalExpenses,
+          totalRevenues,
+        };
+      }),
+    );
 
-      const totalExpenses = membersSummary.reduce(
-        (sum, m) => sum + m.totalExpenses,
-        0,
-      );
-      const totalRevenues = membersSummary.reduce(
-        (sum, m) => sum + m.totalRevenues,
-        0,
-      );
-
-      return {
-        groupId: group.id,
-        groupName: group.name,
-        totalExpenses,
-        totalRevenues,
-        balance: totalRevenues - totalExpenses,
-        members: membersSummary,
-      };
-    }
-
-    const { totalExpenses, totalRevenues } = await this.getMemberFinancials(
-      currentMember.user,
-      startDate,
-      endDate,
+    const totalExpenses = membersSummary.reduce(
+      (sum, m) => sum + m.totalExpenses,
+      0,
+    );
+    const totalRevenues = membersSummary.reduce(
+      (sum, m) => sum + m.totalRevenues,
+      0,
     );
 
     return {
@@ -448,15 +463,7 @@ export class FamilyGroupService {
       totalExpenses,
       totalRevenues,
       balance: totalRevenues - totalExpenses,
-      members: [
-        {
-          userId: currentMember.user.id,
-          name: currentMember.user.name,
-          profileImage: currentMember.user.profileImage ?? null,
-          totalExpenses,
-          totalRevenues,
-        },
-      ],
+      members: membersSummary,
     };
   }
 
@@ -495,7 +502,7 @@ export class FamilyGroupService {
 
     if (
       currentMember.role !== FAMILY_GROUP_ROLES.ADMIN &&
-      targetUserId !== userId
+      targetMember.role === FAMILY_GROUP_ROLES.ADMIN
     ) {
       throw new ForbiddenException(
         'Você não tem permissão para ver os dados deste membro.',
@@ -599,6 +606,23 @@ export class FamilyGroupService {
     }
 
     return member;
+  }
+
+  private filterMembersByRole(group: FamilyGroup, userId: string): FamilyGroup {
+    const currentMember = group.members?.find((m) => m.user?.id === userId);
+
+    if (!currentMember || currentMember.role === FAMILY_GROUP_ROLES.ADMIN) {
+      return group;
+    }
+
+    return {
+      ...group,
+      members: group.members.filter(
+        (m) =>
+          m.role !== FAMILY_GROUP_ROLES.ADMIN &&
+          m.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+      ),
+    } as FamilyGroup;
   }
 
   private buildDateRange(
