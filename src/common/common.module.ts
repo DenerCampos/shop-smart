@@ -11,9 +11,11 @@ import {
 import { ApiUsage } from './ai-quota/entities/apiUsage.entity';
 import { ApiUsageRepository } from './ai-quota/repositories/apiUsage.repository';
 import { ApiQuotaService } from './ai-quota/services/apiQuota.service';
+import { FamilyGroupMember } from 'src/family-group/entities/family-group-member.entity';
+import { FamilyMemberResolverService } from './family-member-resolver/family-member-resolver.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ApiUsage])],
+  imports: [TypeOrmModule.forFeature([ApiUsage, FamilyGroupMember])],
   providers: [
     Pagination,
     AppConfig,
@@ -21,6 +23,7 @@ import { ApiQuotaService } from './ai-quota/services/apiQuota.service';
     QueryRunnerFactory,
     EventEmitterProvider,
     ApiQuotaService,
+    FamilyMemberResolverService,
     {
       provide: 'IApiUsageRepository',
       useClass: ApiUsageRepository,
@@ -34,6 +37,7 @@ import { ApiQuotaService } from './ai-quota/services/apiQuota.service';
     EventEmitterProvider,
     EVENT_EMITTER,
     ApiQuotaService,
+    FamilyMemberResolverService,
     'IApiUsageRepository',
   ],
 })

@@ -2,6 +2,7 @@ import { Exclude, Expose, Type } from 'class-transformer';
 import { ItemResponseDto } from './item-response.dto';
 import { PaymentResponseDto } from 'src/payment/dto/payment-response.dto';
 import { StoreResponseDto } from 'src/store/dto/store-response.dto';
+import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
 
 export class ExpenseResponseDto {
   @Expose()
@@ -42,4 +43,8 @@ export class ExpenseResponseDto {
   @Expose()
   @Type(() => ItemResponseDto)
   items: ItemResponseDto[];
+
+  @Expose()
+  @Type(() => OwnerResponseDto)
+  user: OwnerResponseDto;
 }

@@ -32,6 +32,7 @@ import { Store } from 'src/store/entities/store.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { ExpenseRecurringConfirmDto } from './dto/expense-recurring-confirm.dto';
+import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 
 @Injectable()
 export class ExpenseService {
@@ -50,6 +51,7 @@ export class ExpenseService {
     private groupService: GroupService,
     private coinService: CoinService,
     private queryRunnerFactory: QueryRunnerFactory,
+    private readonly familyMemberResolver: FamilyMemberResolverService,
   ) {}
 
   async create(
@@ -137,11 +139,14 @@ export class ExpenseService {
       expenseList.limit,
     );
 
+    const { userIds } = await this.familyMemberResolver.resolve(user.id);
+
     const [expenses, total] = await this.expenseRepository.findAll(
-      user,
+      userIds,
       offset,
       expenseList.limit,
       expenseList.search,
+      expenseList.isRecurring,
     );
 
     const paginateData = this.pagination.paginateData<Expense>(

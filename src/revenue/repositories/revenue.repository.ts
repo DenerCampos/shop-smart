@@ -28,19 +28,31 @@ export class RevenueRepository implements IRevenueRepository {
   }
 
   async findAll(
-    user: User,
+    userIds: string[],
     page: number,
     limit: number,
     search?: string,
+    isRecurring?: boolean,
   ): Promise<[Revenue[], number]> {
-    const queryBuilder = this.revenueEntity.createQueryBuilder('revenue');
+    const queryBuilder = this.revenueEntity
+      .createQueryBuilder('revenue')
+      .withDeleted();
 
-    queryBuilder.where('revenue.user = :userId', { userId: user.id });
+    queryBuilder
+      .leftJoin('revenue.user', 'user')
+      .addSelect(['user.id', 'user.name', 'user.profileImage']);
+
+    queryBuilder.where('revenue.user IN (:...userIds)', { userIds });
+    queryBuilder.andWhere('revenue.deletedAt IS NULL');
 
     if (search) {
       queryBuilder.andWhere('LOWER(revenue.name) LIKE LOWER(:search)', {
         search: `%${search}%`,
       });
+    }
+
+    if (isRecurring !== undefined) {
+      queryBuilder.andWhere('revenue.repeat = :isRecurring', { isRecurring });
     }
 
     if (page !== undefined && limit !== undefined) {

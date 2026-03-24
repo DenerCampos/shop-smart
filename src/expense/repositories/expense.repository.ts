@@ -62,22 +62,25 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async findAll(
-    user: User,
+    userIds: string[],
     page: number,
     limit: number,
     search?: string,
+    isRecurring?: boolean,
   ): Promise<[Expense[], number]> {
     const queryBuilder = this.expenseEntity
       .createQueryBuilder('expense')
-      .withDeleted(); // Permite buscar registros deletados
+      .withDeleted();
 
     queryBuilder.leftJoinAndSelect('expense.items', 'item');
     queryBuilder.leftJoinAndSelect('expense.payment', 'payment');
     queryBuilder.leftJoinAndSelect('expense.store', 'store');
     queryBuilder.leftJoinAndSelect('item.group', 'group');
+    queryBuilder
+      .leftJoin('expense.user', 'user')
+      .addSelect(['user.id', 'user.name', 'user.profileImage']);
 
-    queryBuilder.where('expense.user = :userId', { userId: user.id });
-    // Filtrar para não trazer expense e item deletados
+    queryBuilder.where('expense.user IN (:...userIds)', { userIds });
     queryBuilder.andWhere('expense.deletedAt IS NULL');
     queryBuilder.andWhere('(item.deletedAt IS NULL OR item.id IS NULL)');
 
@@ -85,6 +88,10 @@ export class ExpenseRepository implements IExpenseRepository {
       queryBuilder.andWhere('LOWER(expense.name) LIKE LOWER(:search)', {
         search: `%${search}%`,
       });
+    }
+
+    if (isRecurring !== undefined) {
+      queryBuilder.andWhere('expense.repeat = :isRecurring', { isRecurring });
     }
 
     if (page !== undefined && limit !== undefined) {
