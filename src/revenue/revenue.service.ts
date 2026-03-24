@@ -185,14 +185,14 @@ export class RevenueService {
   }
 
   async getLatest(
-    user: User,
+    userIds: string[],
     limit = this.limitDefault,
   ): Promise<Revenue[] | []> {
-    return this.revenueRepository.getLatest(user.id, limit);
+    return this.revenueRepository.getLatest(userIds, limit);
   }
 
-  async countByUser(userId: string): Promise<number> {
-    return this.revenueRepository.countByUser(userId);
+  async countByUser(userIds: string[]): Promise<number> {
+    return this.revenueRepository.countByUser(userIds);
   }
 
   async getRecurringRevenueByCurrentMonth(user: User): Promise<Revenue[] | []> {

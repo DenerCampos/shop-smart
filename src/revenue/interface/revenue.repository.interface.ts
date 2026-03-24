@@ -28,9 +28,9 @@ export interface IRevenueRepository {
   ): Promise<Revenue[] | []>;
   findByMonth(userId: string, month: number): Promise<Revenue[] | []>;
   exist(userId: string): Promise<boolean>;
-  getLatest(userId: string, limit: number): Promise<Revenue[] | []>;
+  getLatest(userIds: string[], limit: number): Promise<Revenue[] | []>;
   countAll(): Promise<number>;
-  countByUser(userId: string): Promise<number>;
+  countByUser(userIds: string[]): Promise<number>;
   findRecurringByMonthAndDay(
     userId: string,
     month: number,

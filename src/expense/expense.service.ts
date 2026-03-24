@@ -436,14 +436,14 @@ export class ExpenseService {
   }
 
   async getLatest(
-    user: User,
+    userIds: string[],
     limit = this.limitDefault,
   ): Promise<Expense[] | []> {
-    return this.expenseRepository.getLatest(user.id, limit);
+    return this.expenseRepository.getLatest(userIds, limit);
   }
 
-  async countByUser(userId: string): Promise<number> {
-    return this.expenseRepository.countByUser(userId);
+  async countByUser(userIds: string[]): Promise<number> {
+    return this.expenseRepository.countByUser(userIds);
   }
 
   private calculateTotalValue = (items: itemType[]): number => {

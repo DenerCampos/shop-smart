@@ -13,6 +13,7 @@ import { RegistrationModel } from './models/registration.models';
 import { Expense } from 'src/expense/entities/expense.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
 import { registrarionsType } from './types/profileType';
+import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -27,6 +28,7 @@ export class ProfileService {
     private readonly revenueService: RevenueService,
     private readonly coinService: CoinService,
     private readonly googleDriveService: GoogleDriveService,
+    private readonly familyMemberResolver: FamilyMemberResolverService,
   ) {}
 
   async getProfile(user: User): Promise<ProfileModel> {
@@ -110,12 +112,14 @@ export class ProfileService {
   ): Promise<paginationData<RegistrationModel>> {
     const fetchLimit = page * limit;
 
+    const { userIds } = await this.familyMemberResolver.resolve(user.id);
+
     const [expensesLatest, revenuesLatest, totalExpenses, totalRevenues] =
       await Promise.all([
-        this.expenseService.getLatest(user, fetchLimit),
-        this.revenueService.getLatest(user, fetchLimit),
-        this.expenseService.countByUser(user.id),
-        this.revenueService.countByUser(user.id),
+        this.expenseService.getLatest(userIds, fetchLimit),
+        this.revenueService.getLatest(userIds, fetchLimit),
+        this.expenseService.countByUser(userIds),
+        this.revenueService.countByUser(userIds),
       ]);
 
     const totalItems = totalExpenses + totalRevenues;
@@ -149,6 +153,7 @@ export class ProfileService {
         coins: registration.type === 'revenue' ? 10 : 5,
         type: registration.type,
         date: registration.createdAt,
+        user: registration.user,
       });
     });
 

@@ -1,3 +1,4 @@
+import { User } from 'src/user/entities/user.entity';
 import { registrarionsType } from '../types/profileType';
 
 export class RegistrationModel {
@@ -7,6 +8,7 @@ export class RegistrationModel {
   coins: number;
   type: registrarionsType;
   date: Date;
+  user: User;
 
   constructor(data: Partial<RegistrationModel>) {
     this.id = data.id;
@@ -15,5 +17,6 @@ export class RegistrationModel {
     this.coins = data.coins;
     this.type = data.type;
     this.date = data.date;
+    this.user = data.user;
   }
 }

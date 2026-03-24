@@ -11,7 +11,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN (while true; do echo "[build still running...] $(date)"; sleep 30; done) & \
+    npm run build && \
+    kill %1 2>/dev/null || true
 
 # Limpeza: Remove devDependencies para economizar RAM e espaço na imagem final
 RUN npm prune --production

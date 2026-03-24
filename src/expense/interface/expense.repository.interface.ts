@@ -51,9 +51,9 @@ export interface IExpenseRepository {
   ): Promise<Expense[] | []>;
   findByMonth(userId: string, month: number): Promise<Expense[] | []>;
   exist(userId: string): Promise<boolean>;
-  getLatest(userId: string, limit: number): Promise<Expense[] | []>;
+  getLatest(userIds: string[], limit: number): Promise<Expense[] | []>;
   countAll(): Promise<number>;
-  countByUser(userId: string): Promise<number>;
+  countByUser(userIds: string[]): Promise<number>;
   findItemById(id: string): Promise<Item | null>;
   findAllItemsByExpenseId(expenseId: string): Promise<Item[]>;
   getMostUsedPaymentName(): Promise<string | null>;
