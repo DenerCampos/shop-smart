@@ -1,4 +1,5 @@
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
+import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
 
 export class RevenueResponseDto {
   @Expose()
@@ -24,4 +25,8 @@ export class RevenueResponseDto {
 
   @Exclude()
   deletedAt: Date;
+
+  @Expose()
+  @Type(() => OwnerResponseDto)
+  user: OwnerResponseDto;
 }

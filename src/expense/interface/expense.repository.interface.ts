@@ -25,10 +25,11 @@ export interface IExpenseRepository {
     manager?: EntityManager,
   ): Promise<Item>;
   findAll(
-    user: User,
+    userIds: string[],
     page: number,
     limit: number,
     search?: string,
+    isRecurring?: boolean,
   ): Promise<[Expense[], number]>;
   find(id: string): Promise<Expense | null>;
   update(

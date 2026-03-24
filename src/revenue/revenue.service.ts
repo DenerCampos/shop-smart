@@ -25,6 +25,7 @@ import {
 import { CoinService } from 'src/coin/coin.service';
 import { coinType } from 'src/coin/types/coinType';
 import { RevenueRecurringConfirmDto } from './dto/revenue-recurring-confirm.dto';
+import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 
 @Injectable()
 export class RevenueService {
@@ -37,6 +38,7 @@ export class RevenueService {
     private appConfig: AppConfig,
     private pagination: Pagination,
     private readonly coinService: CoinService,
+    private readonly familyMemberResolver: FamilyMemberResolverService,
   ) {}
 
   async create(
@@ -69,11 +71,14 @@ export class RevenueService {
   ): Promise<paginationData<Revenue>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
 
+    const { userIds } = await this.familyMemberResolver.resolve(user.id);
+
     const [revenues, total] = await this.revenueRepository.findAll(
-      user,
+      userIds,
       offset,
       userList.limit,
       userList.search,
+      userList.isRecurring,
     );
 
     const paginateData = this.pagination.paginateData<Revenue>(

@@ -7,10 +7,11 @@ import { EntityManager } from 'typeorm';
 export interface IRevenueRepository {
   create(user: User, createRevenueDto: CreateRevenueDto): Promise<Revenue>;
   findAll(
-    user: User,
+    userIds: string[],
     page: number,
     limit: number,
     search?: string,
+    isRecurring?: boolean,
   ): Promise<[Revenue[], number]>;
   find(id: string): Promise<Revenue | null>;
   update(
