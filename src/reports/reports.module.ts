@@ -10,6 +10,7 @@ import { GroupModule } from 'src/group/group.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { StoreModule } from 'src/store/store.module';
 import { RevenueModule } from 'src/revenue/revenue.module';
+import { FamilyGroupModule } from 'src/family-group/family-group.module';
 import { Item } from 'src/expense/entities/item.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Expense } from 'src/expense/entities/expense.entity';
@@ -25,6 +26,7 @@ import { Revenue } from 'src/revenue/entities/revenue.entity';
     PaymentModule,
     StoreModule,
     RevenueModule,
+    FamilyGroupModule,
     TypeOrmModule.forFeature([Item, Expense, Revenue]),
   ],
   controllers: [ReportsController],

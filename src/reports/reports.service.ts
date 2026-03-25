@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { IReportsRepository } from './interfaces/reports.repository.interface';
 import { Pagination } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
@@ -21,6 +21,7 @@ import { MostPurchasedItemsDto } from './dto/most-purchased-items.dto';
 import { MostPurchasedItemsModel } from './models/MostPurchasedItems.models';
 import { ExpensesIncomeComparisonDto } from './dto/expenses-income-comparison.dto';
 import { ExpensesIncomeComparisonModel } from './models/ExpensesIncomeComparison.models';
+import { FamilyGroupService } from 'src/family-group/family-group.service';
 
 @Injectable()
 export class ReportsService {
@@ -31,14 +32,17 @@ export class ReportsService {
     private reportsRepository: IReportsRepository,
     private appConfig: AppConfig,
     private pagination: Pagination,
+    private familyGroupService: FamilyGroupService,
   ) {}
 
   async expenseByGroup(
     user: User,
     expenseByGroup: ExpenseByGroupDto,
   ): Promise<ExpenseByGroupModel[]> {
+    const userIds = await this.resolveUserIds(user, expenseByGroup.userId);
+
     const result = await this.reportsRepository.expenseByGroup(
-      user.id,
+      userIds,
       expenseByGroup.startDate,
       expenseByGroup.endDate,
     );
@@ -52,8 +56,10 @@ export class ReportsService {
     user: User,
     expenseByStore: ExpenseByStoreDto,
   ): Promise<ExpenseByStoreModel[]> {
+    const userIds = await this.resolveUserIds(user, expenseByStore.userId);
+
     const result = await this.reportsRepository.expenseByStore(
-      user.id,
+      userIds,
       expenseByStore.startDate,
       expenseByStore.endDate,
     );
@@ -67,8 +73,10 @@ export class ReportsService {
     user: User,
     expenseByDate: ExpenseByDateDto,
   ): Promise<ExpenseByDateModel[]> {
+    const userIds = await this.resolveUserIds(user, expenseByDate.userId);
+
     const result = await this.reportsRepository.expenseByDate(
-      user.id,
+      userIds,
       expenseByDate.startDate,
       expenseByDate.endDate,
     );
@@ -80,12 +88,14 @@ export class ReportsService {
 
   async mostPurchasedItems(
     user: User,
-    expenseByDate: MostPurchasedItemsDto,
+    mostPurchasedItems: MostPurchasedItemsDto,
   ): Promise<MostPurchasedItemsModel[]> {
+    const userIds = await this.resolveUserIds(user, mostPurchasedItems.userId);
+
     const result = await this.reportsRepository.mostPurchasedItems(
-      user.id,
-      expenseByDate.startDate,
-      expenseByDate.endDate,
+      userIds,
+      mostPurchasedItems.startDate,
+      mostPurchasedItems.endDate,
     );
 
     return result.map(
@@ -97,26 +107,72 @@ export class ReportsService {
     user: User,
     expensesIncomeComparison: ExpensesIncomeComparisonDto,
   ): Promise<ExpensesIncomeComparisonModel[]> {
+    const userIds = await this.resolveUserIds(
+      user,
+      expensesIncomeComparison.userId,
+    );
+
     const start = `${expensesIncomeComparison.year}-01-01 00:00:00`;
     const end = `${expensesIncomeComparison.year}-12-31 23:59:59`;
 
     const [expenses, revenues] = await Promise.all([
-      this.reportsRepository.expenseByGroupedMonth(user.id, start, end),
-      this.reportsRepository.revenueByGroupedMonth(user.id, start, end),
+      this.reportsRepository.expenseByGroupedMonth(userIds, start, end),
+      this.reportsRepository.revenueByGroupedMonth(userIds, start, end),
     ]);
 
-    const merged = expenses.map((expense: ExpenseByGroupedMonthResult) => {
-      const rev = revenues.find(
-        (revenue: RevenueByGroupedMonthResult) =>
-          revenue.month === expense.month,
-      );
-      return new ExpensesIncomeComparisonModel({
-        month: expense.month,
-        totalExpenses: expense.totalExpenses,
-        totalRevenues: rev ? rev.totalRevenues : 0,
-      });
-    });
+    const monthSet = new Set([
+      ...expenses.map((e) => e.month),
+      ...revenues.map((r) => r.month),
+    ]);
 
-    return merged || [];
+    return Array.from(monthSet)
+      .sort((a, b) => a.localeCompare(b))
+      .map((month) => {
+        const exp = expenses.find(
+          (e: ExpenseByGroupedMonthResult) => e.month === month,
+        );
+        const rev = revenues.find(
+          (r: RevenueByGroupedMonthResult) => r.month === month,
+        );
+        return new ExpensesIncomeComparisonModel({
+          month,
+          totalExpenses: exp ? exp.totalExpenses : 0,
+          totalRevenues: rev ? rev.totalRevenues : 0,
+        });
+      });
+  }
+
+  private async resolveUserIds(
+    currentUser: User,
+    userId?: string,
+  ): Promise<string[]> {
+    let userIds: string[];
+
+    if (!userId) {
+      userIds = await this.familyGroupService.getAcceptedMemberUserIdsIfAdmin(
+        currentUser.id,
+      );
+    } else if (userId === 'all') {
+      userIds = await this.familyGroupService.getAcceptedMemberUserIds(
+        currentUser.id,
+      );
+    } else {
+      const familyMemberIds =
+        await this.familyGroupService.getAcceptedMemberUserIds(currentUser.id);
+
+      if (!familyMemberIds.includes(userId)) {
+        throw new ForbiddenException(
+          'Você não tem permissão para ver os dados deste usuário.',
+        );
+      }
+
+      userIds = [userId];
+    }
+
+    if (userIds.length === 0) {
+      return [currentUser.id];
+    }
+
+    return userIds;
   }
 }
