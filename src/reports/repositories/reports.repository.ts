@@ -26,7 +26,7 @@ export class ReportsRepository implements IReportsRepository {
   ) {}
 
   async expenseByGroup(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByGroupResult[]> {
@@ -40,7 +40,7 @@ export class ReportsRepository implements IReportsRepository {
         start: startDate,
         end: endDate,
       })
-      .andWhere('expense.userId = :userId', { userId })
+      .andWhere('expense.userId IN (:...userIds)', { userIds })
       .groupBy('group.id')
       .orderBy('value', 'DESC')
       .getRawMany();
@@ -49,7 +49,7 @@ export class ReportsRepository implements IReportsRepository {
   }
 
   async expenseByStore(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByStoreResult[] | []> {
@@ -62,7 +62,7 @@ export class ReportsRepository implements IReportsRepository {
         start: startDate,
         end: endDate,
       })
-      .andWhere('expense.userId = :userId', { userId })
+      .andWhere('expense.userId IN (:...userIds)', { userIds })
       .groupBy('store.id')
       .orderBy('value', 'DESC')
       .getRawMany();
@@ -71,7 +71,7 @@ export class ReportsRepository implements IReportsRepository {
   }
 
   async expenseByDate(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByDateResult[] | []> {
@@ -83,28 +83,7 @@ export class ReportsRepository implements IReportsRepository {
         start: startDate,
         end: endDate,
       })
-      .andWhere('expense.userId = :userId', { userId })
-      .groupBy('expense.date')
-      .orderBy('expense.date', 'ASC')
-      .getRawMany();
-
-    return result;
-  }
-
-  async expenseByMonth(
-    userId: string,
-    startDate: string,
-    endDate: string,
-  ): Promise<ExpenseByDateResult[] | []> {
-    const result = await this.expenseEntity
-      .createQueryBuilder('expense')
-      .select('expense.date', 'date')
-      .addSelect('SUM(expense.value)', 'value')
-      .where('expense.date BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
-      .andWhere('expense.userId = :userId', { userId })
+      .andWhere('expense.userId IN (:...userIds)', { userIds })
       .groupBy('expense.date')
       .orderBy('expense.date', 'ASC')
       .getRawMany();
@@ -113,7 +92,7 @@ export class ReportsRepository implements IReportsRepository {
   }
 
   async mostPurchasedItems(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<MostPurchasedItemsResult[] | []> {
@@ -127,7 +106,7 @@ export class ReportsRepository implements IReportsRepository {
         start: startDate,
         end: endDate,
       })
-      .andWhere('expense.userId = :userId', { userId })
+      .andWhere('expense.userId IN (:...userIds)', { userIds })
       .groupBy('item.name')
       .orderBy('value', 'DESC')
       .limit(10)
@@ -137,7 +116,7 @@ export class ReportsRepository implements IReportsRepository {
   }
 
   async expenseByGroupedMonth(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByGroupedMonthResult[] | []> {
@@ -145,7 +124,7 @@ export class ReportsRepository implements IReportsRepository {
       .createQueryBuilder('expense')
       .select("DATE_FORMAT(expense.date, '%Y-%m')", 'month')
       .addSelect('SUM(expense.value)', 'totalExpenses')
-      .where('expense.userId = :userId', { userId })
+      .where('expense.userId IN (:...userIds)', { userIds })
       .andWhere('expense.date BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
@@ -158,7 +137,7 @@ export class ReportsRepository implements IReportsRepository {
   }
 
   async revenueByGroupedMonth(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<RevenueByGroupedMonthResult[] | []> {
@@ -166,7 +145,7 @@ export class ReportsRepository implements IReportsRepository {
       .createQueryBuilder('revenue')
       .select("DATE_FORMAT(revenue.createdAt, '%Y-%m')", 'month')
       .addSelect('SUM(revenue.value)', 'totalRevenues')
-      .where('revenue.userId = :userId', { userId })
+      .where('revenue.userId IN (:...userIds)', { userIds })
       .andWhere('revenue.createdAt BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,

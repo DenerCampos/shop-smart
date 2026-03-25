@@ -574,6 +574,47 @@ export class FamilyGroupService {
   }
 
   // ========================
+  // Métodos públicos auxiliares
+  // ========================
+
+  async getAcceptedMemberUserIds(userId: string): Promise<string[]> {
+    const membership =
+      await this.familyGroupRepository.findAcceptedMembershipByUserId(userId);
+
+    if (!membership) {
+      return [userId];
+    }
+
+    return this.extractAcceptedUserIds(membership.familyGroup.id, userId);
+  }
+
+  async getAcceptedMemberUserIdsIfAdmin(userId: string): Promise<string[]> {
+    const membership =
+      await this.familyGroupRepository.findAcceptedMembershipByUserId(userId);
+
+    if (!membership || membership.role !== FAMILY_GROUP_ROLES.ADMIN) {
+      return [userId];
+    }
+
+    return this.extractAcceptedUserIds(membership.familyGroup.id, userId);
+  }
+
+  private async extractAcceptedUserIds(
+    groupId: string,
+    fallbackUserId: string,
+  ): Promise<string[]> {
+    const members = await this.familyGroupRepository.findMembersByGroupId(
+      groupId,
+    );
+
+    const acceptedUserIds = members
+      .filter((m) => m.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED && m.user)
+      .map((m) => m.user.id);
+
+    return acceptedUserIds.length > 0 ? acceptedUserIds : [fallbackUserId];
+  }
+
+  // ========================
   // Helpers
   // ========================
 

@@ -9,32 +9,32 @@ import {
 
 export interface IReportsRepository {
   expenseByGroup(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByGroupResult[] | []>;
   expenseByStore(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByStoreResult[] | []>;
   expenseByDate(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByDateResult[] | []>;
   mostPurchasedItems(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<MostPurchasedItemsResult[] | []>;
   expenseByGroupedMonth(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<ExpenseByGroupedMonthResult[] | []>;
   revenueByGroupedMonth(
-    userId: string,
+    userIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<RevenueByGroupedMonthResult[] | []>;
