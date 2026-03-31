@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Post,
   Query,
@@ -64,6 +65,26 @@ export class ProfileController {
       LatestRegistrationsDto,
       latestRegistrations,
     );
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('generate-alexa-token')
+  async generateAlexaToken(
+    @CurrentUser() user: User,
+  ): Promise<{ alexaToken: string }> {
+    const alexaToken = await this.profileService.generateAlexaToken(user);
+
+    return { alexaToken };
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete('alexa-token')
+  async removeAlexaToken(
+    @CurrentUser() user: User,
+  ): Promise<{ removed: boolean }> {
+    await this.profileService.removeAlexaToken(user);
+
+    return { removed: true };
   }
 
   @UseGuards(AuthGuard)

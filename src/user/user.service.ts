@@ -114,4 +114,8 @@ export class UserService {
   async delete(userId: string): Promise<boolean> {
     return this.userRepository.delete(userId);
   }
+
+  async findByAlexaToken(token: string): Promise<User | null> {
+    return this.userRepository.findByAlexaToken(token);
+  }
 }

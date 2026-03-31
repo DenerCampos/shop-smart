@@ -17,6 +17,7 @@ export interface IGroupRepository {
     search?: string,
   ): Promise<[Group[], number]>;
   find(id: string): Promise<Group | null>;
+  findByIdAndUser(id: string, user: User): Promise<Group | null>;
   update(
     group: Group,
     updateGroup: UpdateGroupDto,

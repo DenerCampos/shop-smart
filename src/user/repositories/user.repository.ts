@@ -106,4 +106,10 @@ export class UserRepository implements IUserRepository {
 
     return result.affected === 1 ? true : false;
   }
+
+  async findByAlexaToken(token: string): Promise<User | null> {
+    return await this.userEntity.findOne({
+      where: { alexaToken: token },
+    });
+  }
 }

@@ -105,6 +105,17 @@ export class ProfileService {
     return lastDot !== -1 ? filename.substring(lastDot) : '.jpg';
   }
 
+  async generateAlexaToken(user: User): Promise<string> {
+    const token = uuidv4();
+    await this.userService.update(user.id, { alexaToken: token } as any);
+
+    return token;
+  }
+
+  async removeAlexaToken(user: User): Promise<void> {
+    await this.userService.update(user.id, { alexaToken: null } as any);
+  }
+
   async getLatestRegistrations(
     user: User,
     page: number,

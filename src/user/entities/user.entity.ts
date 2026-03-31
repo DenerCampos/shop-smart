@@ -51,6 +51,9 @@ export class User {
   @Column({ nullable: true })
   profileImage: string;
 
+  @Column({ nullable: true, unique: true })
+  alexaToken: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
