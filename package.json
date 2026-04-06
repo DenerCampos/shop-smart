@@ -27,6 +27,7 @@
     "migration:revert": "npm run typeorm -- migration:revert",
     "migration:show": "npm run typeorm -- migration:show",
     "migration:drop": "npm run typeorm -- schema:drop",
+    "seed:dev": "npm run build && node -r dotenv/config dist/db/seeds/run-all.dev.seed.js",
     "generate:module": "./create-module.sh"
   },
   "dependencies": {

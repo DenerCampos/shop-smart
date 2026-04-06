@@ -240,6 +240,75 @@ npm run migration:show
 
 💡 **Dica**: Sempre mantenha suas entidades TypeORM sincronizadas com suas models/DTOs para evitar inconsistências!
 
+# Seeds (desenvolvimento)
+
+Scripts para popular o banco com dados iniciais **apenas em ambiente de desenvolvimento**. Eles usam o mesmo `DataSource` do TypeORM (`db/data-source.ts`) e as variáveis do `.env` na raiz do projeto (por exemplo `API_DB_*`).
+
+## Comando
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run seed:dev` | Executa o build e roda **todos** os seeds de dev em sequência |
+
+O comando carrega o `.env` via `dotenv/config`. É seguro rodar várias vezes: **cada arquivo de seed verifica se o dado já existe antes de inserir** (evita duplicatas).
+
+## Requisitos e segurança
+
+- Banco acessível e migrações aplicadas (`npm run migration:run`).
+- **`NODE_ENV` não pode ser `production`** — o runner aborta nesse caso.
+- Prefira `NODE_ENV=development` (ou deixe sem definir; só evite `production` ao rodar seeds).
+
+## Estrutura dos arquivos
+
+```
+db/
+├── data-source.ts
+├── migrations/
+└── seeds/
+    ├── run-all.dev.seed.ts   # Orquestra todos os seeds (entrada do npm run seed:dev)
+    ├── theme.dev.seed.ts     # Themes padrão (rpg, default)
+    └── user.dev.seed.ts      # Usuário de teste para login local
+```
+
+## Incluir um novo seed
+
+1. Crie um arquivo em `db/seeds/` (ex.: `foo.dev.seed.ts`) exportando uma função assíncrona que recebe `DataSource`:
+
+   `export async function seedFooDev(dataSource: DataSource): Promise<void> { ... }`
+
+2. Dentro da função, **sempre** verifique se o registro já existe (por chave de negócio, ID, etc.) antes de fazer `INSERT`.
+
+3. Registre no array `DEV_SEEDS` em `db/seeds/run-all.dev.seed.ts`:
+
+   ```typescript
+   import { seedFooDev } from './foo.dev.seed';
+
+   const DEV_SEEDS = [
+     { name: 'theme', run: seedThemeDev },
+     { name: 'foo', run: seedFooDev },
+   ];
+   ```
+
+4. Rode `npm run seed:dev` para validar.
+
+## Seeds incluídos
+
+### `theme`
+
+Insere os registros com slug `rpg` e `default` quando ainda não existem na tabela `theme` (datas com `NOW(6)`, UUID novo por linha).
+
+### Usuário de desenvolvimento `teste`
+
+Criado **após** o seed de themes (para existir tema gratuito e vincular o usuário). Só é inserido se não houver usuário com o mesmo e-mail.
+
+| Campo | Valor |
+|-------|--------|
+| Nome | `teste` |
+| E-mail (login) | `teste@dev.local` |
+| Senha | `Valid123` |
+
+A senha é gravada com **bcrypt**, usando `BCRYPT_SALT` do `.env` ou **10** rounds (mesma regra do `AppConfig`). Também são criados, quando aplicável, o registro em `user_theme` (tema padrão `requiredCoins = 0`) e o registro inicial em `coin` (saldo zero), alinhados ao fluxo normal da aplicação.
+
 # Backup do Banco de Dados
 
 O sistema oferece duas formas de backup do banco de dados, utilizando containers Docker otimizados para ambientes com recursos limitados.
