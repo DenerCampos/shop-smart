@@ -62,6 +62,10 @@ export class GroupService {
     return this.groupRepository.find(groupId);
   }
 
+  async findByIdForUser(groupId: string, user: User): Promise<Group | null> {
+    return this.groupRepository.findByIdAndUser(groupId, user);
+  }
+
   async update(
     groupId: string,
     updateGroupDto: UpdateGroupDto,

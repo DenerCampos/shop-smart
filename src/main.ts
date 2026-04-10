@@ -36,17 +36,9 @@ async function bootstrap() {
   // class-validator resolve dependencias igual o nest
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
-  // CORS configurado por ambiente
+  // CORS configurado por ambiente (mesma origem que Socket.IO)
   const corsConfig = {
-    origin:
-      process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL, /\.ngrok-free\.app$/]
-        : [
-            'http://localhost:3000',
-            'http://localhost:5173', // Vite dev server
-            'https://superfamilyquest.netlify.app',
-            /\.ngrok-free\.app$/,
-          ],
+    origin: appConfig.getCorsOrigins(),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: '*',

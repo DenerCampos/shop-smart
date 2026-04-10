@@ -22,6 +22,7 @@ import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { GetLatestRegistrationsDto } from './dto/get-latest-registrations.dto';
 import { LatestRegistrationsDto } from './dto/latest-registrations.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
+import { IntegrationsResponseDto } from './dto/integration-response.dto';
 
 @Controller('/profile')
 export class ProfileController {
@@ -64,6 +65,22 @@ export class ProfileController {
       LatestRegistrationsDto,
       latestRegistrations,
     );
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('integrations')
+  async getIntegrations(
+    @CurrentUser() user: User,
+  ): Promise<IntegrationsResponseDto> {
+    return this.profileService.getIntegrations(user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('integrations/alexa/unlink')
+  async unlinkAlexa(
+    @CurrentUser() user: User,
+  ): Promise<{ unlinked: boolean }> {
+    return this.profileService.unlinkAlexa(user.id);
   }
 
   @UseGuards(AuthGuard)

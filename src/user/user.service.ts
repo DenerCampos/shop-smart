@@ -114,4 +114,12 @@ export class UserService {
   async delete(userId: string): Promise<boolean> {
     return this.userRepository.delete(userId);
   }
+
+  async saveRefreshToken(id: string, token: string): Promise<User> {
+    return this.userRepository.saveRefreshToken(id, token);
+  }
+
+  async findByRefreshToken(token: string): Promise<User | null> {
+    return this.userRepository.findByRefreshToken(token);
+  }
 }

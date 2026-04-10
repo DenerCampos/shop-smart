@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ClassConstructor, plainToClass } from 'class-transformer';
+import {
+  ClassConstructor,
+  instanceToPlain,
+  plainToClass,
+} from 'class-transformer';
 import { paginationData } from '../pagination/pagination';
 
 @Injectable()
@@ -11,7 +15,14 @@ export class ResponseService {
     dtoClass: ClassConstructor<TDto>,
     entity: TEntity,
   ): TDto {
-    return plainToClass(dtoClass, entity, {
+    const plain =
+      entity !== null &&
+      entity !== undefined &&
+      typeof entity === 'object' &&
+      entity.constructor?.name !== 'Object'
+        ? instanceToPlain(entity)
+        : (entity as Record<string, unknown>);
+    return plainToClass(dtoClass, plain, {
       excludeExtraneousValues: true,
     });
   }

@@ -18,7 +18,11 @@ import { ReportsModule } from './reports/reports.module';
 import { ThemeModule } from './theme/theme.module';
 import { ImageRecognitionModule } from './image-recognition/imageRecognition.module';
 import { AudioRecognitionModule } from './audio-recognition/audioRecognition.module';
+import { TextRecognitionModule } from './text-recognition/textRecognition.module';
 import { FamilyGroupModule } from './family-group/family-group.module';
+import { ShoppingListModule } from './shopping-list/shopping-list.module';
+import { AlexaModule } from './alexa/alexa.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -44,7 +48,14 @@ import { FamilyGroupModule } from './family-group/family-group.module';
     ThemeModule,
     ImageRecognitionModule,
     AudioRecognitionModule,
+    TextRecognitionModule,
     FamilyGroupModule,
+    ThrottlerModule.forRoot({
+      ttl: 60,
+      limit: 120,
+    }),
+    ShoppingListModule,
+    AlexaModule,
   ],
   controllers: [],
   providers: [],

@@ -65,6 +65,10 @@ export class AppConfig {
     return jwtSecretKey ?? 'demos crest';
   }
 
+  getFrontendUrl(): string {
+    return this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
+  }
+
   getBaseUrl(): string {
     const apiHost = this.getApi();
 
@@ -98,6 +102,13 @@ export class AppConfig {
     );
   }
 
+  getGeminiTextDailyLimit(): number {
+    return Number.parseInt(
+      this.configService.get<string>('GEMINI_TEXT_DAILY_LIMIT') || '50',
+      10,
+    );
+  }
+
   getGoogleDrive() {
     return {
       clientId: this.configService.get<string>('GOOGLE_DRIVE_CLIENT_ID'),
@@ -116,5 +127,24 @@ export class AppConfig {
       this.configService.get<string>('GOOGLE_DRIVE_RATE_LIMIT') || '50',
       10,
     );
+  }
+
+  /**
+   * Origens CORS para HTTP (Express) e WebSocket (Socket.IO), alinhadas a main.ts.
+   */
+  getCorsOrigins(): (string | RegExp)[] {
+    if (this.isDevelopment()) {
+      return [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://superfamilyquest.netlify.app',
+        /\.ngrok-free\.app$/,
+      ];
+    }
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    return frontendUrl
+      ? [frontendUrl, /\.ngrok-free\.app$/]
+      : [/\.ngrok-free\.app$/];
   }
 }

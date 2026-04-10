@@ -99,6 +99,7 @@ src/
 ├── coupon-reader/        # Módulo de leitura de cupons fiscais
 ├── image-recognition/    # Módulo de reconhecimento de imagens
 ├── group/                # Módulo de grupos de despesas
+├── shopping-list/      # Listas de compras (REST + WebSocket)
 ├── payment/              # Módulo de formas de pagamento
 ├── store/                # Módulo de lojas/estabelecimentos
 ├── common/               # Módulo compartilhado
@@ -146,6 +147,8 @@ db/
 - Otimizações de queries
 - Reutilização de queries complexas
 - **Não deve conter lógica de negócio**
+- **QueryBuilder e relações para respostas mapeadas com `ResponseService.mapToDto`**: relações ManyToOne (e aninhadas) que precisam aparecer no JSON devem ser carregadas de forma que o `instanceToPlain` do class-transformer as inclua no objeto plano. Referência: `ExpenseRepository.findAll` — para `expense.user` usa-se **`leftJoin('expense.user', 'user')` + `addSelect(['user.id', 'user.name', ...])`**, e não apenas `leftJoinAndSelect` em todos os casos. Selecionar **somente as colunas** necessárias ao DTO de resposta (evita excesso de dados e segue o padrão do projeto).
+- **Soft delete**: em QueryBuilder sobre entidades com `@DeleteDateColumn`, incluir explicitamente `alias.deletedAt IS NULL` na cláusula `WHERE` quando o fluxo equivalente com `find`/`findOne` do repositório já exclui registros apagados (para não divergir do comportamento esperado).
 
 #### 4. Entity Layer
 - Definição de entidades TypeORM
@@ -164,6 +167,10 @@ db/
 - Nunca expor entidades diretamente nas respostas
 - Usar @Expose() do class-transformer em DTOs de response
 - **NÃO usar decorators do Swagger** (projeto sem documentação)
+- **`ResponseService.mapToDto` / `mapPaginatedToDto`**: o mapeamento faz `instanceToPlain(entidade)` e depois `plainToClass(Dto, plain, { excludeExtraneousValues: true })`. Relações TypeORM nem sempre entram no plain quando montadas só com `@Transform(({ obj }) => obj.relation?.campo)` sobre propriedades “achatadas”, porque `obj` pode não trazer `relation` no objeto plano.
+- **DTOs de resposta com relações**: seguir o padrão de **`ExpenseResponseDto`** e **`ItemResponseDto` (expense)**: expor objetos aninhados com **`@Expose()` + `@Type(() => XxxResponseDto)`** (ex.: `user: OwnerResponseDto`, `group: GroupResponseDto`, `payment: PaymentResponseDto`). Reutilizar DTOs já existentes em `src/common/dto` ou no módulo (ex.: `OwnerResponseDto`, `GroupResponseDto`) quando fizer sentido.
+- **Evitar** como padrão principal: vários campos derivados só com `@Transform` a partir de `obj.relation` para substituir o objeto aninhado — usar `@Type` no aninhado e queries alinhadas ao repositório (item anterior).
+- Ao montar manualmente um item dentro de um `@Transform` (ex.: agrupar itens), preferir **`plainToClass(Dto, instanceToPlain(entidade), { excludeExtraneousValues: true })`** em vez de `plainToClass(Dto, { ...entidade }, …)`, para preservar relações hidratadas pelo TypeORM.
 
 #### 6. Exception Layer
 - Exceções customizadas do projeto:

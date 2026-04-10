@@ -7,6 +7,7 @@ import { ExpenseModule } from 'src/expense/expense.module';
 import { RevenueModule } from 'src/revenue/revenue.module';
 import { CoinModule } from 'src/coin/coin.module';
 import { GoogleDriveModule } from 'src/google-drive/google-drive.module';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { GoogleDriveModule } from 'src/google-drive/google-drive.module';
     RevenueModule,
     CoinModule,
     GoogleDriveModule,
+    AuthModule,
   ],
   controllers: [ProfileController],
   providers: [ProfileService],

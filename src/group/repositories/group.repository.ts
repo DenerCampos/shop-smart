@@ -71,6 +71,12 @@ export class GroupRepository implements IGroupRepository {
     return await this.groupEntity.findOneBy({ id });
   }
 
+  async findByIdAndUser(id: string, user: User): Promise<Group | null> {
+    return await this.groupEntity.findOne({
+      where: { id, user: { id: user.id } },
+    });
+  }
+
   async update(
     group: Group,
     updateGroupDto: UpdateGroupDto,
