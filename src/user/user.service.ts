@@ -115,7 +115,11 @@ export class UserService {
     return this.userRepository.delete(userId);
   }
 
-  async findByAlexaToken(token: string): Promise<User | null> {
-    return this.userRepository.findByAlexaToken(token);
+  async saveRefreshToken(id: string, token: string): Promise<User> {
+    return this.userRepository.saveRefreshToken(id, token);
+  }
+
+  async findByRefreshToken(token: string): Promise<User | null> {
+    return this.userRepository.findByRefreshToken(token);
   }
 }

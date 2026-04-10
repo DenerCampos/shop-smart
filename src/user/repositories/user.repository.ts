@@ -107,9 +107,19 @@ export class UserRepository implements IUserRepository {
     return result.affected === 1 ? true : false;
   }
 
-  async findByAlexaToken(token: string): Promise<User | null> {
+  async saveRefreshToken(id: string, token: string): Promise<User> {
+    const user = await this.userEntity.findOneBy({ id });
+
+    if (!user) {
+      throw new UpdateException();
+    }
+
+    return await this.userEntity.save({ ...user, refreshtoken: token });
+  }
+
+  async findByRefreshToken(token: string): Promise<User | null> {
     return await this.userEntity.findOne({
-      where: { alexaToken: token },
+      where: { refreshtoken: token },
     });
   }
 }

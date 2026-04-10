@@ -21,6 +21,7 @@ import { AudioRecognitionModule } from './audio-recognition/audioRecognition.mod
 import { TextRecognitionModule } from './text-recognition/textRecognition.module';
 import { FamilyGroupModule } from './family-group/family-group.module';
 import { ShoppingListModule } from './shopping-list/shopping-list.module';
+import { AlexaModule } from './alexa/alexa.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
@@ -54,6 +55,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
       limit: 120,
     }),
     ShoppingListModule,
+    AlexaModule,
   ],
   controllers: [],
   providers: [],

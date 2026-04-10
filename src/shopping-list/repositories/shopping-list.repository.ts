@@ -288,6 +288,20 @@ export class ShoppingListRepository implements IShoppingListRepository {
       .slice(0, limit);
   }
 
+  async findItemByNameInList(
+    listId: string,
+    name: string,
+  ): Promise<ShoppingListItem | null> {
+    return this.itemRepo
+      .createQueryBuilder('item')
+      .leftJoin('item.shoppingList', 'list')
+      .where('list.id = :listId', { listId })
+      .andWhere('item.name LIKE :name', { name: `%${name}%` })
+      .andWhere('item.deletedAt IS NULL')
+      .andWhere('list.deletedAt IS NULL')
+      .getOne();
+  }
+
   async findActiveListByUser(
     userId: string,
     familyGroupIds: string[],

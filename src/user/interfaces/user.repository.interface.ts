@@ -13,5 +13,6 @@ export interface IUserRepository {
   saveToken(id: string, token: string): Promise<User>;
   countAll(): Promise<number>;
   exist(email: string, user: User): Promise<boolean>;
-  findByAlexaToken(token: string): Promise<User | null>;
+  saveRefreshToken(id: string, token: string): Promise<User>;
+  findByRefreshToken(token: string): Promise<User | null>;
 }

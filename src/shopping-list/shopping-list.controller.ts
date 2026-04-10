@@ -3,15 +3,12 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   Param,
   Patch,
   Post,
   Query,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ShoppingListService } from './shopping-list.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ResponseService } from 'src/common/response/response';
@@ -29,17 +26,12 @@ import { ShoppingListDetailResponseDto } from './dto/shopping-list-detail-respon
 import { ShoppingListItemResponseDto } from './dto/shopping-list-item-response.dto';
 import { ItemSuggestionResponseDto } from './dto/item-suggestion-response.dto';
 import { paginationData } from 'src/common/pagination/pagination';
-import { UserService } from 'src/user/user.service';
-
-/** Limite dedicado ao webhook Alexa (por TTL global do ThrottlerModule). */
-export const ALEXA_THROTTLE_LIMIT = 20;
 
 @Controller('/shopping-lists')
 export class ShoppingListController {
   constructor(
     private readonly shoppingListService: ShoppingListService,
     private readonly responseService: ResponseService,
-    private readonly userService: UserService,
   ) {}
 
   @UseGuards(AuthGuard)
@@ -175,23 +167,12 @@ export class ShoppingListController {
     return { deleted };
   }
 
-  @Throttle(20, 60)
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(AuthGuard)
   @Post('alexa/add-item')
   async addItemFromAlexa(
     @Body() dto: AlexaAddItemDto,
-    @Headers('x-alexa-token') alexaToken: string,
+    @CurrentUser() user: User,
   ): Promise<ShoppingListItemResponseDto> {
-    if (!alexaToken) {
-      throw new UnauthorizedException('Token Alexa não fornecido.');
-    }
-
-    const user = await this.userService.findByAlexaToken(alexaToken);
-
-    if (!user) {
-      throw new UnauthorizedException('Token Alexa inválido.');
-    }
-
     const item = await this.shoppingListService.addItemFromAlexa(
       user,
       dto.text,

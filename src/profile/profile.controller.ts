@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Delete,
   Get,
   Post,
   Query,
@@ -23,6 +22,7 @@ import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { GetLatestRegistrationsDto } from './dto/get-latest-registrations.dto';
 import { LatestRegistrationsDto } from './dto/latest-registrations.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
+import { IntegrationsResponseDto } from './dto/integration-response.dto';
 
 @Controller('/profile')
 export class ProfileController {
@@ -68,23 +68,19 @@ export class ProfileController {
   }
 
   @UseGuards(AuthGuard)
-  @Post('generate-alexa-token')
-  async generateAlexaToken(
+  @Get('integrations')
+  async getIntegrations(
     @CurrentUser() user: User,
-  ): Promise<{ alexaToken: string }> {
-    const alexaToken = await this.profileService.generateAlexaToken(user);
-
-    return { alexaToken };
+  ): Promise<IntegrationsResponseDto> {
+    return this.profileService.getIntegrations(user.id);
   }
 
   @UseGuards(AuthGuard)
-  @Delete('alexa-token')
-  async removeAlexaToken(
+  @Post('integrations/alexa/unlink')
+  async unlinkAlexa(
     @CurrentUser() user: User,
-  ): Promise<{ removed: boolean }> {
-    await this.profileService.removeAlexaToken(user);
-
-    return { removed: true };
+  ): Promise<{ unlinked: boolean }> {
+    return this.profileService.unlinkAlexa(user.id);
   }
 
   @UseGuards(AuthGuard)

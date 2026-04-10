@@ -67,4 +67,9 @@ export interface IShoppingListRepository {
     userId: string,
     familyGroupIds: string[],
   ): Promise<ShoppingList | null>;
+
+  findItemByNameInList(
+    listId: string,
+    name: string,
+  ): Promise<ShoppingListItem | null>;
 }

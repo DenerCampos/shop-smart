@@ -14,6 +14,7 @@ import { Expense } from 'src/expense/entities/expense.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
 import { registrarionsType } from './types/profileType';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
+import { AuthService, IntegrationStatus } from 'src/auth/auth.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class ProfileService {
     private readonly coinService: CoinService,
     private readonly googleDriveService: GoogleDriveService,
     private readonly familyMemberResolver: FamilyMemberResolverService,
+    private readonly authService: AuthService,
   ) {}
 
   async getProfile(user: User): Promise<ProfileModel> {
@@ -105,17 +107,6 @@ export class ProfileService {
     return lastDot !== -1 ? filename.substring(lastDot) : '.jpg';
   }
 
-  async generateAlexaToken(user: User): Promise<string> {
-    const token = uuidv4();
-    await this.userService.update(user.id, { alexaToken: token } as any);
-
-    return token;
-  }
-
-  async removeAlexaToken(user: User): Promise<void> {
-    await this.userService.update(user.id, { alexaToken: null } as any);
-  }
-
   async getLatestRegistrations(
     user: User,
     page: number,
@@ -175,5 +166,15 @@ export class ProfileService {
       totalItems,
       `${this.url}/latest-registrations`,
     );
+  }
+
+  async getIntegrations(
+    userId: string,
+  ): Promise<Record<string, IntegrationStatus>> {
+    return this.authService.getIntegrations(userId);
+  }
+
+  async unlinkAlexa(userId: string): Promise<{ unlinked: boolean }> {
+    return this.authService.unlinkIntegration(userId, 'alexa');
   }
 }

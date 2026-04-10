@@ -24,7 +24,10 @@ import {
   SHOPPING_LIST_ITEM_STATUS,
   ShoppingListItemStatus,
 } from './types/shopping-list-item-status.type';
-import { SHOPPING_LIST_STATUS } from './types/shopping-list-status.type';
+import {
+  SHOPPING_LIST_STATUS,
+  ShoppingListStatus,
+} from './types/shopping-list-status.type';
 import { ShoppingListGateway } from './shopping-list.gateway';
 import { ResponseService } from 'src/common/response/response';
 import { TextRecognitionService } from 'src/text-recognition/textRecognition.service';
@@ -34,6 +37,7 @@ import { normalizeShoppingListItemUnit } from './utils/normalize-shopping-list-i
 
 @Injectable()
 export class ShoppingListService {
+  private readonly MAX_ACTIVE_LISTS_FOR_VOICE = 100;
   private url = `${this.appConfig.getBaseUrl()}/shopping-lists`;
 
   constructor(
@@ -401,6 +405,52 @@ export class ShoppingListService {
     }));
   }
 
+  async getActiveLists(user: User): Promise<ShoppingList[]> {
+    const familyGroupIds = await this.getUserFamilyGroupIds(user.id);
+    const [lists] = await this.repository.findAllByUser(
+      user.id,
+      familyGroupIds,
+      0,
+      this.MAX_ACTIVE_LISTS_FOR_VOICE,
+      SHOPPING_LIST_STATUS.ACTIVE,
+    );
+    return lists;
+  }
+
+  async addItemFromAlexaToList(
+    user: User,
+    listId: string,
+    text: string,
+  ): Promise<ShoppingListItem> {
+    const list = await this.repository.findListById(listId);
+
+    if (!list) {
+      throw new NotExistException();
+    }
+
+    await this.validateListAccess(list, user.id);
+
+    const parsed = this.parseAlexaText(text);
+    const groupId = await this.inferGroupId(parsed.name, user);
+
+    const item = await this.repository.createItem(
+      list,
+      user,
+      parsed.name,
+      parsed.quantity,
+      parsed.unit,
+      groupId,
+    );
+
+    const itemDto = this.responseService.mapToDto(
+      ShoppingListItemResponseDto,
+      item,
+    );
+    this.shoppingListGateway.emitToList(list.id, 'item_added', itemDto);
+
+    return item;
+  }
+
   async addItemFromAlexa(user: User, text: string): Promise<ShoppingListItem> {
     const parsed = this.parseAlexaText(text);
 
@@ -435,6 +485,80 @@ export class ShoppingListService {
     this.shoppingListGateway.emitToList(list.id, 'item_added', itemDto);
 
     return item;
+  }
+
+  async removeItemByNameFromList(
+    user: User,
+    listId: string,
+    name: string,
+  ): Promise<boolean> {
+    const list = await this.repository.findListById(listId);
+
+    if (!list) {
+      return false;
+    }
+
+    await this.validateListAccess(list, user.id);
+
+    const item = await this.repository.findItemByNameInList(list.id, name);
+
+    if (!item) {
+      return false;
+    }
+
+    const deleted = await this.repository.deleteItem(item.id);
+
+    if (deleted) {
+      this.shoppingListGateway.emitToList(list.id, 'item_removed', {
+        itemId: item.id,
+      });
+    }
+
+    return deleted;
+  }
+
+  async removeItemByName(user: User, name: string): Promise<boolean> {
+    const familyGroupIds = await this.getUserFamilyGroupIds(user.id);
+    const list = await this.repository.findActiveListByUser(
+      user.id,
+      familyGroupIds,
+    );
+
+    if (!list) {
+      return false;
+    }
+
+    const item = await this.repository.findItemByNameInList(list.id, name);
+
+    if (!item) {
+      return false;
+    }
+
+    const deleted = await this.repository.deleteItem(item.id);
+
+    if (deleted) {
+      this.shoppingListGateway.emitToList(list.id, 'item_removed', {
+        itemId: item.id,
+      });
+    }
+
+    return deleted;
+  }
+
+  async getActiveListItems(user: User): Promise<ShoppingListItem[]> {
+    const familyGroupIds = await this.getUserFamilyGroupIds(user.id);
+    const list = await this.repository.findActiveListByUser(
+      user.id,
+      familyGroupIds,
+    );
+
+    if (!list) {
+      return [];
+    }
+
+    const listWithItems = await this.repository.findListWithItems(list.id);
+
+    return listWithItems?.items ?? [];
   }
 
   private parseAlexaText(text: string): {

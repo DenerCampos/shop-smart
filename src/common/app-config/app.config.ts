@@ -65,6 +65,10 @@ export class AppConfig {
     return jwtSecretKey ?? 'demos crest';
   }
 
+  getFrontendUrl(): string {
+    return this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
+  }
+
   getBaseUrl(): string {
     const apiHost = this.getApi();
 
