@@ -2,12 +2,14 @@ import { DataSource } from 'typeorm';
 import dataSource from '../data-source';
 import { seedThemeDev } from './theme.dev.seed';
 import { seedDevTestUser } from './user.dev.seed';
+import { seedOauthClientDev } from './OauthClientSeed';
 
 type SeedFn = (ds: DataSource) => Promise<void>;
 
 const DEV_SEEDS: Array<{ name: string; run: SeedFn }> = [
   { name: 'theme', run: seedThemeDev },
   { name: 'user (teste)', run: seedDevTestUser },
+  { name: 'oauth client', run: seedOauthClientDev },
 ];
 
 async function runAllDevSeeds(): Promise<void> {
