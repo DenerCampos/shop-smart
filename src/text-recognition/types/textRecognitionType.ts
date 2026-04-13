@@ -24,3 +24,27 @@ export interface ParsedShoppingListItemFromText {
   unit: string;
   groupId?: string;
 }
+
+/** Item de cupom fiscal extraído pelo provedor de texto. */
+export interface CouponTextItem {
+  code: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  value: number;
+  total: number;
+  group: { name: string };
+}
+
+/** Resultado completo de um cupom fiscal extraído via análise de texto. */
+export interface CouponTextResult {
+  name: string;
+  value: number;
+  date: string;
+  repeat: boolean;
+  items: CouponTextItem[];
+  store: { name: string };
+  payment: { name: string };
+  confidence: number;
+  provider: string;
+}

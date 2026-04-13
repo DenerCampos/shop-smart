@@ -1,7 +1,15 @@
-import { ShoppingListItemTextAiResult } from '../../types/textRecognitionType';
+import {
+  CouponTextResult,
+  ShoppingListItemTextAiResult,
+} from '../../types/textRecognitionType';
 
 export interface TextRecognitionAnalyzeOptions {
   groups?: string[];
+}
+
+export interface CouponParseOptions {
+  groups?: string[];
+  defaultPayment?: string;
 }
 
 export interface QuotaInfo {
@@ -16,6 +24,10 @@ export interface ITextRecognitionProvider {
     text: string,
     options?: TextRecognitionAnalyzeOptions,
   ): Promise<ShoppingListItemTextAiResult>;
+  parseCoupon(
+    text: string,
+    options?: CouponParseOptions,
+  ): Promise<CouponTextResult>;
   isAvailable(): Promise<boolean>;
   getQuotaInfo(): Promise<QuotaInfo>;
 }

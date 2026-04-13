@@ -6,9 +6,12 @@ import { ShoppingListItemTextAiResult } from '../../types/textRecognitionType';
 import { TextRecognitionException } from '../../exceptions/textRecognition.exception';
 import { ApiQuotaException } from 'src/common/ai-quota/exceptions/apiQuota.exception';
 import {
+  CouponParseOptions,
   ITextRecognitionProvider,
   TextRecognitionAnalyzeOptions,
 } from '../interfaces/text-recognition-provider.interface';
+import { CouponTextResult } from '../../types/textRecognitionType';
+
 /** Alinhado a shopping-list-item-unit (evita import do módulo shopping-list). */
 const ALLOWED_UNITS = ['un', 'kg', 'g', 'l', 'ml', 'pack', 'dz'] as const;
 type AllowedUnit = (typeof ALLOWED_UNITS)[number];
@@ -162,6 +165,87 @@ Regras:
       }
       throw new TextRecognitionException(
         `Erro ao analisar texto: ${error.message}`,
+      );
+    }
+  }
+
+  async parseCoupon(
+    text: string,
+    options?: CouponParseOptions,
+  ): Promise<CouponTextResult> {
+    try {
+      await this.apiQuotaService.checkAndIncrementQuota(
+        this.name,
+        this.dailyLimit,
+      );
+
+      const groups =
+        options?.groups?.filter(Boolean).join(', ') ||
+        'Alimentação, Bebida, Limpeza, Higiene, Outros';
+      const payment = options?.defaultPayment || 'Cartão de crédito';
+
+      const prompt = `Analise o texto abaixo de um cupom fiscal ou nota fiscal eletrônica e extraia as seguintes informações em formato JSON:
+- name: nome do estabelecimento
+- value: valor total da nota (número)
+- date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
+- repeat: sempre false
+- items: array de produtos, cada item deve conter:
+  * code: código do produto, se não for possível identificar, retorne '1'
+  * name: nome do produto formatado. 
+    IMPORTANTE: Converta o nome para "Title Case" (apenas iniciais maiúsculas), remova abreviações excessivas e tente deduzir o nome completo e amigável do produto (ex: de 'MAC VILM OV ESP' para 'Macarrão de Ovos Vilma Especial'). 
+    Ao expandir abreviações, use apenas o contexto presente no texto. Se não tiver certeza absoluta do nome completo, apenas converta para 'Title Case' e remova caracteres especiais.
+    Mantenha informações de peso/volume (ex: 500g, 1L).
+  * quantity: quantidade (número), se não for possível identificar, retorne 0
+  * unit: unidade - use 'unidade' para UN, 'quilograma' para KG, ou 'pacote' para PT, se não for possível identificar, retorne 'unidade'
+  * value: valor unitário (número), se não for possível identificar, retorne 0
+  * total: valor total do item (número), se não for possível identificar, retorne 0
+  * group: objeto com a propriedade 'name' contendo o nome do grupo de classificação. Os grupos possíveis são: ${groups}
+- store: objeto com a propriedade 'name' contendo o nome do estabelecimento
+- payment: objeto com a propriedade 'name' contendo o nome do método de pagamento. Se não for possível identificar, use '${payment}'
+
+IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment).
+Retorne apenas o JSON, sem explicações adicionais.
+
+Texto do cupom:
+${text}`;
+
+      const result = await this.model.generateContent(prompt);
+      const responseText = result.response.text();
+      const cleaned = this.cleanModelJson(responseText);
+      const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+
+      if (typeof parsed.name !== 'string' || !parsed.name.trim()) {
+        throw new TextRecognitionException(
+          'Resposta da IA sem nome de estabelecimento válido.',
+        );
+      }
+      if (typeof parsed.value !== 'number') {
+        throw new TextRecognitionException(
+          'Resposta da IA com valor total inválido.',
+        );
+      }
+      if (!Array.isArray(parsed.items)) {
+        throw new TextRecognitionException(
+          'Resposta da IA sem lista de itens.',
+        );
+      }
+
+      return {
+        ...(parsed as unknown as CouponTextResult),
+        provider: this.name,
+        confidence: 0.9,
+      };
+    } catch (error) {
+      if (
+        error instanceof TextRecognitionException ||
+        error instanceof ApiQuotaException
+      ) {
+        throw error;
+      }
+      throw new TextRecognitionException(
+        `Erro ao analisar texto do cupom: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
   }

@@ -4,19 +4,10 @@ import { UserModule } from 'src/user/user.module';
 import { CouponReaderService } from './couponReader.service';
 import { CommonModule } from 'src/common/common.module';
 import { StoreModule } from 'src/store/store.module';
-import { PaymentModule } from 'src/payment/payment.module';
-import { GroupModule } from 'src/group/group.module';
-import { ExpenseModule } from 'src/expense/expense.module';
+import { TextRecognitionModule } from 'src/text-recognition/textRecognition.module';
 
 @Module({
-  imports: [
-    CommonModule,
-    UserModule,
-    StoreModule,
-    PaymentModule,
-    GroupModule,
-    ExpenseModule,
-  ],
+  imports: [CommonModule, UserModule, StoreModule, TextRecognitionModule],
   controllers: [CouponReaderController],
   providers: [CouponReaderService],
   exports: [CouponReaderService],

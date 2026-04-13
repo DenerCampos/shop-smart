@@ -1,63 +1,73 @@
-import { Injectable } from '@nestjs/common';
-import { CouponReaderModel } from './model/couponReader.model';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 import { findSimilarString } from 'src/common/utils/similarString.util';
 import { StoreService } from 'src/store/store.service';
-import { GroupService } from 'src/group/group.service';
-import { PaymentService } from 'src/payment/payment.service';
-import { ExpenseService } from 'src/expense/expense.service';
+import { TextRecognitionService } from 'src/text-recognition/textRecognition.service';
+import { User } from 'src/user/entities/user.entity';
+import { CouponTextResult } from 'src/text-recognition/types/textRecognitionType';
+
+const AXIOS_TIMEOUT_MS = 15000;
 
 @Injectable()
 export class CouponReaderService {
   constructor(
     private readonly storeService: StoreService,
-    private readonly groupService: GroupService,
-    private readonly paymentService: PaymentService,
-    private readonly expenseService: ExpenseService,
+    private readonly textRecognitionService: TextRecognitionService,
   ) {}
 
-  async read(url: string): Promise<CouponReaderModel> {
-    const couponReader = new CouponReaderModel(url);
-    await couponReader.readUrl();
+  async read(
+    url: string,
+    user: User,
+  ): Promise<CouponTextResult & { uri: string }> {
+    const text = await this.fetchCouponText(url);
 
-    const storesNames = await this.storeService.getAllNames();
+    const [result, storesNames] = await Promise.all([
+      this.textRecognitionService.parseCoupon(text, user),
+      this.storeService.getAllNames(),
+    ]);
 
-    couponReader.store.name = couponReader.name;
-    const similarityName = findSimilarString(couponReader.name, storesNames);
+    const similarityName = findSimilarString(result.name, storesNames);
 
     if (similarityName) {
-      couponReader.store.name = similarityName.match;
-      couponReader.name = similarityName.match;
+      return {
+        ...result,
+        name: similarityName.match,
+        store: { name: similarityName.match },
+        uri: url,
+      };
     }
 
-    const paymentName = await this.expenseService.getMostUsedPaymentName();
-    couponReader.payment.name = paymentName;
-
-    for (const item of couponReader.items) {
-      const itemName = await this.expenseService.getGroupNameByItemName(
-        item.name,
-      );
-
-      item.group.name = itemName;
-    }
-
-    return couponReader;
+    return { ...result, uri: url };
   }
 
-  // private async findGroupByIdOrName(
-  //   itemId: string,
-  //   itemName: string,
-  // ): Promise<string> {
-  //   let name = this.groupDefault;
+  private async fetchCouponText(url: string): Promise<string> {
+    let html: string;
 
-  //   const group = await this.groupRepository.findByItemIdOrName(
-  //     itemId,
-  //     itemName,
-  //   );
+    try {
+      const response = await axios.get<string>(url, {
+        timeout: AXIOS_TIMEOUT_MS,
+      });
+      html = response.data;
+    } catch {
+      throw new InternalServerErrorException(
+        'Não foi possível acessar o portal do cupom. Verifique a URL e tente novamente.',
+      );
+    }
 
-  //   if (group) {
-  //     name = group.name;
-  //   }
+    const $ = cheerio.load(html);
+    const text = $('.container').text().replace(/\s+/g, ' ').trim();
 
-  //   return name;
-  // }
+    if (!text) {
+      throw new BadRequestException(
+        'Não foi possível extrair texto do cupom. Verifique se a URL é de um portal fiscal válido.',
+      );
+    }
+
+    return text;
+  }
 }
