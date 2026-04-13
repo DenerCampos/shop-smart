@@ -5,6 +5,7 @@ import { GroupService } from 'src/group/group.service';
 import { TextRecognitionProviderFactory } from './providers/factory/text-recognition-provider.factory';
 import { ITextRecognitionRepository } from './interfaces/textRecognition.repository.interface';
 import {
+  CouponTextResult,
   ParsedShoppingListItemFromText,
   TextRecognitionStatus,
 } from './types/textRecognitionType';
@@ -123,6 +124,56 @@ export class TextRecognitionService {
 
     const created = await this.groupService.create({ name }, user);
     return created.id;
+  }
+
+  async parseCoupon(text: string, user: User): Promise<CouponTextResult> {
+    const provider = await this.providerFactory.getProvider(
+      this.appConfig.getDefaultRecognitionProvider() + '-text',
+    );
+
+    const groups = await this.groupService.findAllNames(user);
+
+    try {
+      const result = await provider.parseCoupon(text, { groups });
+
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: text.slice(0, 500),
+          provider: provider.name,
+          confidence: result.confidence,
+          result: result,
+          status: TextRecognitionStatus.COMPLETED,
+        },
+        user,
+      );
+
+      return result;
+    } catch (error) {
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: text.slice(0, 500),
+          provider: provider.name,
+          confidence: 0,
+          result: null,
+          status: TextRecognitionStatus.FAILED,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        user,
+      );
+
+      if (
+        error instanceof TextRecognitionException ||
+        error instanceof ApiQuotaException
+      ) {
+        throw error;
+      }
+
+      throw new TextRecognitionException(
+        `Falha ao processar cupom: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async getProviderQuota(): Promise<{
