@@ -9,6 +9,7 @@ import { GeminiAudioProvider } from './providers/gemini/gemini-audio.provider';
 import { AudioRecognitionProviderFactory } from './providers/factory/audio-recognition-provider.factory';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
+import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 import { GroupModule } from 'src/group/group.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { UserModule } from 'src/user/user.module';
@@ -31,10 +32,12 @@ import { UserModule } from 'src/user/user.module';
     },
     {
       provide: 'AUDIO_RECOGNITION_PROVIDERS',
-      useFactory: (appConfig: AppConfig, apiQuotaService: ApiQuotaService) => [
-        new GeminiAudioProvider(appConfig, apiQuotaService),
-      ],
-      inject: [AppConfig, ApiQuotaService],
+      useFactory: (
+        appConfig: AppConfig,
+        apiQuotaService: ApiQuotaService,
+        aiCallTelemetry: AiCallTelemetryService,
+      ) => [new GeminiAudioProvider(appConfig, apiQuotaService, aiCallTelemetry)],
+      inject: [AppConfig, ApiQuotaService, AiCallTelemetryService],
     },
   ],
   exports: [AudioRecognitionService, 'IAudioRecognitionRepository'],

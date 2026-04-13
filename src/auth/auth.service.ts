@@ -19,6 +19,7 @@ import { jwtTokenType } from './types/jwtTokenType';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { AppConfig } from '../common/app-config/app.config';
+import { SecurityAuditLogService } from '../common/logging/security-audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
 
 interface OauthSession {
@@ -44,6 +45,7 @@ export class AuthService {
     private usersService: UserService,
     private jwtService: JwtService,
     private appConfig: AppConfig,
+    private securityAuditLog: SecurityAuditLogService,
     private familyGroupService: FamilyGroupService,
     @InjectRepository(OauthClient)
     private oauthClientRepository: Repository<OauthClient>,
@@ -57,12 +59,14 @@ export class AuthService {
     const user = await this.usersService.findByEmail(signInDto.email);
 
     if (!user) {
+      this.securityAuditLog.authLoginFailed(signInDto.email);
       throw new UnauthorizedException();
     }
 
     const isMatch = await bcrypt.compare(signInDto.password, user.password);
 
     if (!isMatch) {
+      this.securityAuditLog.authLoginFailed(signInDto.email);
       throw new UnauthorizedException();
     }
 
@@ -78,10 +82,18 @@ export class AuthService {
     const user = await this.usersService.findByEmail(refreshTokenDto.email);
 
     if (!user) {
+      this.securityAuditLog.authRefreshFailed(
+        refreshTokenDto.email,
+        'user_not_found',
+      );
       throw new UnauthorizedException();
     }
 
     if (user.token !== refreshTokenDto.token) {
+      this.securityAuditLog.authRefreshFailed(
+        refreshTokenDto.email,
+        'invalid_refresh',
+      );
       throw new UnauthorizedException();
     }
 

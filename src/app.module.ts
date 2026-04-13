@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'node:path';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TypeOrmConfig } from './config/typeorm.config';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
@@ -24,6 +24,9 @@ import { FamilyGroupModule } from './family-group/family-group.module';
 import { ShoppingListModule } from './shopping-list/shopping-list.module';
 import { AlexaModule } from './alexa/alexa.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { LoggerModule } from './common/logger/logger.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 @Module({
   imports: [
@@ -39,6 +42,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
       ttl: 60,
       limit: 120,
     }),
+    LoggerModule,
     UserModule,
     AuthModule,
     CouponReaderModule,
@@ -60,10 +64,19 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
   ],
   controllers: [],
   providers: [
+    RequestLoggingMiddleware,
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+  }
+}

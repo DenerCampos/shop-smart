@@ -8,6 +8,7 @@ import { ImageRecognitionResult } from '../../types/imageRecognitionType';
 import { ImageRecognitionException } from '../../exceptions/imageRecognition.exception';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
+import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 
 @Injectable()
 export class GeminiProvider implements IImageRecognitionProvider {
@@ -19,6 +20,7 @@ export class GeminiProvider implements IImageRecognitionProvider {
   constructor(
     private readonly appConfig: AppConfig,
     private readonly apiQuotaService: ApiQuotaService,
+    private readonly aiCallTelemetry: AiCallTelemetryService,
   ) {
     this.genAI = new GoogleGenerativeAI(this.appConfig.getGoogleApiKey());
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -29,30 +31,34 @@ export class GeminiProvider implements IImageRecognitionProvider {
     imageData: string,
     options?: AnalyzeOptions,
   ): Promise<ImageRecognitionResult> {
-    try {
-      // Verifica a quota antes de fazer a requisição
-      await this.apiQuotaService.checkAndIncrementQuota(
-        this.name,
-        this.dailyLimit,
-      );
+    return this.aiCallTelemetry.measure(
+      'image_recognition',
+      this.name,
+      async () => {
+        try {
+          // Verifica a quota antes de fazer a requisição
+          await this.apiQuotaService.checkAndIncrementQuota(
+            this.name,
+            this.dailyLimit,
+          );
 
-      // Verifica se a imagem está em formato base64 data URL
-      if (!imageData.startsWith('data:image/')) {
-        throw new Error('Formato de imagem inválido');
-      }
+          // Verifica se a imagem está em formato base64 data URL
+          if (!imageData.startsWith('data:image/')) {
+            throw new Error('Formato de imagem inválido');
+          }
 
-      // Define valores padrão
-      const groups =
-        options?.groups?.join(', ') ||
-        'Alimentação, Bebida, Limpeza, Higiene, Outros';
-      const payment = options?.defaultPayment || 'Cartão de crédito';
-      const context = options?.context || 'expense';
+          // Define valores padrão
+          const groups =
+            options?.groups?.join(', ') ||
+            'Alimentação, Bebida, Limpeza, Higiene, Outros';
+          const payment = options?.defaultPayment || 'Cartão de crédito';
+          const context = options?.context || 'expense';
 
-      // Monta o prompt de acordo com o contexto (despesa ou receita)
-      let prompt: string;
+          // Monta o prompt de acordo com o contexto (despesa ou receita)
+          let prompt: string;
 
-      if (context === 'revenue') {
-        prompt = `Analise esta imagem de um comprovante, recibo ou documento de receita/entrada financeira e extraia as seguintes informações em formato JSON:
+          if (context === 'revenue') {
+            prompt = `Analise esta imagem de um comprovante, recibo ou documento de receita/entrada financeira e extraia as seguintes informações em formato JSON:
         - name: descrição da receita (ex: Salário, Freelance, Venda, Comissão)
         - value: valor total da receita (número)
         - date: data da receita (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
@@ -63,8 +69,8 @@ export class GeminiProvider implements IImageRecognitionProvider {
         - Se a imagem mencionar algo como "mensal", "recorrente", "fixo", defina repeat como true
         - Se não for possível identificar se é recorrente, assuma false
         - Retorne apenas o JSON, sem explicações adicionais.`;
-      } else {
-        prompt = `Analise esta imagem de um cupom fiscal ou nota fiscal e extraia as seguintes informações em formato JSON:
+          } else {
+            prompt = `Analise esta imagem de um cupom fiscal ou nota fiscal e extraia as seguintes informações em formato JSON:
         - name: nome do estabelecimento
         - value: valor total da nota (número)
         - date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
@@ -81,43 +87,47 @@ export class GeminiProvider implements IImageRecognitionProvider {
         
         IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment, name).
         Retorne apenas o JSON, sem explicações adicionais.`;
-      }
+          }
 
-      // Prepara a imagem para o Gemini
-      const result = await this.model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            mimeType: imageData.split(';')[0].split(':')[1],
-            data: imageData.split(',')[1],
-          },
-        },
-      ]);
-      const response = result.response;
-      const responseText = response.text();
+          // Prepara a imagem para o Gemini
+          const result = await this.model.generateContent([
+            prompt,
+            {
+              inlineData: {
+                mimeType: imageData.split(';')[0].split(':')[1],
+                data: imageData.split(',')[1],
+              },
+            },
+          ]);
+          const response = result.response;
+          const responseText = response.text();
 
-      // Remove marcadores de código markdown se existirem
-      let cleanedText = responseText.trim();
-      if (cleanedText.startsWith('```json')) {
-        cleanedText = cleanedText
-          .replace(/^```json\s*/, '')
-          .replace(/\s*```$/, '');
-      } else if (cleanedText.startsWith('```')) {
-        cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
+          // Remove marcadores de código markdown se existirem
+          let cleanedText = responseText.trim();
+          if (cleanedText.startsWith('```json')) {
+            cleanedText = cleanedText
+              .replace(/^```json\s*/, '')
+              .replace(/\s*```$/, '');
+          } else if (cleanedText.startsWith('```')) {
+            cleanedText = cleanedText
+              .replace(/^```\s*/, '')
+              .replace(/\s*```$/, '');
+          }
 
-      const parsedResult = JSON.parse(cleanedText);
+          const parsedResult = JSON.parse(cleanedText);
 
-      return {
-        ...parsedResult,
-        provider: this.name,
-        confidence: 0.9, // TODO: Implementar cálculo de confiança
-      };
-    } catch (error) {
-      throw new ImageRecognitionException(
-        `Erro ao analisar imagem: ${error.message}`,
-      );
-    }
+          return {
+            ...parsedResult,
+            provider: this.name,
+            confidence: 0.9, // TODO: Implementar cálculo de confiança
+          };
+        } catch (error) {
+          throw new ImageRecognitionException(
+            `Erro ao analisar imagem: ${error.message}`,
+          );
+        }
+      },
+    );
   }
 
   async isAvailable(): Promise<boolean> {

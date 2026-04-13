@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { getLokiConfig, LokiConfig } from './loki.config';
 
 interface IDatabase {
   host: string;
@@ -127,6 +128,10 @@ export class AppConfig {
       this.configService.get<string>('GOOGLE_DRIVE_RATE_LIMIT') || '50',
       10,
     );
+  }
+
+  getLoki(): LokiConfig {
+    return getLokiConfig(this.configService);
   }
 
   /**

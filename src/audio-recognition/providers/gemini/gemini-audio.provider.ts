@@ -8,6 +8,7 @@ import { AudioRecognitionResult } from '../../types/audioRecognitionType';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import { AudioRecognitionException } from '../../exceptions/audioRecognition.exception';
+import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 
 @Injectable()
 export class GeminiAudioProvider implements IAudioRecognitionProvider {
@@ -19,6 +20,7 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
   constructor(
     private readonly appConfig: AppConfig,
     private readonly apiQuotaService: ApiQuotaService,
+    private readonly aiCallTelemetry: AiCallTelemetryService,
   ) {
     this.genAI = new GoogleGenerativeAI(this.appConfig.getGoogleApiKey());
     // Gemini 2.5 Flash suporta multimodal (texto, imagem, áudio, vídeo)
@@ -51,55 +53,59 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
     audioData: string | Buffer,
     options?: AnalyzeOptions,
   ): Promise<AudioRecognitionResult> {
-    try {
-      await this.apiQuotaService.checkAndIncrementQuota(
-        this.name,
-        this.dailyLimit,
-      );
+    return this.aiCallTelemetry.measure(
+      'audio_recognition',
+      this.name,
+      async () => {
+        try {
+          await this.apiQuotaService.checkAndIncrementQuota(
+            this.name,
+            this.dailyLimit,
+          );
 
-      let base64Audio: string;
-      let mimeType: string;
+          let base64Audio: string;
+          let mimeType: string;
 
-      if (Buffer.isBuffer(audioData)) {
-        if (audioData.length === 0) {
-          throw new Error('Buffer de áudio está vazio');
-        }
+          if (Buffer.isBuffer(audioData)) {
+            if (audioData.length === 0) {
+              throw new Error('Buffer de áudio está vazio');
+            }
 
-        base64Audio = audioData.toString('base64');
+            base64Audio = audioData.toString('base64');
 
-        if (!base64Audio || base64Audio.length === 0) {
-          throw new Error('Falha ao converter buffer para base64');
-        }
+            if (!base64Audio || base64Audio.length === 0) {
+              throw new Error('Falha ao converter buffer para base64');
+            }
 
-        // Normaliza o MIME type (video/webm -> audio/webm)
-        const rawMimeType = options?.mimeType || 'audio/webm';
-        mimeType = this.normalizeMimeType(rawMimeType);
-      } else if (
-        audioData.startsWith('data:audio/') ||
-        audioData.startsWith('data:video/')
-      ) {
-        // Suporta data URL (backward compatibility)
-        const rawMimeType = audioData.split(';')[0].split(':')[1];
-        mimeType = this.normalizeMimeType(rawMimeType);
-        base64Audio = audioData.split(',')[1];
-      } else {
-        throw new Error(
-          'Formato de áudio inválido. Esperado Buffer ou data URL',
-        );
-      }
+            // Normaliza o MIME type (video/webm -> audio/webm)
+            const rawMimeType = options?.mimeType || 'audio/webm';
+            mimeType = this.normalizeMimeType(rawMimeType);
+          } else if (
+            audioData.startsWith('data:audio/') ||
+            audioData.startsWith('data:video/')
+          ) {
+            // Suporta data URL (backward compatibility)
+            const rawMimeType = audioData.split(';')[0].split(':')[1];
+            mimeType = this.normalizeMimeType(rawMimeType);
+            base64Audio = audioData.split(',')[1];
+          } else {
+            throw new Error(
+              'Formato de áudio inválido. Esperado Buffer ou data URL',
+            );
+          }
 
-      // Define valores padrão
-      const groups =
-        options?.groups?.join(', ') ||
-        'Alimentação, Bebida, Limpeza, Higiene, Outros';
-      const payment = options?.defaultPayment || 'Cartão de crédito';
-      const context = options?.context || 'expense';
+          // Define valores padrão
+          const groups =
+            options?.groups?.join(', ') ||
+            'Alimentação, Bebida, Limpeza, Higiene, Outros';
+          const payment = options?.defaultPayment || 'Cartão de crédito';
+          const context = options?.context || 'expense';
 
-      // Monta o prompt de acordo com o contexto (despesa ou receita)
-      let prompt: string;
+          // Monta o prompt de acordo com o contexto (despesa ou receita)
+          let prompt: string;
 
-      if (context === 'revenue') {
-        prompt = `Você é um assistente que analisa áudios de receitas/entradas financeiras.
+          if (context === 'revenue') {
+            prompt = `Você é um assistente que analisa áudios de receitas/entradas financeiras.
         O usuário vai descrever uma receita verbalmente (salário, freelance, venda, etc).
 
         Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown, sem explicações):
@@ -117,8 +123,8 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
         - Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
         - Se não mencionar a data, use a data atual no Brasil/America do Sul no formato YYYY-MM-DD no campo date (ex: 2025-12-05)
         `;
-      } else {
-        prompt = `Você é um assistente que analisa áudios de despesas.
+          } else {
+            prompt = `Você é um assistente que analisa áudios de despesas.
         O usuário vai descrever uma despesa verbalmente (compra em estabelecimento).
 
         Extraia as seguintes informações e retorne APENAS um JSON válido (sem markdown, sem explicações):
@@ -157,43 +163,47 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
         - Retorne APENAS o JSON, sem \`\`\`json ou qualquer marcação
         - Se não mencionar a data, use a data de hoje no Brasil/America do Sul no formato YYYY-MM-DD no campo date (ex: 2025-11-24)
         `;
-      }
+          }
 
-      const result = await this.model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            mimeType,
-            data: base64Audio,
-          },
-        },
-      ]);
+          const result = await this.model.generateContent([
+            prompt,
+            {
+              inlineData: {
+                mimeType,
+                data: base64Audio,
+              },
+            },
+          ]);
 
-      const response = result.response;
-      const responseText = response.text();
+          const response = result.response;
+          const responseText = response.text();
 
-      // Remove marcadores de código markdown se existirem
-      let cleanedText = responseText.trim();
-      if (cleanedText.startsWith('```json')) {
-        cleanedText = cleanedText
-          .replace(/^```json\s*/, '')
-          .replace(/\s*```$/, '');
-      } else if (cleanedText.startsWith('```')) {
-        cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
+          // Remove marcadores de código markdown se existirem
+          let cleanedText = responseText.trim();
+          if (cleanedText.startsWith('```json')) {
+            cleanedText = cleanedText
+              .replace(/^```json\s*/, '')
+              .replace(/\s*```$/, '');
+          } else if (cleanedText.startsWith('```')) {
+            cleanedText = cleanedText
+              .replace(/^```\s*/, '')
+              .replace(/\s*```$/, '');
+          }
 
-      const parsedResult = JSON.parse(cleanedText);
+          const parsedResult = JSON.parse(cleanedText);
 
-      return {
-        ...parsedResult,
-        provider: this.name,
-        confidence: 0.85,
-      };
-    } catch (error) {
-      throw new AudioRecognitionException(
-        `Erro ao analisar áudio: ${error.message}`,
-      );
-    }
+          return {
+            ...parsedResult,
+            provider: this.name,
+            confidence: 0.85,
+          };
+        } catch (error) {
+          throw new AudioRecognitionException(
+            `Erro ao analisar áudio: ${error.message}`,
+          );
+        }
+      },
+    );
   }
 
   async isAvailable(): Promise<boolean> {

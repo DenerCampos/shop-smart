@@ -64,6 +64,11 @@ alwaysApply: true
 - **uuid**: ^9.0.0
 - **RxJS**: ^7.2.0
 
+### Logging e observabilidade
+- **Winston** + **nest-winston**: logger principal; `main.ts` usa `bufferLogs: true` e `app.useLogger(WINSTON_MODULE_NEST_PROVIDER)`.
+- **winston-loki**: transporte opcional para **Grafana Cloud Loki** (`LOKI_ENABLED`, `LOKI_HOST`, `LOKI_USER_ID`, `LOKI_API_TOKEN`); import do transport com `import LokiTransport = require('winston-loki')` (pacote usa `export =`).
+- Leitura/normalização de env em `src/common/app-config/loki.config.ts` (`getLokiConfig`); `AppConfig.getLoki()` delega para esse helper.
+
 ### Testing
 - **Jest**: 29.3.1
   - ts-jest: 29.0.3
@@ -103,7 +108,11 @@ src/
 ├── payment/              # Módulo de formas de pagamento
 ├── store/                # Módulo de lojas/estabelecimentos
 ├── common/               # Módulo compartilhado
-│   ├── app-config/       # Configurações da aplicação
+│   ├── app-config/       # Configurações (inclui loki.config.ts / getLokiConfig)
+│   ├── logger/           # LoggerModule (Winston global + Loki opcional)
+│   ├── logging/          # Observabilidade: logJson, audit IA, auth
+│   ├── filters/          # AllExceptionsFilter (exceções globais)
+│   ├── middleware/       # RequestLoggingMiddleware (latência HTTP)
 │   ├── decorators/       # Decorators customizados
 │   ├── event-emitter/    # Sistema de eventos
 │   ├── pagination/       # Sistema de paginação
@@ -250,7 +259,9 @@ db/
 - Relacionamento com usuário (multi-tenant)
 
 ### Common Module
-- **App Config**: Configurações centralizadas da aplicação
+- **App Config**: Configurações centralizadas da aplicação (inclui Loki/Grafana)
+- **Logger**: `LoggerModule` global (`WinstonModule` + console + Loki condicional); `AppLoggerService` opcional para injeção
+- **Logging**: `logJson()` + contexto `Observability`; `SecurityAuditLogService` (falhas de login/refresh); `AiCallTelemetryService` (`measure` para chamadas Gemini)
 - **Decorators**: Decorators customizados do NestJS
 - **Event Emitter**: Sistema de eventos interno
 - **Pagination**: Sistema de paginação reutilizável
@@ -341,6 +352,12 @@ SSL_CERT=
 
 # Frontend (CORS)
 FRONTEND_URL=http://localhost:3000
+
+# Grafana Cloud Loki (opcional)
+LOKI_ENABLED=false
+LOKI_HOST=https://logs-prod-REGION.grafana.net
+LOKI_USER_ID=
+LOKI_API_TOKEN=
 ```
 
 ## 📦 Scripts Disponíveis
@@ -431,11 +448,20 @@ npm run migration:drop       # Dropa schema
 - Evitar SELECT * (selecionar apenas campos necessários)
 - Usar relacionamentos eager loading com cuidado
 
-### Logs
-- Logs configurados por ambiente
-- Development: Todos os níveis
-- Production: Apenas errors e warnings
-- Queries SQL logadas apenas em development
+### Logs (implementação)
+- **Transporte**: Winston; níveis por `NODE_ENV` no `LoggerModule` (ex.: `debug` em development, `warn` em produção no root logger).
+- **Registro global de exceções**: `AllExceptionsFilter` (`src/common/filters/all-exceptions.filter.ts`), registrado em `AppModule` com `APP_FILTER`. Eventos JSON (via `logJson`):
+  - `quota_exceeded` — `ApiQuotaException` (provider, limites, uso)
+  - `throttle_exceeded` — `ThrottlerException`
+  - `http_exception` — demais `HttpException` (status, path, mensagem resumida)
+  - `unhandled_error` — erros não HTTP (stack só em `development`)
+- **HTTP por requisição**: `RequestLoggingMiddleware` (`src/common/middleware/request-logging.middleware.ts`), aplicado a `*` em `AppModule.configure`; no `res.on('finish')` grava `http_request` (`method`, `path`, `status_code`, `duration_ms`). Preferir middleware ao interceptor para status final correto.
+- **Formato para Grafana/Loki**: uma linha **JSON** por evento de negócio usando `logJson` (`src/common/logging/log-event.util.ts`); contexto Nest `Observability`. No Explore (Loki): `{app="shop-smart-api"} | json | event="..."`.
+- **Autenticação**: `SecurityAuditLogService` — antes de `UnauthorizedException` em `AuthService.signIn` / `refreshToken`: `auth_login_failed` (email + `reason: invalid_credentials`) e `auth_refresh_failed` (email + `user_not_found` | `invalid_refresh`). **Nunca** logar senha nem token de refresh.
+- **IA (Gemini)**: `AiCallTelemetryService.measure()` envolve `analyze()` nos providers `GeminiProvider`, `GeminiAudioProvider`, `GeminiTextProvider`; evento `ai_provider_call` com `feature`, `provider`, `duration_ms`, `ok`; em falha `failure` (`quota` | `unknown`) e `error_message` truncada. `parseCoupon` do texto não usa `measure` (apenas `analyze`).
+- **Duplicação**: falha de quota em rota de IA pode gerar `ai_provider_call` com `ok: false` e também `quota_exceeded` no filter — aceitável para dashboards distintos.
+- **Boas práticas**: não espalhar `Logger` em todo `catch` que só relança; o filter cobre a resposta HTTP. Para novos eventos, reutilizar `logJson` e campo `event` estável.
+- **SQL TypeORM**: queries lentas / log SQL conforme ambiente (regra existente do projeto)
 
 ### Cache
 - Redis disponível para cache

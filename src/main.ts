@@ -3,14 +3,14 @@ import { AppModule } from './app.module';
 import { AppConfig } from './common/app-config/app.config';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger:
-      process.env.NODE_ENV === 'development'
-        ? ['log', 'debug', 'error', 'verbose', 'warn']
-        : ['error', 'warn'], // Em produção mostra apenas erros e warnings
+    bufferLogs: true,
   });
+
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
   const appConfig = new AppConfig();
   const { host, port } = appConfig.getApi();
