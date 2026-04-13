@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -15,8 +14,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { UserResponseDto } from './dto/user-response.dto';
 import { ResponseService } from 'src/common/response/response';
-import { UserListDto } from './dto/user-list.dto';
-import { paginationData } from 'src/common/pagination/pagination';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { User } from './entities/user.entity';
 
 @Controller('/user')
 export class UserController {
@@ -33,19 +32,12 @@ export class UserController {
   }
 
   @UseGuards(AuthGuard)
-  @Get()
-  async findAll(
-    @Query() listDto: UserListDto,
-  ): Promise<paginationData<UserResponseDto>> {
-    const users = await this.userService.findAll(listDto);
-
-    return this.responseService.mapPaginatedToDto(UserResponseDto, users);
-  }
-
-  @UseGuards(AuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.userService.find(id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<UserResponseDto> {
+    const user = await this.userService.findAndValidateOwnership(id, currentUser.id);
 
     return this.responseService.mapToDto(UserResponseDto, user);
   }
@@ -55,7 +47,10 @@ export class UserController {
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() currentUser: User,
   ): Promise<UserResponseDto> {
+    await this.userService.findAndValidateOwnership(id, currentUser.id);
+
     const user = await this.userService.update(id, updateUserDto);
 
     return this.responseService.mapToDto(UserResponseDto, user);
@@ -63,7 +58,12 @@ export class UserController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  async delete(@Param('id') id: string): Promise<object> {
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<object> {
+    await this.userService.findAndValidateOwnership(id, currentUser.id);
+
     const deleted = await this.userService.delete(id);
 
     return { deleted };

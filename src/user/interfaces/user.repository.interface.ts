@@ -4,7 +4,6 @@ import { User } from '../entities/user.entity';
 
 export interface IUserRepository {
   create(newUser: CreateUserDto): Promise<User>;
-  findAll(page: number, limit: number): Promise<[User[], number]>;
   find(id: string): Promise<User | null>;
   update(user: User, updateUser: UpdateUserDto): Promise<User>;
   remove(id: string): Promise<User>;

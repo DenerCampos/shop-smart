@@ -32,16 +32,6 @@ export class UserRepository implements IUserRepository {
     return await this.userEntity.save(newUser);
   }
 
-  async findAll(page: number, limit: number): Promise<[User[], number]> {
-    const queryBuilder = this.userEntity.createQueryBuilder('user');
-
-    if (page !== undefined && limit !== undefined) {
-      queryBuilder.skip(page).take(limit);
-    }
-
-    return await queryBuilder.getManyAndCount();
-  }
-
   async countAll(): Promise<number> {
     return await this.userEntity.count({
       withDeleted: false,
