@@ -43,8 +43,16 @@ export class CoinRepository implements ICoinRepository {
     return repository.save(coin);
   }
 
-  async findAll(page: number, limit: number): Promise<[Coin[], number]> {
-    const queryBuilder = this.coinEntity.createQueryBuilder('coin');
+  async findAll(
+    page: number,
+    limit: number,
+    userId: string,
+  ): Promise<[Coin[], number]> {
+    const queryBuilder = this.coinEntity
+      .createQueryBuilder('coin')
+      .innerJoin('coin.user', 'user')
+      .where('user.id = :userId', { userId })
+      .andWhere('coin.deletedAt IS NULL');
 
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
@@ -55,6 +63,13 @@ export class CoinRepository implements ICoinRepository {
 
   async find(id: string): Promise<Coin | null> {
     return await this.coinEntity.findOneBy({ id });
+  }
+
+  async findWithUser(id: string): Promise<Coin | null> {
+    return await this.coinEntity.findOne({
+      where: { id },
+      relations: ['user'],
+    });
   }
 
   async findByUserId(userId: string): Promise<Coin | null> {

@@ -12,8 +12,9 @@ export interface ICoinRepository {
     createCoinDto: CreateCoinDto,
     manager?: EntityManager,
   ): Promise<Coin>;
-  findAll(page: number, limit: number): Promise<[Coin[], number]>;
+  findAll(page: number, limit: number, userId: string): Promise<[Coin[], number]>;
   find(id: string): Promise<Coin | null>;
+  findWithUser(id: string): Promise<Coin | null>;
   findByUserId(userId: string): Promise<Coin | null>;
   update(
     coin: Coin,

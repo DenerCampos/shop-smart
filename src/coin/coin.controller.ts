@@ -45,8 +45,9 @@ export class CoinController {
   @Get()
   async findAll(
     @Query() listDto: CoinListDto,
+    @CurrentUser() user: User,
   ): Promise<paginationData<CoinResponseDto>> {
-    const coins = await this.coinService.findAll(listDto);
+    const coins = await this.coinService.findAll(listDto, user.id);
 
     return this.responseService.mapPaginatedToDto(CoinResponseDto, coins);
   }
@@ -61,8 +62,11 @@ export class CoinController {
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<CoinResponseDto> {
-    const coin = await this.coinService.find(id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<CoinResponseDto> {
+    const coin = await this.coinService.findAndValidateOwnership(id, user.id);
 
     return this.responseService.mapToDto(CoinResponseDto, coin);
   }
@@ -72,15 +76,23 @@ export class CoinController {
   async update(
     @Param('id') id: string,
     @Body() updateCoinDto: UpdateCoinDto,
+    @CurrentUser() user: User,
   ): Promise<CoinResponseDto> {
-    const coin = await this.coinService.update(id, updateCoinDto);
+    const validatedCoin = await this.coinService.findAndValidateOwnership(id, user.id);
+
+    const coin = await this.coinService.update(id, updateCoinDto, validatedCoin);
 
     return this.responseService.mapToDto(CoinResponseDto, coin);
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<object> {
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<object> {
+    await this.coinService.findAndValidateOwnership(id, user.id);
+
     const deleted = await this.coinService.delete(id);
 
     return { deleted };

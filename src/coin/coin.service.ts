@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateCoinDto } from './dto/create-coin.dto';
@@ -87,12 +87,16 @@ export class CoinService {
     return this.coinRepository.create(user, createCoinDto, manager);
   }
 
-  async findAll(userList: CoinListDto): Promise<paginationData<Coin>> {
+  async findAll(
+    userList: CoinListDto,
+    userId: string,
+  ): Promise<paginationData<Coin>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
 
     const [users, total] = await this.coinRepository.findAll(
       offset,
       userList.limit,
+      userId,
     );
 
     const paginateData = this.pagination.paginateData<Coin>(
@@ -110,8 +114,22 @@ export class CoinService {
     return this.coinRepository.find(coinId);
   }
 
-  async update(coinId: string, updateCoinDto: UpdateCoinDto): Promise<Coin> {
-    const coin = await this.coinRepository.find(coinId);
+  async findAndValidateOwnership(coinId: string, userId: string): Promise<Coin> {
+    const coin = await this.coinRepository.findWithUser(coinId);
+
+    if (!coin) {
+      throw new NotExistException();
+    }
+
+    if (coin.user.id !== userId) {
+      throw new ForbiddenException();
+    }
+
+    return coin;
+  }
+
+  async update(coinId: string, updateCoinDto: UpdateCoinDto, existingCoin?: Coin): Promise<Coin> {
+    const coin = existingCoin ?? (await this.coinRepository.find(coinId));
 
     if (!coin) {
       throw new NotExistException();

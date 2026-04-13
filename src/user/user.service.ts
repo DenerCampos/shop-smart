@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -7,23 +7,20 @@ import { AppConfig } from '../common/app-config/app.config';
 import * as bcrypt from 'bcrypt';
 import { IUserRepository } from './interfaces/user.repository.interface';
 import { User } from './entities/user.entity';
-import { Pagination, paginationData } from 'src/common/pagination/pagination';
-import { UserListDto } from './dto/user-list.dto';
 import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import { NotExistException } from 'src/exception/notExistException';
 import { UserCreatedEvent } from './events/user-created.event';
 
 @Injectable()
 export class UserService {
   private readonly saltOrRounds: number;
-  private readonly url = `${this.appConfig.getBaseUrl()}/user`;
   private readonly limitUsers: number = 15;
 
   constructor(
     @Inject('IUserRepository')
     private readonly userRepository: IUserRepository,
     private readonly appConfig: AppConfig,
-    private readonly pagination: Pagination,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {
@@ -56,23 +53,18 @@ export class UserService {
     return user;
   }
 
-  async findAll(userList: UserListDto): Promise<paginationData<User>> {
-    const offset = this.pagination.getOffset(userList.page, userList.limit);
+  async findAndValidateOwnership(userId: string, currentUserId: string): Promise<User> {
+    if (userId !== currentUserId) {
+      throw new ForbiddenException();
+    }
 
-    const [users, total] = await this.userRepository.findAll(
-      offset,
-      userList.limit,
-    );
+    const user = await this.userRepository.find(userId);
 
-    const paginateData = this.pagination.paginateData<User>(
-      users,
-      userList.page,
-      userList.limit,
-      total,
-      this.url,
-    );
+    if (!user) {
+      throw new NotExistException();
+    }
 
-    return paginateData;
+    return user;
   }
 
   async find(userId: string): Promise<User | null> {

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'node:path';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmConfig } from './config/typeorm.config';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
@@ -22,7 +23,7 @@ import { TextRecognitionModule } from './text-recognition/textRecognition.module
 import { FamilyGroupModule } from './family-group/family-group.module';
 import { ShoppingListModule } from './shopping-list/shopping-list.module';
 import { AlexaModule } from './alexa/alexa.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -33,6 +34,10 @@ import { ThrottlerModule } from '@nestjs/throttler';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
       serveRoot: '/public',
+    }),
+    ThrottlerModule.forRoot({
+      ttl: 60,
+      limit: 120,
     }),
     UserModule,
     AuthModule,
@@ -50,14 +55,15 @@ import { ThrottlerModule } from '@nestjs/throttler';
     AudioRecognitionModule,
     TextRecognitionModule,
     FamilyGroupModule,
-    ThrottlerModule.forRoot({
-      ttl: 60,
-      limit: 120,
-    }),
     ShoppingListModule,
     AlexaModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
