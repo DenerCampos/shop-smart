@@ -12,6 +12,7 @@ import { UserModule } from 'src/user/user.module';
 import { GroupModule } from 'src/group/group.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
+import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 
 @Module({
   imports: [
@@ -31,10 +32,12 @@ import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
     },
     {
       provide: 'RECOGNITION_PROVIDERS',
-      useFactory: (appConfig: AppConfig, apiQuotaService: ApiQuotaService) => [
-        new GeminiProvider(appConfig, apiQuotaService),
-      ],
-      inject: [AppConfig, ApiQuotaService],
+      useFactory: (
+        appConfig: AppConfig,
+        apiQuotaService: ApiQuotaService,
+        aiCallTelemetry: AiCallTelemetryService,
+      ) => [new GeminiProvider(appConfig, apiQuotaService, aiCallTelemetry)],
+      inject: [AppConfig, ApiQuotaService, AiCallTelemetryService],
     },
   ],
   exports: [ImageRecognitionService, 'IImageRecognitionRepository'],

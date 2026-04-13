@@ -5,6 +5,7 @@ import { GroupModule } from 'src/group/group.module';
 import { UserModule } from 'src/user/user.module';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
+import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 import { TextRecognition } from './entities/textRecognition.entity';
 import { TextRecognitionRepository } from './repositories/textRecognition.repository';
 import { TextRecognitionService } from './textRecognition.service';
@@ -29,10 +30,12 @@ import { GeminiTextProvider } from './providers/gemini/gemini-text.provider';
     },
     {
       provide: 'TEXT_RECOGNITION_PROVIDERS',
-      useFactory: (appConfig: AppConfig, apiQuotaService: ApiQuotaService) => [
-        new GeminiTextProvider(appConfig, apiQuotaService),
-      ],
-      inject: [AppConfig, ApiQuotaService],
+      useFactory: (
+        appConfig: AppConfig,
+        apiQuotaService: ApiQuotaService,
+        aiCallTelemetry: AiCallTelemetryService,
+      ) => [new GeminiTextProvider(appConfig, apiQuotaService, aiCallTelemetry)],
+      inject: [AppConfig, ApiQuotaService, AiCallTelemetryService],
     },
   ],
   exports: [TextRecognitionService],
