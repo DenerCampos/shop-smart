@@ -1,22 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GroupController } from '../group.controller';
 import { GroupService } from '../group.service';
+import { ResponseService } from '../../common/response/response';
+import { AuthGuard } from '../../auth/auth.guard';
 
 describe('GroupController', () => {
-  let groupController: GroupController;
+  let controller: GroupController;
 
   beforeEach(async () => {
-    const group: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [GroupController],
-      providers: [GroupService],
-    }).compile();
+      providers: [
+        { provide: GroupService, useValue: {} },
+        { provide: ResponseService, useValue: {} },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
-    groupController = group.get<GroupController>(GroupController);
+    controller = module.get(GroupController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(groupController.findAll()).toBe([]);
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });

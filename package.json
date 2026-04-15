@@ -14,11 +14,16 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node --optimize-for-size --max-old-space-size=256 dist/src/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --runInBand",
+    "test:ci": "jest --runInBand --forceExit",
+    "test:low-mem": "NODE_OPTIONS=--max-old-space-size=1024 jest --runInBand --forceExit --logHeapUsage",
+    "test:watch": "jest --watch --runInBand",
+    "test:cov": "jest --coverage --runInBand",
+    "test:cov:ci": "jest --coverage --runInBand --forceExit",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:e2e:ci": "jest --config ./test/jest-e2e.json --runInBand --forceExit",
     "typeorm": "npm run build && npx typeorm -d dist/db/data-source.js",
     "schema:log": "npm run build && npx typeorm schema:log -d dist/db/data-source.js",
     "migration:generate": "npm run typeorm -- migration:generate",
@@ -97,12 +102,20 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "isolatedModules": true
+        }
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    }
   }
 }

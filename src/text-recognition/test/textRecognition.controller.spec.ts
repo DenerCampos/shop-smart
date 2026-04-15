@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TextRecognitionController } from '../textRecognition.controller';
+import { TextRecognitionService } from '../textRecognition.service';
+import { ResponseService } from '../../common/response/response';
+import { AuthGuard } from '../../auth/auth.guard';
 
 describe('TextRecognitionController', () => {
   let controller: TextRecognitionController;
@@ -7,11 +10,16 @@ describe('TextRecognitionController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TextRecognitionController],
-    }).compile();
+      providers: [
+        { provide: TextRecognitionService, useValue: {} },
+        { provide: ResponseService, useValue: {} },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
-    controller = module.get<TextRecognitionController>(
-      TextRecognitionController,
-    );
+    controller = module.get(TextRecognitionController);
   });
 
   it('should be defined', () => {
