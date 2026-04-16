@@ -513,6 +513,54 @@ ls -lh /home/dener/projetos/shop_smart/api/db/backup/
 
 ---
 
+# CI/CD (GitHub Actions)
+
+O repositório inclui workflows em [`.github/workflows/`](.github/workflows/) para rodar testes em pull requests e, após código na branch `main`, disparar deploy por SSH na VPS (mesma ideia do `deploy.sh`, porém com o script não interativo `ci_deploy.sh`).
+
+## Workflows
+
+| Workflow | Arquivo | Quando executa | O que faz |
+|----------|---------|----------------|-----------|
+| **CI** | [`ci.yml`](.github/workflows/ci.yml) | Pull request para `main` | Checkout, `npm ci`, `npm run test:ci` |
+| **Deploy** | [`deploy.yml`](.github/workflows/deploy.yml) | Push para `main` (ex.: após merge do PR) | Repete os testes; se passarem, abre SSH na VPS e executa `bash ci_deploy.sh` no diretório configurado |
+
+## Como usar no fluxo Git
+
+1. Desenvolva em uma branch e abra um **pull request** para `main`. O workflow **CI** aparece na aba **Actions** e na página do PR.
+2. Após revisão, faça **merge** na `main`. Isso gera um push e dispara o workflow **Deploy**: testes de novo e, em seguida, conexão SSH + `ci_deploy.sh` (backup, `git pull`, build Docker, subida dos containers, migrations quando detectadas).
+3. Deploy **manual** na VPS continua disponível com [`deploy.sh`](deploy.sh) (perguntas interativas). O fluxo automatizado usa apenas [`ci_deploy.sh`](ci_deploy.sh).
+
+## Configuração no GitHub
+
+### Secrets (obrigatório para o Deploy)
+
+Cadastre em **Settings → Secrets and variables → Actions → New repository secret**. **Não** coloque chaves ou senhas no repositório; use apenas estes nomes de secret no GitHub (valores são os seus, fora do git):
+
+| Nome do secret | Conteúdo esperado |
+|----------------|-------------------|
+| `DEPLOY_SSH_HOST` | IP ou hostname público da VPS (exemplo ilustrativo: `203.0.113.50`). |
+| `DEPLOY_SSH_USER` | Usuário SSH (ex.: `ubuntu`, `opc`). |
+| `DEPLOY_SSH_PRIVATE_KEY` | Chave **privada** em texto (incluindo linhas `BEGIN` / `END`). Recomenda-se um par **só para CI**; a chave **pública** correspondente deve estar em `authorized_keys` na VPS. |
+| `DEPLOY_REMOTE_DIR` | Caminho absoluto do clone do projeto na VPS (ex.: `/home/ubuntu/shop-smart`). |
+
+A action [appleboy/ssh-action](https://github.com/appleboy/ssh-action) usa porta **22** por padrão. Se a SSH da VPS for outra porta, edite [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) e inclua `port:` no passo (valor numérico, sem commitar segredos).
+
+### Branch protection (opcional)
+
+Em **Settings → Branches**, regras na `main` podem exigir pull request e que o status check **unit-tests** (workflow **CI**) passe antes do merge. Isso **não** ativa o workflow; só impede merge sem testes verdes. O **Deploy** continua dependendo do push na `main` e dos secrets acima.
+
+## Requisitos na VPS
+
+- Diretório `DEPLOY_REMOTE_DIR` com clone do repo, `docker-compose` e o mesmo contexto em que você já roda `./deploy.sh`.
+- `git remote` apontando para este repositório GitHub (o `ci_deploy.sh` faz `git pull origin main`).
+- Após o primeiro merge que trouxer `ci_deploy.sh`, o arquivo estará no servidor após o `git pull` (ou um pull manual inicial).
+
+## Plano gratuito e minutos
+
+Repositórios **públicos** costumam ter uso amplo de GitHub Actions; **privados** seguem a cota de minutos do plano gratuito da conta. A VPS (ex.: Oracle) é independente: o workflow apenas executa comandos remotos por SSH.
+
+---
+
 # 🚀 Deploy e Monitoramento
 
 Este projeto possui scripts automatizados para facilitar o deploy em produção e monitoramento de recursos.
