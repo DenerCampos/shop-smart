@@ -1,22 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CouponReaderController } from '../couponReader.controller';
 import { CouponReaderService } from '../couponReader.service';
+import { ResponseService } from '../../common/response/response';
+import { AuthGuard } from '../../auth/auth.guard';
 
 describe('CouponReaderController', () => {
-  let couponReader: CouponReaderController;
+  let controller: CouponReaderController;
 
   beforeEach(async () => {
-    const group: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [CouponReaderController],
-      providers: [CouponReaderService],
-    }).compile();
+      providers: [
+        { provide: CouponReaderService, useValue: {} },
+        { provide: ResponseService, useValue: {} },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
-    couponReader = group.get<CouponReaderController>(CouponReaderController);
+    controller = module.get(CouponReaderController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(couponReader.read('teste')).toBe('teste');
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });

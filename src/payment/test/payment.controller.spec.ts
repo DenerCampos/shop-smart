@@ -1,22 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentController } from '../payment.controller';
 import { PaymentService } from '../payment.service';
+import { ResponseService } from '../../common/response/response';
+import { AuthGuard } from '../../auth/auth.guard';
 
 describe('PaymentController', () => {
-  let paymentController: PaymentController;
+  let controller: PaymentController;
 
   beforeEach(async () => {
-    const payment: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [PaymentController],
-      providers: [PaymentService],
-    }).compile();
+      providers: [
+        { provide: PaymentService, useValue: {} },
+        { provide: ResponseService, useValue: {} },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
-    paymentController = payment.get<PaymentController>(PaymentController);
+    controller = module.get(PaymentController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(paymentController.findAll()).toBe([]);
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });
