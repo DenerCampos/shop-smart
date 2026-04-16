@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run test:ci
+
+  deploy:
+    needs: [unit-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_REMOTE_DIR: ${{ secrets.DEPLOY_REMOTE_DIR }}
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          envs: DEPLOY_REMOTE_DIR
+          script_stop: true
+          command_timeout: 45m
+          script: |
+            set -euo pipefail
+            if [ -z "${DEPLOY_REMOTE_DIR:-}" ]; then
+              echo "DEPLOY_REMOTE_DIR não definido (secret no GitHub)." >&2
+              exit 1
+            fi
+            cd "$DEPLOY_REMOTE_DIR"
+            bash ci_deploy.sh
