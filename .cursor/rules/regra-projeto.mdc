@@ -471,6 +471,14 @@ npm run migration:drop       # Dropa schema
 
 ## 🧪 Testing
 
+### Obrigatoriedade (entrega de código)
+- **Testes unitários (obrigatório)**: toda **nova função** ou **alteração relevante** em lógica de aplicação deve vir acompanhada de testes unitários no padrão do projeto (`*.spec.ts` em `src/`, Jest + `@nestjs/testing`). Prioridade: **services**, utilitários compartilhados, regras de domínio e fluxos com branches/erros.
+- **Testes de integração / E2E (obrigatório para rotas HTTP)**: ao **implementar uma nova rota** (ou mudança de contrato HTTP que afete clientes), incluir teste de integração seguindo o padrão já estabelecido:
+  - arquivos em `test/**/*.e2e-spec.ts`;
+  - app via `test/e2e/helpers/create-e2e-app.ts` (ou equivalente alinhado a `test/configure-e2e-app.ts`), com mocks de fronteiras externas em `test/e2e/helpers/external-mocks.ts` quando aplicável;
+  - ambiente e banco: ver `.env.test.example`, `test/e2e-global-setup.js` e documentação em `test/E2E-ESTRATEGIA.md` / `.cursor/docs/testes.md`.
+- **Cobertura mínima de cenários**: além do caminho feliz, cobrir respostas de erro relevantes (validação 4xx, 401/403, 404, regras de negócio que lançam exceções do domínio), quando fizer parte do comportamento público da função ou da rota.
+
 ### Configuração Jest
 - Test regex: `.*\.spec\.ts$`
 - Transform: ts-jest
@@ -479,10 +487,10 @@ npm run migration:drop       # Dropa schema
 - Root dir: src/
 
 ### Estrutura de Testes
-- Testes unitários por módulo (*.spec.ts)
-- Testes E2E (test/*.e2e-spec.ts)
-- Mocks e stubs com @nestjs/testing
-- **Testar lógica de negócio crítica**
+- Testes unitários por módulo (`*.spec.ts` sob `src/`)
+- Testes E2E / integração (`test/**/*.e2e-spec.ts`, config `test/jest-e2e.json`)
+- Mocks e stubs com `@nestjs/testing`
+- **Testar lógica de negócio crítica** e contratos HTTP novos ou alterados
 
 ## 💡 Boas Práticas de Código
 
@@ -672,7 +680,7 @@ nome-modulo/
 - ✅ Usar DTOs para entrada e saída
 - ✅ Tratar erros apropriadamente
 - ✅ Fazer backup antes de mudanças críticas
-- ✅ Testar código antes de commit
+- ✅ Testar código antes de commit (**unitários** para funções alteradas; **E2E/integração** para novas rotas — ver seção Testing)
 - ✅ Documentar código complexo
 - ✅ Seguir padrões do projeto
 - ✅ Usar TypeScript corretamente (tipagem forte)

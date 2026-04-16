@@ -715,6 +715,12 @@ async findExpense(id: string, userId: string): Promise<Expense> {
 
 ## 🧪 Testes
 
+### O que o revisor deve verificar (obrigatório no projeto)
+- **Novas ou alteradas funções** (principalmente em services, helpers e regras de negócio): existe **`*.spec.ts`** correspondente ou casos adicionados aos testes existentes? Os testes cobrem **cenários importantes** (sucesso, erros esperados, limites e branches relevantes), não apenas um happy path vazio?
+- **Novas rotas HTTP** (ou mudança de contrato de API): existe teste **E2E / integração** em `test/**/*.e2e-spec.ts` no **padrão do repositório** (`createE2eApplication`, `configureE2eApp`, auth com seed quando necessário, mocks em `external-mocks` para serviços externos)?
+- **Qualidade da suíte**: nomes de `describe`/`it` claros; **Arrange–Act–Assert**; mocks estáveis; asserções que validem status, formato de resposta e regras que importem para o domínio (paginação, ownership, etc.).
+- **Lacunas comuns a apontar**: função pública sem teste; rota nova só com teste manual; teste que não cobre validação (`ValidationPipe`) ou códigos HTTP esperados; teste fraco (só `toBeDefined` sem comportamento).
+
 ### 1. Estrutura de Testes
 
 #### Testes Unitários
@@ -947,10 +953,11 @@ export class CreateExpenseDto {
 - [ ] Validações de negócio no service
 
 ### Testes
-- [ ] Testes unitários para lógica crítica
-- [ ] Arrange-Act-Assert pattern
-- [ ] Mocks apropriados
-- [ ] Coverage adequado
+- [ ] **Novas/alteradas funções** com lógica relevante possuem testes unitários (`*.spec.ts`) ou casos adicionados aos existentes
+- [ ] **Novas rotas HTTP** (ou mudança de contrato) possuem teste E2E/integração em `test/**/*.e2e-spec.ts` seguindo o padrão do projeto (`createE2eApplication`, mocks externos quando aplicável)
+- [ ] Cenários cobrem **happy path** e **falhas importantes** (validação, auth, not found, regras de negócio), quando aplicável
+- [ ] Arrange-Act-Assert; mocks apropriados; asserções significativas (não só smoke genérico)
+- [ ] Coverage adequado para o que foi alterado
 
 ### Documentação
 - [ ] Swagger/OpenAPI documentado
@@ -994,6 +1001,11 @@ export class CreateExpenseDto {
 - 🔴 Uso excessivo de `any`
 - 🔴 Falta de tratamento de erros
 - 🔴 Hardcoded values (sem constantes)
+
+### Testes
+- 🔴 **Nova rota HTTP** sem teste E2E/integração no padrão do repositório
+- 🔴 **Nova lógica relevante** em service/helper sem teste unitário (ou sem ampliação da suíte existente)
+- 🔴 Testes que **não cobrem cenários críticos** expostos pelo PR (ex.: só sucesso quando há regras de erro claras)
 
 ---
 
