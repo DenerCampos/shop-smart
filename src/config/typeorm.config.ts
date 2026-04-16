@@ -16,7 +16,7 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
       username: user ?? process.env.API_DB_USER,
       password: pass ?? process.env.API_DB_PASS,
       database: name ?? process.env.API_DB_NAME,
-      entities: ['dist/**/*.entity.js'],
+      autoLoadEntities: true,
       migrations: ['dist/db/migrations/*.js'],
       logging:
         process.env.NODE_ENV === 'development'
@@ -35,14 +35,14 @@ export class TypeOrmConfig implements TypeOrmOptionsFactory {
       dropSchema: false,
       // synchronize: appConfig.isDevelopment(),
       // Configurações CRÍTICAS para plano free:
-      poolSize: 2, // Máximo de conexões simultâneas
+      poolSize: 4, // Máximo de conexões simultâneas
+      // Opções do pool mysql2 (não repetir ssl aqui — já em `ssl` acima).
+      // allowPublicKeyRetrieval em `extra` gera aviso no mysql2 3.x; usar auth nativa ou root com plugin compatível.
       extra: {
         charset: 'utf8mb4_unicode_ci',
-        connectionLimit: 2, // Igual ao poolSize
+        connectionLimit: 4, // Igual ao poolSize
         idleTimeout: 30000, // Fecha conexões ociosas após 30s
         enableKeepAlive: true, // Mantém conexões vivas
-        allowPublicKeyRetrieval: true, // Permite recuperação de chave pública
-        ssl: false, // Desabilita SSL na conexão
       },
       retryAttempts: 3, // Número de tentativas de reconexão
       retryDelay: 3000, // Delay entre tentativas (3 segundos)

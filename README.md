@@ -32,6 +32,32 @@
 $ npm install
 ```
 
+## Ambiente de desenvolvimento
+
+### Arquivos de ambiente (`.env`)
+
+| Arquivo | Uso |
+|---------|-----|
+| **`.env-default`** | Referência de variáveis (pode copiar trechos para o seu `.env`). Não é carregado automaticamente pela aplicação. |
+| **`.env`** | Configuração local da API (desenvolvimento/produção conforme você definir). **Não commitar** — contém segredos. Use `API_DB_NAME=shop_smart` (ou o nome do banco de dev que você criou). |
+| **`.env.test`** | Usado pelos testes **E2E** e pelo script `npm run seed:test`. **Não commitar.** Crie a partir de **`.env.test.example`**. |
+| **`.env.test.example`** | Modelo versionado: copie para `.env.test` e ajuste host, portas e credenciais MySQL. |
+
+Variáveis MySQL usuais: `API_DB_HOST`, `API_DB_PORT`, `API_DB_USER`, `API_DB_PASS`, `API_DB_NAME`, `API_DB_ROOT_PASS` (ou `MYSQL_ADMIN_PASS`, conforme o script de criação de bases). Para **E2E**, `API_DB_NAME` deve ser **`shop_smart_test`** (o pipeline de testes valida isso antes de rodar `schema:drop`).
+
+Se o cliente **`mysql` não estiver instalado** na máquina host, defina **`MYSQL_DOCKER_CONTAINER`** no `.env` ou `.env.test` com o nome do container Docker do MySQL (ex.: o serviço do `docker-compose`). O script `npm run db:create` passa a executar o SQL via `docker exec`.
+
+### Criação dos bancos `shop_smart` e `shop_smart_test`
+
+Uma vez o MySQL acessível (local ou container):
+
+```bash
+# Cria os bancos (IF NOT EXISTS) e aplica GRANTs — lê .env e .env.test para senha de admin
+npm run db:create
+```
+
+Detalhes: script `scripts/create-shop-smart-databases.sh` e SQL em `scripts/create-shop-smart-databases.sql`. Depois, para o banco de **desenvolvimento** apontado pelo `.env`, execute as migrações (`npm run migration:run`). Os **E2E** rodam migrações e seeds no `shop_smart_test` no `globalSetup` do Jest (ver seção **Testes** abaixo).
+
 ## Running the app
 
 ```bash
@@ -45,17 +71,49 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
-## Test
+## Testes
+
+A documentação detalhada (estrutura de pastas, mocks sem banco, E2E com MySQL) está em [`.cursor/docs/testes.md`](.cursor/docs/testes.md). Resumo:
+
+### Testes unitários
+
+- **Onde:** `src/<módulo>/test/*.spec.ts` (ex.: `auth.service.spec.ts`, `user.controller.spec.ts`).
+- **Comando:** `npm run test` (ou `npm run test:watch`, `npm run test:cov`).
+- **Ideia:** `Test.createTestingModule` do NestJS, dependências mockadas; **não** subir `TypeOrmModule.forRoot` — usar tokens de repositório / factories mockadas.
+- **CI / handles abertos:** `npm run test:ci` usa `--forceExit` se o processo não encerrar sozinho.
+
+### Testes de integração (HTTP, sem DB real)
+
+- **Onde:** mesmo padrão `*.spec.ts` sob `src/`, por exemplo `src/auth/test/auth.integration.spec.ts`.
+- **Comando:** incluídos em `npm run test` (mesmo `testRegex` que os unitários).
+- **Ideia:** `createNestApplication()`, Supertest, `app.close()` no `afterAll`; módulos reais com providers mockados; alinhar `ValidationPipe` / guards com `main.ts` quando necessário (`overrideProvider(ThrottlerGuard)` etc.).
+
+### Testes E2E (com MySQL `shop_smart_test`)
+
+- **Onde:** `test/*.e2e-spec.ts` (config: `test/jest-e2e.json`).
+- **Pré-requisitos:** bases criadas (`npm run db:create`), arquivo **`.env.test`** na raiz (cópia de `.env.test.example`) com **`API_DB_NAME=shop_smart_test`**.
+- **Fluxo:** `load-env-test` → `globalSetup` (build, `migration:run`, seeds de dev no banco de teste) → suíte → `globalTeardown` (`schema:drop` no `shop_smart_test`).
+- **Comandos:** `npm run test:e2e` · `npm run test:e2e:ci` (com `--forceExit`).
+- **Estratégia:** [`test/E2E-ESTRATEGIA.md`](test/E2E-ESTRATEGIA.md); app de teste: [`test/configure-e2e-app.ts`](test/configure-e2e-app.ts).
+
+### Scripts relacionados a testes e banco
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run typecheck` | `tsc --noEmit` — checagem de tipos (complementa Jest com `isolatedModules`). |
+| `npm run db:create` | Cria `shop_smart` e `shop_smart_test` e permissões (ver **Ambiente de desenvolvimento**). |
+| `npm run seed:test` | Build + seeds de dev usando **`.env.test`** (debug manual, fora do Jest). |
+| `npm run seed:dev` | Seeds de desenvolvimento usando **`.env`** (apenas `NODE_ENV` ≠ `production`). |
 
 ```bash
-# unit tests
-$ npm run test
+# testes unitários + integração (src/**/*.spec.ts)
+npm run test
 
-# e2e tests
-$ npm run test:e2e
+# E2E (requer .env.test e MySQL)
+npm run test:e2e
 
-# test coverage
-$ npm run test:cov
+# cobertura
+npm run test:cov
 ```
 
 # Scripts Commands
@@ -965,6 +1023,8 @@ O projeto inclui uma ferramenta web para testar o reconhecimento de áudio local
 
 ## 📚 Documentação Adicional
 
+- **Testes (Jest, E2E, mocks)**: `.cursor/docs/testes.md`
+- **Estratégia E2E**: `test/E2E-ESTRATEGIA.md`
 - **Diagnóstico de Build**: `docs/DIAGNOSTICO-BUILD.md`
 - **Por que não fazer npm no container**: `docs/WHY-NOT-NPM-IN-CONTAINER.md`
 - **Regras do Projeto**: `.cursor/rules/regra-projeto.md`
