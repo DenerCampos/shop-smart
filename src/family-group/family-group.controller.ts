@@ -56,9 +56,8 @@ export class FamilyGroupController {
   async getInvitations(
     @CurrentUser() user: User,
   ): Promise<FamilyGroupMemberResponseDto[]> {
-    const invitations = await this.familyGroupService.getPendingInvitations(
-      user,
-    );
+    const invitations =
+      await this.familyGroupService.getPendingInvitations(user);
     return this.responseService.mapArrayToDto(
       FamilyGroupMemberResponseDto,
       invitations,

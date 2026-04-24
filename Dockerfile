@@ -1,5 +1,5 @@
 # Estágio 1: Build da aplicação
-FROM node:18.10-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
@@ -21,7 +21,7 @@ RUN npm prune --production
 # ---
 
 # Estágio 2: Imagem final (Runtime)
-FROM node:18.10-alpine
+FROM node:20-alpine
 
 WORKDIR /usr/src/app
 

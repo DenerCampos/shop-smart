@@ -1,4 +1,5 @@
 import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AppConfig } from './common/app-config/app.config';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
@@ -6,9 +7,11 @@ import { useContainer } from 'class-validator';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
+  // Express 5: manter parser "extended" (equivalente ao Express 4) para query strings
+  app.set('query parser', 'extended');
 
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 

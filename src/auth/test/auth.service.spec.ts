@@ -30,10 +30,7 @@ describe('AuthService', () => {
   let usersService: jest.Mocked<
     Pick<
       UserService,
-      | 'findByEmail'
-      | 'saveToken'
-      | 'saveRefreshToken'
-      | 'findByRefreshToken'
+      'findByEmail' | 'saveToken' | 'saveRefreshToken' | 'findByRefreshToken'
     >
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
@@ -42,7 +39,9 @@ describe('AuthService', () => {
   >;
   let oauthClientRepo: ReturnType<typeof createRepositoryMock<OauthClient>>;
   let oauthCodeRepo: ReturnType<typeof createRepositoryMock<OauthCode>>;
-  let oauthConnectionRepo: ReturnType<typeof createRepositoryMock<OauthConnection>>;
+  let oauthConnectionRepo: ReturnType<
+    typeof createRepositoryMock<OauthConnection>
+  >;
   let familyGroupService: jest.Mocked<
     Pick<FamilyGroupService, 'findGroupsByUser'>
   >;

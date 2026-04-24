@@ -106,7 +106,9 @@ describe('FamilyGroupController', () => {
     );
     await controller.getMembers('g1', u);
     expect(familyGroupService.getMembers).toHaveBeenCalledWith('g1', u.id);
-    await controller.updateMemberRole('g1', 'm1', u, { role: 'admin' } as never);
+    await controller.updateMemberRole('g1', 'm1', u, {
+      role: 'admin',
+    } as never);
     expect(familyGroupService.updateMemberRole).toHaveBeenCalledWith(
       'g1',
       'm1',

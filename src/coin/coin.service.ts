@@ -114,7 +114,10 @@ export class CoinService {
     return this.coinRepository.find(coinId);
   }
 
-  async findAndValidateOwnership(coinId: string, userId: string): Promise<Coin> {
+  async findAndValidateOwnership(
+    coinId: string,
+    userId: string,
+  ): Promise<Coin> {
     const coin = await this.coinRepository.findWithUser(coinId);
 
     if (!coin) {
@@ -128,7 +131,11 @@ export class CoinService {
     return coin;
   }
 
-  async update(coinId: string, updateCoinDto: UpdateCoinDto, existingCoin?: Coin): Promise<Coin> {
+  async update(
+    coinId: string,
+    updateCoinDto: UpdateCoinDto,
+    existingCoin?: Coin,
+  ): Promise<Coin> {
     const coin = existingCoin ?? (await this.coinRepository.find(coinId));
 
     if (!coin) {

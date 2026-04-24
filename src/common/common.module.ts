@@ -19,7 +19,10 @@ import { SecurityAuditLogService } from './logging/security-audit-log.service';
 import { AiCallTelemetryService } from './logging/ai-call-telemetry.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ApiUsage, FamilyGroupMember]), LoggerModule],
+  imports: [
+    TypeOrmModule.forFeature([ApiUsage, FamilyGroupMember]),
+    LoggerModule,
+  ],
   providers: [
     Pagination,
     AppConfig,

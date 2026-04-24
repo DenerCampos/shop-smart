@@ -59,10 +59,6 @@ describe('ShoppingListService', () => {
     const result = await service.create({ name: 'Compras' } as any, user());
 
     expect(result).toBe(list);
-    expect(repository.createList).toHaveBeenCalledWith(
-      'Compras',
-      user(),
-      null,
-    );
+    expect(repository.createList).toHaveBeenCalledWith('Compras', user(), null);
   });
 });

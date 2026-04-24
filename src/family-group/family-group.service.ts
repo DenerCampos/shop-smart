@@ -215,9 +215,8 @@ export class FamilyGroupService {
     invitationId: string,
     userId: string,
   ): Promise<FamilyGroupMember> {
-    const member = await this.familyGroupRepository.findMemberById(
-      invitationId,
-    );
+    const member =
+      await this.familyGroupRepository.findMemberById(invitationId);
 
     if (!member) {
       throw new NotExistException();
@@ -265,9 +264,8 @@ export class FamilyGroupService {
     invitationId: string,
     userId: string,
   ): Promise<FamilyGroupMember> {
-    const member = await this.familyGroupRepository.findMemberById(
-      invitationId,
-    );
+    const member =
+      await this.familyGroupRepository.findMemberById(invitationId);
 
     if (!member) {
       throw new NotExistException();
@@ -306,9 +304,8 @@ export class FamilyGroupService {
   ): Promise<FamilyGroupMember[]> {
     const currentMember = await this.validateMembership(groupId, userId);
 
-    const members = await this.familyGroupRepository.findMembersByGroupId(
-      groupId,
-    );
+    const members =
+      await this.familyGroupRepository.findMembersByGroupId(groupId);
 
     if (currentMember.role === FAMILY_GROUP_ROLES.ADMIN) {
       return members;
@@ -603,9 +600,8 @@ export class FamilyGroupService {
     groupId: string,
     fallbackUserId: string,
   ): Promise<string[]> {
-    const members = await this.familyGroupRepository.findMembersByGroupId(
-      groupId,
-    );
+    const members =
+      await this.familyGroupRepository.findMembersByGroupId(groupId);
 
     const acceptedUserIds = members
       .filter((m) => m.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED && m.user)

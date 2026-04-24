@@ -174,12 +174,11 @@ export class AlexaService {
           );
         }
 
-        const removed =
-          await this.shoppingListService.removeItemByNameFromList(
-            user,
-            targetList.id,
-            item,
-          );
+        const removed = await this.shoppingListService.removeItemByNameFromList(
+          user,
+          targetList.id,
+          item,
+        );
 
         if (!removed) {
           return this.buildResponse(
@@ -193,12 +192,11 @@ export class AlexaService {
       }
 
       if (activeLists.length === 1) {
-        const removed =
-          await this.shoppingListService.removeItemByNameFromList(
-            user,
-            activeLists[0].id,
-            item,
-          );
+        const removed = await this.shoppingListService.removeItemByNameFromList(
+          user,
+          activeLists[0].id,
+          item,
+        );
 
         if (!removed) {
           return this.buildResponse(`Não encontrei ${item} na sua lista.`);

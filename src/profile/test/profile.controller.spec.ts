@@ -21,10 +21,7 @@ describe('ProfileController', () => {
     >
   >;
   let responseService: jest.Mocked<
-    Pick<
-      ResponseService,
-      'mapToDto' | 'mapPaginatedToDto'
-    >
+    Pick<ResponseService, 'mapToDto' | 'mapPaginatedToDto'>
   >;
 
   beforeEach(async () => {
@@ -87,16 +84,9 @@ describe('ProfileController', () => {
     const paginated = { data: [], meta: {}, links: {} };
     profileService.getLatestRegistrations.mockResolvedValue(paginated as never);
 
-    await controller.getLatestRegistrations(
-      { page: 2, limit: 5 } as never,
-      u,
-    );
+    await controller.getLatestRegistrations({ page: 2, limit: 5 } as never, u);
 
-    expect(profileService.getLatestRegistrations).toHaveBeenCalledWith(
-      u,
-      2,
-      5,
-    );
+    expect(profileService.getLatestRegistrations).toHaveBeenCalledWith(u, 2, 5);
     expect(responseService.mapPaginatedToDto).toHaveBeenCalled();
   });
 

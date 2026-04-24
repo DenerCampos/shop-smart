@@ -24,12 +24,24 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+**Shop Smart API** — backend REST para gestão financeira pessoal, gamificação (moedas/temas), leitura de cupons e integrações (ex.: Alexa, OAuth). Construído com [NestJS](https://nestjs.com/) e TypeScript.
+
+### Stack principal
+
+| Tecnologia | Versão (referência) |
+|------------|---------------------|
+| Node.js | **>= 20** (obrigatório para Nest 11; imagem `Dockerfile`: Node 20 Alpine) |
+| NestJS | **^11** (`@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express`, …) |
+| TypeScript | **~5.4** |
+| TypeORM | **^0.3** · MySQL 8 |
+| Testes | Jest 29 · E2E com MySQL (`shop_smart_test`) |
+
+Rate limiting global usa **`@nestjs/throttler` v6** (`ttl` em ms; ver `seconds()` em `AppModule` e `@Throttle({ default: { … } })` nos controllers). Express 5: em [`main.ts`](src/main.ts) o parser de query fica `extended`; o middleware de log HTTP usa wildcard `'{*splat}'` em [`app.module.ts`](src/app.module.ts).
 
 ## Installation
 
 ```bash
-$ npm install
+npm install
 ```
 
 ## Ambiente de desenvolvimento
@@ -1075,8 +1087,8 @@ O projeto inclui uma ferramenta web para testar o reconhecimento de áudio local
 - **Estratégia E2E**: `test/E2E-ESTRATEGIA.md`
 - **Diagnóstico de Build**: `docs/DIAGNOSTICO-BUILD.md`
 - **Por que não fazer npm no container**: `docs/WHY-NOT-NPM-IN-CONTAINER.md`
-- **Regras do Projeto**: `.cursor/rules/regra-projeto.md`
-- **Code Review Guide**: `.cursor/rules/code-review.md`
+- **Regras do Projeto**: `.cursor/rules/regra-projeto.mdc`
+- **Code Review Guide**: `.cursor/rules/code-review.mdc`
 
 ---
 

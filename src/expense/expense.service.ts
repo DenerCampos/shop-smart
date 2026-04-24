@@ -332,9 +332,8 @@ export class ExpenseService {
   }
 
   async updateValueExpense(expenseId: string): Promise<Expense> {
-    const allItems = await this.expenseRepository.findAllItemsByExpenseId(
-      expenseId,
-    );
+    const allItems =
+      await this.expenseRepository.findAllItemsByExpenseId(expenseId);
 
     const total = this.calculateTotalValue(allItems);
 
@@ -467,9 +466,8 @@ export class ExpenseService {
     let groupName = await this.expenseRepository.getGroupByItemName(itemName);
 
     if (!groupName) {
-      groupName = await this.expenseRepository.getGroupByItemNamePartial(
-        itemName,
-      );
+      groupName =
+        await this.expenseRepository.getGroupByItemNamePartial(itemName);
     }
 
     return groupName ?? this.defaultGroup;

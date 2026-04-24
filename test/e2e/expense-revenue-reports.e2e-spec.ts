@@ -5,7 +5,10 @@ import {
   createE2eApplication,
   loginAsSeedUser,
 } from './helpers/create-e2e-app';
-import { expectClientError, expectPaginatedEnvelope } from './helpers/expect-response';
+import {
+  expectClientError,
+  expectPaginatedEnvelope,
+} from './helpers/expect-response';
 
 function minimalExpenseBody() {
   return {

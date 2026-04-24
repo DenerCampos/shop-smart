@@ -36,7 +36,9 @@ import { UserModule } from 'src/user/user.module';
         appConfig: AppConfig,
         apiQuotaService: ApiQuotaService,
         aiCallTelemetry: AiCallTelemetryService,
-      ) => [new GeminiAudioProvider(appConfig, apiQuotaService, aiCallTelemetry)],
+      ) => [
+        new GeminiAudioProvider(appConfig, apiQuotaService, aiCallTelemetry),
+      ],
       inject: [AppConfig, ApiQuotaService, AiCallTelemetryService],
     },
   ],

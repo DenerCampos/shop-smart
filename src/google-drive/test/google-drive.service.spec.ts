@@ -1,4 +1,4 @@
-var gdriveMocks: {
+let gdriveMocks: {
   filesCreate: jest.Mock;
   filesDelete: jest.Mock;
   permissionsCreate: jest.Mock;

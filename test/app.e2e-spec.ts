@@ -48,8 +48,10 @@ describe('AppModule (e2e)', () => {
   });
 
   it('GET /public — estático ou 404 conforme public/', () => {
-    return request(app.getHttpServer()).get('/public').expect((res) => {
-      expect([200, 301, 302, 404]).toContain(res.status);
-    });
+    return request(app.getHttpServer())
+      .get('/public')
+      .expect((res) => {
+        expect([200, 301, 302, 404]).toContain(res.status);
+      });
   });
 });

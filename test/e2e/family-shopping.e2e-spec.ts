@@ -5,7 +5,10 @@ import {
   createE2eApplication,
   loginAsSeedUser,
 } from './helpers/create-e2e-app';
-import { expectClientError, expectPaginatedEnvelope } from './helpers/expect-response';
+import {
+  expectClientError,
+  expectPaginatedEnvelope,
+} from './helpers/expect-response';
 
 describe('Family group / Shopping lists (e2e)', () => {
   let app: INestApplication;

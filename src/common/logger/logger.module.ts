@@ -26,7 +26,9 @@ const consoleTransport = new winston.transports.Console({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const nodeEnv = (config.get<string>('NODE_ENV') ?? 'development').toLowerCase();
+        const nodeEnv = (
+          config.get<string>('NODE_ENV') ?? 'development'
+        ).toLowerCase();
         const isDev = nodeEnv === 'development';
 
         const loki = getLokiConfig(config);

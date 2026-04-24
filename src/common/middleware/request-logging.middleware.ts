@@ -8,8 +8,7 @@ export class RequestLoggingMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction): void {
     const start = Date.now();
-    const path =
-      req.originalUrl?.split('?')[0] || req.url?.split('?')[0] || '';
+    const path = req.originalUrl?.split('?')[0] || req.url?.split('?')[0] || '';
 
     res.on('finish', () => {
       const duration_ms = Date.now() - start;

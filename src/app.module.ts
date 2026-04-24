@@ -23,7 +23,7 @@ import { TextRecognitionModule } from './text-recognition/textRecognition.module
 import { FamilyGroupModule } from './family-group/family-group.module';
 import { ShoppingListModule } from './shopping-list/shopping-list.module';
 import { AlexaModule } from './alexa/alexa.module';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from './common/logger/logger.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
@@ -38,10 +38,13 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
       rootPath: join(__dirname, '..', 'public'),
       serveRoot: '/public',
     }),
-    ThrottlerModule.forRoot({
-      ttl: 60,
-      limit: 120,
-    }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: seconds(60),
+        limit: 120,
+      },
+    ]),
     LoggerModule,
     UserModule,
     AuthModule,
@@ -78,6 +81,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    // Express 5: wildcard nomeado (ver migration guide Nest 11)
+    consumer.apply(RequestLoggingMiddleware).forRoutes('{*splat}');
   }
 }

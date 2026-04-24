@@ -78,9 +78,16 @@ export class CoinController {
     @Body() updateCoinDto: UpdateCoinDto,
     @CurrentUser() user: User,
   ): Promise<CoinResponseDto> {
-    const validatedCoin = await this.coinService.findAndValidateOwnership(id, user.id);
+    const validatedCoin = await this.coinService.findAndValidateOwnership(
+      id,
+      user.id,
+    );
 
-    const coin = await this.coinService.update(id, updateCoinDto, validatedCoin);
+    const coin = await this.coinService.update(
+      id,
+      updateCoinDto,
+      validatedCoin,
+    );
 
     return this.responseService.mapToDto(CoinResponseDto, coin);
   }

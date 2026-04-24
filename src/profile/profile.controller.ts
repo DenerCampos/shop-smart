@@ -77,9 +77,7 @@ export class ProfileController {
 
   @UseGuards(AuthGuard)
   @Post('integrations/alexa/unlink')
-  async unlinkAlexa(
-    @CurrentUser() user: User,
-  ): Promise<{ unlinked: boolean }> {
+  async unlinkAlexa(@CurrentUser() user: User): Promise<{ unlinked: boolean }> {
     return this.profileService.unlinkAlexa(user.id);
   }
 
