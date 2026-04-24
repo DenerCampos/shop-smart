@@ -1,5 +1,8 @@
 /** Resposta típica do ValidationPipe (array de mensagens ou objeto message). */
-export function expectClientError(res: { status: number; body: unknown }): void {
+export function expectClientError(res: {
+  status: number;
+  body: unknown;
+}): void {
   expect(res.status).toBeGreaterThanOrEqual(400);
   expect(res.status).toBeLessThan(500);
 }

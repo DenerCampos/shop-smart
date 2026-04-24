@@ -81,6 +81,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    // Express 5: wildcard nomeado (ver migration guide Nest 11)
+    consumer.apply(RequestLoggingMiddleware).forRoutes('{*splat}');
   }
 }

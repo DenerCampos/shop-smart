@@ -54,9 +54,11 @@ describe('ExpenseService', () => {
     };
     const coinService = { addCoins: jest.fn().mockResolvedValue(undefined) };
     familyMemberResolver = {
-      resolve: jest
-        .fn()
-        .mockResolvedValue({ userIds: ['user-1'], isAdmin: false, groupId: null }),
+      resolve: jest.fn().mockResolvedValue({
+        userIds: ['user-1'],
+        isAdmin: false,
+        groupId: null,
+      }),
     };
     const qrf = createQueryRunnerFactoryMock();
 
@@ -71,7 +73,10 @@ describe('ExpenseService', () => {
         { provide: GroupService, useValue: groupService },
         { provide: CoinService, useValue: coinService },
         { provide: QueryRunnerFactory, useValue: qrf },
-        { provide: FamilyMemberResolverService, useValue: familyMemberResolver },
+        {
+          provide: FamilyMemberResolverService,
+          useValue: familyMemberResolver,
+        },
       ],
     }).compile();
 
@@ -80,10 +85,7 @@ describe('ExpenseService', () => {
 
   describe('findAll', () => {
     it('usa userIds do FamilyMemberResolver e repassa ao repositório', async () => {
-      await service.findAll(
-        { page: 1, limit: 5, search: 'x' } as any,
-        user(),
-      );
+      await service.findAll({ page: 1, limit: 5, search: 'x' } as any, user());
 
       expect(familyMemberResolver.resolve).toHaveBeenCalledWith('user-1');
       expect(expenseRepository.findAll).toHaveBeenCalledWith(

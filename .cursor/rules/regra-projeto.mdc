@@ -14,23 +14,25 @@ alwaysApply: true
 ## 🛠️ Stack Tecnológica
 
 ### Linguagem Principal
-- **TypeScript**: ^4.9.5
+- **TypeScript**: ~5.4
   - Module: CommonJS
   - Target: ES2017
   - Decorators: Habilitado
   - Strict Mode: Parcialmente desabilitado (para flexibilidade)
 
 ### Framework Principal
-- **NestJS**: ^10.4.0
-  - @nestjs/common: ^10.4.0
-  - @nestjs/core: ^10.4.0
-  - @nestjs/platform-express: ^10.4.0
-  - @nestjs/cli: ^10.4.0
-  - @nestjs/schematics: ^10.2.0
-  - @nestjs/jwt: ^10.2.0
-  - @nestjs/typeorm: ^10.0.2
-  - @nestjs/swagger: ^7.4.0
-  - @nestjs/testing: ^10.4.0
+- **NestJS**: ^11.0.0
+  - @nestjs/common: ^11.0.0
+  - @nestjs/core: ^11.0.0
+  - @nestjs/platform-express: ^11.0.0
+  - @nestjs/config: ^4.0.0
+  - @nestjs/cli: ^11.0.0
+  - @nestjs/schematics: ^11.0.0
+  - @nestjs/jwt: ^11.0.0
+  - @nestjs/typeorm: ^11.0.0
+  - @nestjs/swagger: ^11.0.0
+  - @nestjs/throttler: ^6.0.0
+  - @nestjs/testing: ^11.0.0
 
 ### Banco de Dados e ORM
 - **TypeORM**: ^0.3.16
@@ -42,7 +44,7 @@ alwaysApply: true
   - **NUNCA usar synchronize em produção**
 
 ### Autenticação e Segurança
-- **JWT**: @nestjs/jwt ^10.2.0
+- **JWT**: @nestjs/jwt ^11.0.0
 - **BCrypt**: ^5.1.0 (hash de senhas - 10 rounds)
 
 ### Validação e Transformação
@@ -50,7 +52,7 @@ alwaysApply: true
 - **class-transformer**: ^0.5.1
 
 ### Documentação
-- **Swagger/OpenAPI**: @nestjs/swagger ^7.4.0 (disponível mas não utilizado no projeto)
+- **Swagger/OpenAPI**: @nestjs/swagger ^11.0.0 (disponível mas não utilizado no projeto)
 
 ### Web Scraping
 - **Cheerio**: ^1.0.0-rc.12 (parsing HTML)

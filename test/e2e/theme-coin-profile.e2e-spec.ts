@@ -5,7 +5,10 @@ import {
   createE2eApplication,
   loginAsSeedUser,
 } from './helpers/create-e2e-app';
-import { expectClientError, expectPaginatedEnvelope } from './helpers/expect-response';
+import {
+  expectClientError,
+  expectPaginatedEnvelope,
+} from './helpers/expect-response';
 
 describe('Theme / Coin / Profile (e2e)', () => {
   let app: INestApplication;
@@ -46,7 +49,10 @@ describe('Theme / Coin / Profile (e2e)', () => {
   });
 
   it('GET /theme/allowed — 200', async () => {
-    await request(app.getHttpServer()).get('/theme/allowed').set(auth()).expect(200);
+    await request(app.getHttpServer())
+      .get('/theme/allowed')
+      .set(auth())
+      .expect(200);
   });
 
   it('GET /theme — listagem paginada', async () => {

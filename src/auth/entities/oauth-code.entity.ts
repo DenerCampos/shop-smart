@@ -1,9 +1,4 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  ManyToOne,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, ManyToOne } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { OauthClient } from './oauth-client.entity';
 

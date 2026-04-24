@@ -41,7 +41,10 @@ describe('ProfileService', () => {
   >;
   let coinService: jest.Mocked<Pick<CoinService, 'getCoinsByUser'>>;
   let googleDriveService: jest.Mocked<
-    Pick<GoogleDriveService, 'extractFileIdFromUrl' | 'deleteFile' | 'uploadFile'>
+    Pick<
+      GoogleDriveService,
+      'extractFileIdFromUrl' | 'deleteFile' | 'uploadFile'
+    >
   >;
   let userService: jest.Mocked<Pick<UserService, 'update'>>;
   let familyMemberResolver: jest.Mocked<
@@ -109,7 +112,10 @@ describe('ProfileService', () => {
         { provide: RevenueService, useValue: revenueService },
         { provide: CoinService, useValue: coinService },
         { provide: GoogleDriveService, useValue: googleDriveService },
-        { provide: FamilyMemberResolverService, useValue: familyMemberResolver },
+        {
+          provide: FamilyMemberResolverService,
+          useValue: familyMemberResolver,
+        },
         { provide: AuthService, useValue: authService },
       ],
     }).compile();
@@ -216,9 +222,6 @@ describe('ProfileService', () => {
     await expect(service.unlinkAlexa('uid')).resolves.toEqual({
       unlinked: true,
     });
-    expect(authService.unlinkIntegration).toHaveBeenCalledWith(
-      'uid',
-      'alexa',
-    );
+    expect(authService.unlinkIntegration).toHaveBeenCalledWith('uid', 'alexa');
   });
 });

@@ -11,7 +11,9 @@ import { createAppConfigMock } from '../../common/test/app-config.mock';
 
 describe('RevenueService', () => {
   let service: RevenueService;
-  let revenueRepository: jest.Mocked<Pick<IRevenueRepository, 'create' | 'findAll'>>;
+  let revenueRepository: jest.Mocked<
+    Pick<IRevenueRepository, 'create' | 'findAll'>
+  >;
   let coinService: jest.Mocked<Pick<CoinService, 'addCoins'>>;
 
   const user = (): User => {
@@ -42,9 +44,11 @@ describe('RevenueService', () => {
         {
           provide: FamilyMemberResolverService,
           useValue: {
-            resolve: jest
-              .fn()
-              .mockResolvedValue({ userIds: ['u1'], isAdmin: false, groupId: null }),
+            resolve: jest.fn().mockResolvedValue({
+              userIds: ['u1'],
+              isAdmin: false,
+              groupId: null,
+            }),
           },
         },
       ],

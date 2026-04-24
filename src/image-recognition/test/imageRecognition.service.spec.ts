@@ -43,7 +43,9 @@ describe('ImageRecognitionService', () => {
         },
         {
           provide: GroupService,
-          useValue: { findAllNames: jest.fn().mockResolvedValue(['Alimentação']) },
+          useValue: {
+            findAllNames: jest.fn().mockResolvedValue(['Alimentação']),
+          },
         },
         {
           provide: PaymentService,

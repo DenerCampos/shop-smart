@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -53,7 +58,10 @@ export class UserService {
     return user;
   }
 
-  async findAndValidateOwnership(userId: string, currentUserId: string): Promise<User> {
+  async findAndValidateOwnership(
+    userId: string,
+    currentUserId: string,
+  ): Promise<User> {
     if (userId !== currentUserId) {
       throw new ForbiddenException();
     }

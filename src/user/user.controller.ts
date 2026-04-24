@@ -37,7 +37,10 @@ export class UserController {
     @Param('id') id: string,
     @CurrentUser() currentUser: User,
   ): Promise<UserResponseDto> {
-    const user = await this.userService.findAndValidateOwnership(id, currentUser.id);
+    const user = await this.userService.findAndValidateOwnership(
+      id,
+      currentUser.id,
+    );
 
     return this.responseService.mapToDto(UserResponseDto, user);
   }

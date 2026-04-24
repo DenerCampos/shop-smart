@@ -34,7 +34,9 @@ import { GeminiTextProvider } from './providers/gemini/gemini-text.provider';
         appConfig: AppConfig,
         apiQuotaService: ApiQuotaService,
         aiCallTelemetry: AiCallTelemetryService,
-      ) => [new GeminiTextProvider(appConfig, apiQuotaService, aiCallTelemetry)],
+      ) => [
+        new GeminiTextProvider(appConfig, apiQuotaService, aiCallTelemetry),
+      ],
       inject: [AppConfig, ApiQuotaService, AiCallTelemetryService],
     },
   ],

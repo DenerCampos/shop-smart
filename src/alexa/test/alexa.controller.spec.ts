@@ -9,7 +9,9 @@ describe('AlexaController', () => {
 
   beforeEach(async () => {
     alexaService = {
-      handleIntent: jest.fn().mockResolvedValue({ version: '1.0', response: {} }),
+      handleIntent: jest
+        .fn()
+        .mockResolvedValue({ version: '1.0', response: {} }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

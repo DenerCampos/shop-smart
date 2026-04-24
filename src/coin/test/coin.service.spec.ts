@@ -80,9 +80,9 @@ describe('CoinService', () => {
     const c = new Coin();
     c.user = u;
     coinRepository.findWithUser.mockResolvedValue(c);
-    await expect(
-      service.findAndValidateOwnership('c1', 'same'),
-    ).resolves.toBe(c);
+    await expect(service.findAndValidateOwnership('c1', 'same')).resolves.toBe(
+      c,
+    );
   });
 
   it('update lança NotExistException quando moeda não existe', async () => {
@@ -114,9 +114,9 @@ describe('CoinService', () => {
     coin.balance = 42;
     coinRepository.findByUserId.mockResolvedValue(coin);
     await expect(service.getUserCoins('u1')).resolves.toBe(42);
-    await expect(service.getCoinsByUser(createTestUser({ id: 'u1' }))).resolves.toBe(
-      42,
-    );
+    await expect(
+      service.getCoinsByUser(createTestUser({ id: 'u1' })),
+    ).resolves.toBe(42);
     coinRepository.findByUserId.mockResolvedValue(null);
     await expect(service.getUserCoins('u1')).resolves.toBe(0);
   });

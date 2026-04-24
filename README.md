@@ -30,13 +30,13 @@
 
 | Tecnologia | Versão (referência) |
 |------------|---------------------|
-| Node.js | **>= 16** (recomendado: 18 LTS, alinhado ao `Dockerfile`) |
-| NestJS | **^10.4** (`@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express`, …) |
-| TypeScript | **^4.9** |
+| Node.js | **>= 20** (obrigatório para Nest 11; imagem `Dockerfile`: Node 20 Alpine) |
+| NestJS | **^11** (`@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express`, …) |
+| TypeScript | **~5.4** |
 | TypeORM | **^0.3** · MySQL 8 |
 | Testes | Jest 29 · E2E com MySQL (`shop_smart_test`) |
 
-Rate limiting global usa **`@nestjs/throttler` v5** (`ttl` em ms; ver `seconds()` em `AppModule` e `@Throttle({ default: { … } })` nos controllers).
+Rate limiting global usa **`@nestjs/throttler` v6** (`ttl` em ms; ver `seconds()` em `AppModule` e `@Throttle({ default: { … } })` nos controllers). Express 5: em [`main.ts`](src/main.ts) o parser de query fica `extended`; o middleware de log HTTP usa wildcard `'{*splat}'` em [`app.module.ts`](src/app.module.ts).
 
 ## Installation
 

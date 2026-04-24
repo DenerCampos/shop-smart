@@ -616,9 +616,8 @@ export class ShoppingListService {
     user: User,
   ): Promise<string | undefined> {
     try {
-      const groupName = await this.expenseService.getGroupNameByItemName(
-        itemName,
-      );
+      const groupName =
+        await this.expenseService.getGroupNameByItemName(itemName);
 
       if (groupName && groupName !== 'Alimentação') {
         const group = await this.groupService.findByName(groupName, user);
