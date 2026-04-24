@@ -9,7 +9,7 @@ import {
   Query,
   Redirect,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { seconds, Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signIn.dto';
 import { RefreshTokenDto } from './dto/refreshToken.dto';
@@ -23,7 +23,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   // Limite rigoroso: 5 tentativas/min para prevenir brute force
-  @Throttle(5, 60)
+  @Throttle({ default: { limit: 5, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   @Post('login')
   signIn(@Body() signInDto: SignInDto) {
@@ -31,7 +31,7 @@ export class AuthController {
   }
 
   // Ligeiramente mais permissivo: refresh não expõe credenciais diretamente
-  @Throttle(10, 60)
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @Put('refresh')
   async refreshToken(@Body() token: RefreshTokenDto): Promise<jwtTokenType> {
     return this.authService.refreshToken(token);
@@ -45,7 +45,7 @@ export class AuthController {
   }
 
   // Limite rigoroso: 5 tentativas/min para prevenir brute force via OAuth
-  @Throttle(5, 60)
+  @Throttle({ default: { limit: 5, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   @Post('oauth/login')
   async oauthLogin(
@@ -55,7 +55,7 @@ export class AuthController {
   }
 
   // Troca de código por token: 10/min é seguro pois requer código único de uso único
-  @Throttle(10, 60)
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   @Post('oauth/token')
   async oauthToken(@Body() dto: OauthTokenDto) {
