@@ -60,6 +60,8 @@ export class GeminiProvider implements IImageRecognitionProvider {
           if (context === 'revenue') {
             prompt = `Analise esta imagem de um comprovante, recibo ou documento de receita/entrada financeira e extraia as seguintes informações em formato JSON:
         - name: descrição da receita (ex: Salário, Freelance, Venda, Comissão)
+          IMPORTANTE: Converta o nome (name) para "Title Case" (apenas iniciais maiúsculas), remova abreviações excessivas e tente deduzir o nome completo e amigável da descrição.
+          Ao expandir abreviações, use apenas o contexto presente no texto. Se não tiver certeza absoluta do nome completo, apenas converta para 'Title Case' e remova caracteres especiais.
         - value: valor total da receita (número)
         - date: data da receita (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
         - repeat: boolean indicando se é uma receita recorrente (ex: salário mensal = true, venda única = false)
@@ -77,6 +79,9 @@ export class GeminiProvider implements IImageRecognitionProvider {
         - items: array de produtos, cada item deve conter:
           * code: código do produto, se não for possível identificar, retorne '1'
           * name: nome do produto
+          IMPORTANTE: Converta o nome (name) para "Title Case" (apenas iniciais maiúsculas), remova abreviações excessivas e tente deduzir o nome completo e amigável do produto (ex: de 'MAC VILM OV ESP' para 'Macarrão de Ovos Vilma Especial'). 
+          Ao expandir abreviações, use apenas o contexto presente no texto. Se não tiver certeza absoluta do nome completo, apenas converta para 'Title Case' e remova caracteres especiais.
+          Mantenha informações de peso/volume/unidade (ex: 500g, 1L,1U).
           * quantity: quantidade (número), se não for possível identificar, retorne 0
           * unit: unidade - use 'unidade' para UN, 'quilograma' para KG, ou 'pacote' para PT, se não for possível identificar, retorne 'unidade'
           * value: valor unitário (número), se não for possível identificar, retorne 0
