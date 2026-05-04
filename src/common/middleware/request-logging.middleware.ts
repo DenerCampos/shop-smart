@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { logJson } from '../logging/log-event.util';
+import { getClientIp } from '../utils/client-ip.util';
 
 @Injectable()
 export class RequestLoggingMiddleware implements NestMiddleware {
@@ -12,12 +13,14 @@ export class RequestLoggingMiddleware implements NestMiddleware {
 
     res.on('finish', () => {
       const duration_ms = Date.now() - start;
+      const client_ip = getClientIp(req);
       logJson(this.logger, {
         event: 'http_request',
         method: req.method,
         path,
         status_code: res.statusCode,
         duration_ms,
+        ...(client_ip ? { client_ip } : {}),
       });
     });
 

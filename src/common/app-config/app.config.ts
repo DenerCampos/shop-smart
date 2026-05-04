@@ -49,6 +49,16 @@ export class AppConfig {
     };
   }
 
+  /**
+   * Número de proxies confiáveis na frente da API (Express `trust proxy`).
+   * Ex.: 1 com Nginx/Ingress. 0 = desligado (acesso direto ou sem encadear IP).
+   */
+  getTrustProxyHops(): number {
+    const raw = this.configService.get<string>('API_TRUST_PROXY_HOPS', '0');
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
   getCache(): ICache {
     return {
       host: this.configService.get<string>('API_REDIS_HOST'),
