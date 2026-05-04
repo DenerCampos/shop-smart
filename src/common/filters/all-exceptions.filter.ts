@@ -10,6 +10,7 @@ import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { ApiQuotaException } from '../ai-quota/exceptions/apiQuota.exception';
 import { logJson } from '../logging/log-event.util';
+import { getClientIp } from '../utils/client-ip.util';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -22,6 +23,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const path =
       request.originalUrl?.split('?')[0] || request.url?.split('?')[0] || '';
     const method = request.method;
+    const client_ip = getClientIp(request);
+    const ipFields = client_ip ? { client_ip } : {};
 
     if (exception instanceof ApiQuotaException) {
       const status = exception.getStatus();
@@ -35,6 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           provider: exception.provider,
           daily_limit: exception.dailyLimit,
           current_usage: exception.currentUsage,
+          ...ipFields,
         },
         'warn',
       );
@@ -51,6 +55,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           path,
           method,
           status_code: status,
+          ...ipFields,
         },
         'warn',
       );
@@ -80,6 +85,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
             typeof safeMessage === 'string'
               ? safeMessage.slice(0, 500)
               : undefined,
+          ...ipFields,
         },
         status >= HttpStatus.INTERNAL_SERVER_ERROR ? 'error' : 'warn',
       );
@@ -101,6 +107,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         status_code: HttpStatus.INTERNAL_SERVER_ERROR,
         message: errMessage.slice(0, 500),
         ...(isDev && stack ? { stack: stack.slice(0, 2000) } : {}),
+        ...ipFields,
       },
       'error',
     );

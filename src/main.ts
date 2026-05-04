@@ -13,9 +13,14 @@ async function bootstrap() {
   // Express 5: manter parser "extended" (equivalente ao Express 4) para query strings
   app.set('query parser', 'extended');
 
+  const appConfig = new AppConfig();
+  const trustHops = appConfig.getTrustProxyHops();
+  if (trustHops > 0) {
+    app.set('trust proxy', trustHops);
+  }
+
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
-  const appConfig = new AppConfig();
   const { host, port } = appConfig.getApi();
 
   if (appConfig.isDevelopment()) {

@@ -7,6 +7,36 @@ import { getLokiConfig } from '../app-config/loki.config';
 // winston-loki usa export = (CommonJS); default import vira undefined em runtime
 import LokiTransport = require('winston-loki');
 
+const WINSTON_LEVELS = new Set([
+  'error',
+  'warn',
+  'info',
+  'http',
+  'verbose',
+  'debug',
+  'silly',
+]);
+
+/** Padrão: debug em dev, warn em prod (menos ruído). Use API_LOG_LEVEL=info para incluir http_request no Loki. */
+function resolveWinstonLevel(
+  config: ConfigService,
+  isDev: boolean,
+): string {
+  const raw = (config.get<string>('API_LOG_LEVEL') ?? '')
+    .trim()
+    .toLowerCase();
+  if (raw && WINSTON_LEVELS.has(raw)) {
+    return raw;
+  }
+  if (raw) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[Logger] API_LOG_LEVEL="${raw}" inválido; use um de: ${[...WINSTON_LEVELS].join(', ')}. Usando padrão (${isDev ? 'debug' : 'warn'}).`,
+    );
+  }
+  return isDev ? 'debug' : 'warn';
+}
+
 const consoleTransport = new winston.transports.Console({
   format: winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -75,7 +105,7 @@ const consoleTransport = new winston.transports.Console({
         }
 
         return {
-          level: isDev ? 'debug' : 'warn',
+          level: resolveWinstonLevel(config, isDev),
           transports,
         };
       },
