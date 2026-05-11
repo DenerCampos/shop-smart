@@ -574,6 +574,37 @@ export class FamilyGroupService {
   // Métodos públicos auxiliares
   // ========================
 
+  async isAcceptedAdmin(
+    familyGroupId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const member =
+      await this.familyGroupRepository.findMemberByGroupAndUser(
+        familyGroupId,
+        userId,
+      );
+
+    return (
+      !!member &&
+      member.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED &&
+      member.role === FAMILY_GROUP_ROLES.ADMIN
+    );
+  }
+
+  async assertAcceptedMembership(
+    groupId: string,
+    userId: string,
+  ): Promise<FamilyGroupMember> {
+    return await this.validateMembership(groupId, userId);
+  }
+
+  async assertFamilyAdmin(
+    groupId: string,
+    userId: string,
+  ): Promise<FamilyGroupMember> {
+    return await this.validateAdmin(groupId, userId);
+  }
+
   async getAcceptedMemberUserIds(userId: string): Promise<string[]> {
     const membership =
       await this.familyGroupRepository.findAcceptedMembershipByUserId(userId);
