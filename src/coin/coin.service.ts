@@ -218,6 +218,43 @@ export class CoinService {
     );
   }
 
+  async addEarnedCoinsByAmount(
+    user: User,
+    coins: number,
+    description: string,
+  ): Promise<Coin> {
+    const n = Math.floor(Number(coins));
+
+    if (!Number.isFinite(n) || n <= 0) {
+      const existing = await this.coinRepository.findByUserId(user.id);
+      if (existing) {
+        return existing;
+      }
+
+      return await this.coinRepository.create(user, {
+        balance: 0,
+        totalEarned: 0,
+        totalSpent: 0,
+      });
+    }
+
+    const createCoinDto = await this.getCreateCoinDto(user.id, n);
+    const beforeCoin = await this.getUserCoins(user.id);
+    const createCoinTransactionDto: CreateCoinTransactionDto = {
+      amount: n,
+      transactionType: TransactionType.EARN,
+      description,
+      balanceBefore: beforeCoin,
+      balanceAfter: Number(beforeCoin) + n,
+    };
+
+    return this.updateCoinsAndTransaction(
+      user,
+      createCoinDto,
+      createCoinTransactionDto,
+    );
+  }
+
   private async getOrCreateCoin(
     user: User,
     createCoinDto: CreateCoinDto,
