@@ -22,6 +22,8 @@ import { NotExistException } from 'src/exception/notExistException';
 import { ExpenseService } from 'src/expense/expense.service';
 import { RevenueService } from 'src/revenue/revenue.service';
 import { UserCreatedEvent } from 'src/user/events/user-created.event';
+import { FamilyGroupSummaryResponseDto } from './dto/family-group-summary-response.dto';
+import { FamilyGroupMemberDataResponseDto } from './dto/family-group-member-data-response.dto';
 
 @Injectable()
 export class FamilyGroupService {
@@ -399,7 +401,7 @@ export class FamilyGroupService {
     userId: string,
     month: number,
     year: number,
-  ) {
+  ): Promise<FamilyGroupSummaryResponseDto> {
     const group = await this.familyGroupRepository.findGroupById(groupId);
 
     if (!group) {
@@ -419,16 +421,19 @@ export class FamilyGroupService {
     const isAdmin = currentMember.role === FAMILY_GROUP_ROLES.ADMIN;
 
     const visibleMembers = group.members.filter(
-      (m) =>
-        m.status === 'accepted' &&
-        m.user &&
-        (isAdmin || m.role !== FAMILY_GROUP_ROLES.ADMIN),
+      (m) => m.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED && m.user,
     );
 
     const { startDate, endDate } = this.buildDateRange(month, year);
 
     const membersSummary = await Promise.all(
       visibleMembers.map(async (member) => {
+        const isCurrentUser = member.user.id === userId;
+
+        if (!isAdmin && !isCurrentUser) {
+          return this.buildMaskedMemberResponse(member.user);
+        }
+
         const { totalExpenses, totalRevenues } = await this.getMemberFinancials(
           member.user,
           startDate,
@@ -441,18 +446,32 @@ export class FamilyGroupService {
           profileImage: member.user.profileImage ?? null,
           totalExpenses,
           totalRevenues,
+          masked: false,
         };
       }),
     );
 
-    const totalExpenses = membersSummary.reduce(
-      (sum, m) => sum + m.totalExpenses,
-      0,
-    );
-    const totalRevenues = membersSummary.reduce(
-      (sum, m) => sum + m.totalRevenues,
-      0,
-    );
+    const ownSummary = membersSummary.find((m) => m.userId === userId);
+    const ownExpenses = ownSummary?.totalExpenses ?? 0;
+    const ownRevenues = ownSummary?.totalRevenues ?? 0;
+
+    const totalExpenses = isAdmin
+      ? Number(
+          membersSummary
+            .filter((m) => !m.masked)
+            .reduce((sum, m) => sum + m.totalExpenses, 0)
+            .toFixed(2),
+        )
+      : ownExpenses;
+
+    const totalRevenues = isAdmin
+      ? Number(
+          membersSummary
+            .filter((m) => !m.masked)
+            .reduce((sum, m) => sum + m.totalRevenues, 0)
+            .toFixed(2),
+        )
+      : ownRevenues;
 
     return {
       groupId: group.id,
@@ -464,13 +483,21 @@ export class FamilyGroupService {
     };
   }
 
+  /**
+   * Retorna os dados financeiros de um membro do grupo.
+   *
+   * @note Mudança de contrato: antes lançava ForbiddenException (403) quando um
+   * não-admin tentava acessar dados de outro membro. Agora retorna HTTP 200 com
+   * `masked: true` e valores zerados, permitindo que o cliente renderize o
+   * estado "dados ocultos" sem precisar tratar o erro.
+   */
   async getMemberData(
     groupId: string,
     targetUserId: string,
     userId: string,
     month: number,
     year: number,
-  ) {
+  ): Promise<FamilyGroupMemberDataResponseDto> {
     const group = await this.familyGroupRepository.findGroupById(groupId);
 
     if (!group) {
@@ -497,13 +524,15 @@ export class FamilyGroupService {
       throw new NotExistException();
     }
 
-    if (
-      currentMember.role !== FAMILY_GROUP_ROLES.ADMIN &&
-      targetMember.role === FAMILY_GROUP_ROLES.ADMIN
-    ) {
-      throw new ForbiddenException(
-        'Você não tem permissão para ver os dados deste membro.',
-      );
+    const isAdmin = currentMember.role === FAMILY_GROUP_ROLES.ADMIN;
+    const isCurrentUser = targetUserId === userId;
+
+    if (!isAdmin && !isCurrentUser) {
+      return {
+        ...this.buildMaskedMemberResponse(targetMember.user),
+        expenses: [],
+        revenues: [],
+      };
     }
 
     const { startDate, endDate } = this.buildDateRange(month, year);
@@ -535,6 +564,7 @@ export class FamilyGroupService {
       profileImage: targetMember.user.profileImage ?? null,
       totalExpenses: Number(totalExpenses.toFixed(2)),
       totalRevenues: Number(totalRevenues.toFixed(2)),
+      masked: false,
       expenses: expensesData,
       revenues: revenuesData,
     };
@@ -703,6 +733,17 @@ export class FamilyGroupService {
       lastDay,
     ).padStart(2, '0')} 23:59:59`;
     return { startDate, endDate };
+  }
+
+  private buildMaskedMemberResponse(user: User) {
+    return {
+      userId: user.id,
+      name: user.name,
+      profileImage: user.profileImage ?? null,
+      totalExpenses: 0,
+      totalRevenues: 0,
+      masked: true,
+    };
   }
 
   private async getMemberFinancials(

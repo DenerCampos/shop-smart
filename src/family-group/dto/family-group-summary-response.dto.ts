@@ -15,6 +15,9 @@ class MemberSummaryDto {
 
   @Expose()
   totalRevenues: number;
+
+  @Expose()
+  masked: boolean;
 }
 
 export class FamilyGroupSummaryResponseDto {
