@@ -37,18 +37,19 @@ export class ProfileService {
     const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
     const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
     const coins = await this.coinService.getCoinsByUser(user);
-    const existRevenue = await this.revenueService.exist(user);
     const hasRecurringRevenues =
       await this.revenueService.hasRecurringPreviousMonth(user);
     const hasRecurringExpenses =
       await this.expenseService.hasRecurringPreviousMonth(user);
+
+    const isFirstAccess = !user.family;
 
     return new ProfileModel({
       user,
       income: revenues.value,
       expenses: expenses.value,
       coins: coins,
-      isFirstAccess: !existRevenue,
+      isFirstAccess,
       hasRecurringRevenues: hasRecurringRevenues,
       hasRecurringExpenses: hasRecurringExpenses,
     });
@@ -58,15 +59,21 @@ export class ProfileService {
     user: User,
     completeProfileDto: CompleteProfileDto,
   ): Promise<void> {
-    const revenue = await this.revenueService.create(user, {
-      name: completeProfileDto.name,
-      value: completeProfileDto.income,
-      repeat: completeProfileDto.repeatMonthly,
-      date: new Date(completeProfileDto.date),
-    });
+    const hasIncomeData =
+      completeProfileDto.income !== undefined &&
+      completeProfileDto.income !== null;
 
-    if (!revenue) {
-      throw new NotFoundException('Revenue not found');
+    if (hasIncomeData) {
+      const revenue = await this.revenueService.create(user, {
+        name: completeProfileDto.name as string,
+        value: completeProfileDto.income,
+        repeat: completeProfileDto.repeatMonthly ?? false,
+        date: new Date(completeProfileDto.date as string),
+      });
+
+      if (!revenue) {
+        throw new NotFoundException('Revenue not found');
+      }
     }
 
     await this.userService.update(user.id, {

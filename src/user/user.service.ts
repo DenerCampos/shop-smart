@@ -42,8 +42,9 @@ export class UserService {
     const hash = await bcrypt.hash(createUserDto.password, this.saltOrRounds);
     createUserDto.password = hash;
 
+    // `family` vazio até complete-profile; alinha com `isFirstAccess` no perfil (não usar nome como família).
     if (createUserDto.family === undefined) {
-      createUserDto.family = createUserDto.name;
+      createUserDto.family = '';
     }
 
     if (createUserDto.coatOfArms === undefined) {
