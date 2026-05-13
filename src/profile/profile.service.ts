@@ -34,24 +34,31 @@ export class ProfileService {
   ) {}
 
   async getProfile(user: User): Promise<ProfileModel> {
-    const revenues = await this.revenueService.getRevenueByCurrentMonth(user);
-    const expenses = await this.expenseService.getExpenseByCurrentMonth(user);
-    const coins = await this.coinService.getCoinsByUser(user);
-    const hasRecurringRevenues =
-      await this.revenueService.hasRecurringPreviousMonth(user);
-    const hasRecurringExpenses =
-      await this.expenseService.hasRecurringPreviousMonth(user);
+    const [revenues, expenses, coins, hasRecurringRevenues, hasRecurringExpenses, membership] =
+      await Promise.all([
+        this.revenueService.getRevenueByCurrentMonth(user),
+        this.expenseService.getExpenseByCurrentMonth(user),
+        this.coinService.getCoinsByUser(user),
+        this.revenueService.hasRecurringPreviousMonth(user),
+        this.expenseService.hasRecurringPreviousMonth(user),
+        this.familyMemberResolver.resolve(user.id),
+      ]);
 
     const isFirstAccess = !user.family;
 
+    const resolvedUser: User =
+      membership.groupName
+        ? { ...user, family: membership.groupName }
+        : user;
+
     return new ProfileModel({
-      user,
+      user: resolvedUser,
       income: revenues.value,
       expenses: expenses.value,
       coins: coins,
       isFirstAccess,
-      hasRecurringRevenues: hasRecurringRevenues,
-      hasRecurringExpenses: hasRecurringExpenses,
+      hasRecurringRevenues,
+      hasRecurringExpenses,
     });
   }
 

@@ -88,7 +88,12 @@ describe('ProfileService', () => {
       }),
     };
     familyMemberResolver = {
-      resolve: jest.fn().mockResolvedValue({ userIds: ['user-test-1'] }),
+      resolve: jest.fn().mockResolvedValue({
+        userIds: ['user-test-1'],
+        isAdmin: false,
+        groupId: null,
+        groupName: null,
+      }),
     };
     authService = {
       getIntegrations: jest.fn().mockResolvedValue({ alexa: 'linked' }),
@@ -140,6 +145,20 @@ describe('ProfileService', () => {
     const user = createTestUser({ family: '' });
     const profile = await service.getProfile(user);
     expect(profile.isFirstAccess).toBe(true);
+  });
+
+  it('getProfile usa o nome do grupo familiar quando o usuário pertence a um grupo', async () => {
+    const user = createTestUser({ family: 'Silva' });
+    familyMemberResolver.resolve.mockResolvedValueOnce({
+      userIds: [user.id],
+      isAdmin: false,
+      groupId: 'group-1',
+      groupName: 'Família Souza',
+    });
+
+    const profile = await service.getProfile(user);
+
+    expect(profile.user.family).toBe('Família Souza');
   });
 
   it('completeProfile cria receita e atualiza família quando income é informado', async () => {

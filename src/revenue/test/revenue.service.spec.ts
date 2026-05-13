@@ -48,6 +48,7 @@ describe('RevenueService', () => {
               userIds: ['u1'],
               isAdmin: false,
               groupId: null,
+              groupName: null,
             }),
           },
         },

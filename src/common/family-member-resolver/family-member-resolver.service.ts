@@ -26,7 +26,7 @@ export class FamilyMemberResolverService {
       .getOne();
 
     if (!membership) {
-      return { userIds: [userId], isAdmin: false, groupId: null };
+      return { userIds: [userId], isAdmin: false, groupId: null, groupName: null };
     }
 
     if (membership.role !== FAMILY_GROUP_ROLES.ADMIN) {
@@ -34,6 +34,7 @@ export class FamilyMemberResolverService {
         userIds: [userId],
         isAdmin: false,
         groupId: membership.familyGroup.id,
+        groupName: membership.familyGroup.name,
       };
     }
 
@@ -56,6 +57,7 @@ export class FamilyMemberResolverService {
       userIds: userIds.length > 0 ? userIds : [userId],
       isAdmin: true,
       groupId: membership.familyGroup.id,
+      groupName: membership.familyGroup.name,
     };
   }
 }

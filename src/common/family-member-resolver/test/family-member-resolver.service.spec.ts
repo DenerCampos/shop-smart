@@ -36,6 +36,7 @@ describe('FamilyMemberResolverService', () => {
       userIds: ['user-99'],
       isAdmin: false,
       groupId: null,
+      groupName: null,
     });
   });
 });

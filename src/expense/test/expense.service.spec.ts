@@ -58,6 +58,7 @@ describe('ExpenseService', () => {
         userIds: ['user-1'],
         isAdmin: false,
         groupId: null,
+        groupName: null,
       }),
     };
     const qrf = createQueryRunnerFactoryMock();
