@@ -139,6 +139,26 @@ describe('Theme / Coin / Profile (e2e)', () => {
       .expect(201);
   });
 
+  it('POST /profile/complete-profile — 201 apenas family', async () => {
+    await request(app.getHttpServer())
+      .post('/profile/complete-profile')
+      .set(auth())
+      .send({ family: 'Família só nome e2e' })
+      .expect(201);
+  });
+
+  it('POST /profile/complete-profile — 400 income sem name', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/profile/complete-profile')
+      .set(auth())
+      .send({
+        family: 'Família e2e validação',
+        income: 100,
+        date: '2024-06-01T12:00:00.000Z',
+      });
+    expectClientError(res);
+  });
+
   it('POST /profile/complete-profile — 400', async () => {
     const res = await request(app.getHttpServer())
       .post('/profile/complete-profile')

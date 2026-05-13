@@ -11,16 +11,60 @@ describe('CompleteProfileDto (class-validator)', () => {
     repeatMonthly: true,
   };
 
-  it('aceita payload válido', async () => {
+  it('aceita payload completo (com receita)', async () => {
     const dto = plainToInstance(CompleteProfileDto, valid);
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
   });
 
-  it('rejeita quando name está vazio', async () => {
-    const dto = plainToInstance(CompleteProfileDto, { ...valid, name: '' });
+  it('aceita payload apenas com family (sem receita)', async () => {
+    const dto = plainToInstance(CompleteProfileDto, { family: 'Silva' });
     const errors = await validate(dto);
-    expect(errors.length).toBeGreaterThan(0);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejeita quando family está ausente', async () => {
+    const dto = plainToInstance(CompleteProfileDto, {
+      name: 'Renda',
+      income: 3000,
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'family')).toBe(true);
+  });
+
+  it('aceita quando name está ausente sem income', async () => {
+    const { name: _n, income: _i, ...rest } = valid;
+    const dto = plainToInstance(CompleteProfileDto, rest);
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejeita quando income está presente sem name', async () => {
+    const dto = plainToInstance(CompleteProfileDto, {
+      family: 'Silva',
+      income: 3000,
+      date: '2024-06-01',
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'name')).toBe(true);
+  });
+
+  it('rejeita quando income está presente sem date', async () => {
+    const dto = plainToInstance(CompleteProfileDto, {
+      family: 'Silva',
+      name: 'Renda',
+      income: 3000,
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'date')).toBe(true);
+  });
+
+  it('rejeita quando income está presente e name é vazio', async () => {
+    const dto = plainToInstance(CompleteProfileDto, {
+      ...valid,
+      name: '',
+    });
+    const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'name')).toBe(true);
   });
 
@@ -31,5 +75,12 @@ describe('CompleteProfileDto (class-validator)', () => {
     });
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'income')).toBe(true);
+  });
+
+  it('aceita quando income está ausente (campo opcional)', async () => {
+    const { income: _i, ...withoutIncome } = valid;
+    const dto = plainToInstance(CompleteProfileDto, withoutIncome);
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'income')).toBe(false);
   });
 });
