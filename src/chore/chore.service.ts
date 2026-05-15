@@ -29,6 +29,10 @@ import { ChoreOccurrenceQueryDto } from './dto/chore-occurrence-query.dto';
 import { ChoreHistoryQueryDto } from './dto/chore-history-query.dto';
 import { ChorePayrollPendingQueryDto } from './dto/chore-payroll-pending-query.dto';
 import { IChoreRepository } from './interface/chore.repository.interface';
+import {
+  calcNextScheduledDate,
+  type RecurringChore,
+} from './utils/calc-next-scheduled-date.util';
 
 function toPeriodYm(d: Date): number {
   return d.getFullYear() * 100 + (d.getMonth() + 1);
@@ -495,7 +499,17 @@ export class ChoreService {
       defFresh.isActive &&
       defFresh.recurrence !== CHORE_RECURRENCES.ONCE
     ) {
-      await this.spawnOpenOccurrence(familyGroupId, defFresh);
+      const approvedAt = fresh.approvedAt ?? new Date();
+      const scheduledDate = calcNextScheduledDate(
+        fresh.createdAt,
+        defFresh.recurrence as RecurringChore,
+        approvedAt,
+      );
+      await this.spawnOpenOccurrence(
+        familyGroupId,
+        defFresh,
+        scheduledDate,
+      );
     }
 
     return this.loadOccurrence(occurrenceId, familyGroupId);
@@ -655,10 +669,12 @@ export class ChoreService {
   private async spawnOpenOccurrence(
     familyGroupId: string,
     definition: ChoreDefinition,
+    scheduledDate: Date,
   ): Promise<void> {
     await this.choreRepository.insertOpenOccurrence(
       familyGroupId,
       definition,
+      scheduledDate,
     );
   }
 
@@ -727,6 +743,7 @@ export class ChoreService {
       file.buffer,
       fileName,
       file.mimetype,
+      'chore',
     );
 
     return uploadResult.webContentLink;

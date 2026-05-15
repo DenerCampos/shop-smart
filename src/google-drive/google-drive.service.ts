@@ -16,6 +16,8 @@ export class GoogleDriveService {
   private requestCount = 0;
   private lastResetTime = Date.now();
   private readonly maxRequestsPerMinute: number;
+  /** Cache: nome da subpasta → ID no Drive */
+  private readonly subfolderCache = new Map<string, string>();
 
   constructor(private readonly appConfig: AppConfig) {
     const config = this.appConfig.getGoogleDrive();
@@ -64,6 +66,43 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Retorna o ID de uma subpasta dentro de `folderId`, criando-a se não existir.
+   * O resultado é cacheado em memória para evitar chamadas repetidas à API.
+   */
+  async resolveSubfolderId(name: string): Promise<string> {
+    const cached = this.subfolderCache.get(name);
+    if (cached) return cached;
+
+    await this.checkRateLimit();
+    const listRes = await this.drive.files.list({
+      q: `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${this.folderId}' in parents and trashed=false`,
+      fields: 'files(id)',
+      pageSize: 1,
+    });
+
+    const existing = listRes.data.files?.[0]?.id;
+    if (existing) {
+      this.subfolderCache.set(name, existing);
+      return existing;
+    }
+
+    await this.checkRateLimit();
+    const createRes = await this.drive.files.create({
+      requestBody: {
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [this.folderId],
+      },
+      fields: 'id',
+    });
+
+    const id = createRes.data.id!;
+    this.subfolderCache.set(name, id);
+    this.logger.log(`Subpasta "${name}" criada no Google Drive (id: ${id})`);
+    return id;
+  }
+
   private async checkRateLimit(): Promise<void> {
     const now = Date.now();
     const elapsed = now - this.lastResetTime;
@@ -90,8 +129,14 @@ export class GoogleDriveService {
     fileBuffer: Buffer,
     fileName: string,
     mimeType: string,
+    subfolder?: string,
   ): Promise<GoogleDriveUploadResult> {
     this.validateConfig(this.appConfig.getGoogleDrive());
+
+    const parentId = subfolder
+      ? await this.resolveSubfolderId(subfolder)
+      : this.folderId;
+
     await this.checkRateLimit();
 
     const stream = new Readable();
@@ -101,7 +146,7 @@ export class GoogleDriveService {
     const response = await this.drive.files.create({
       requestBody: {
         name: fileName,
-        parents: [this.folderId],
+        parents: [parentId],
       },
       media: {
         mimeType,

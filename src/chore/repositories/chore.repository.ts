@@ -94,6 +94,7 @@ export class ChoreRepository implements IChoreRepository {
         completedAt: null,
         earnedPeriodYm: null,
         payrollSettlement: null,
+        scheduledDate: null,
       }),
     );
   }
@@ -180,6 +181,12 @@ export class ChoreRepository implements IChoreRepository {
               : CHORE_OCCURRENCE_STATUS.OPEN;
         qb.andWhere('o.status = :bst', { bst });
       }
+      if (!mode.statusParam || mode.statusParam === 'open') {
+        qb.andWhere(
+          '(o.scheduledDate IS NULL OR o.scheduledDate <= :now)',
+          { now: new Date() },
+        );
+      }
       qb.orderBy('o.createdAt', 'DESC');
     } else if (mode.kind === 'mine') {
       qb
@@ -222,10 +229,12 @@ export class ChoreRepository implements IChoreRepository {
     familyGroupId: string,
     occurrenceId: string,
   ): Promise<ChoreOccurrence | null> {
-    const qb = this.occurrencesVisibleQueryBuilder(familyGroupId).andWhere(
-      'o.id = :id',
-      { id: occurrenceId },
-    );
+    const qb = this.occurrencesVisibleQueryBuilder(familyGroupId)
+      .andWhere('o.id = :id', { id: occurrenceId })
+      .andWhere(
+        '(o.status != :openSt OR o.scheduledDate IS NULL OR o.scheduledDate <= :now)',
+        { openSt: CHORE_OCCURRENCE_STATUS.OPEN, now: new Date() },
+      );
     return qb.getOne();
   }
 
@@ -285,6 +294,7 @@ export class ChoreRepository implements IChoreRepository {
   async insertOpenOccurrence(
     familyGroupId: string,
     definition: ChoreDefinition,
+    scheduledDate: Date | null,
     manager?: EntityManager,
   ): Promise<void> {
     const repo = this.occ(manager);
@@ -305,6 +315,7 @@ export class ChoreRepository implements IChoreRepository {
         completedAt: null,
         earnedPeriodYm: null,
         payrollSettlement: null,
+        scheduledDate,
       }),
     );
   }

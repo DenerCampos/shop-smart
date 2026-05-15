@@ -40,6 +40,12 @@ export class ChoreOccurrenceResponseDto {
   completedAt: Date | null;
 
   @Expose()
+  createdAt: Date;
+
+  @Expose()
+  scheduledDate: Date | null;
+
+  @Expose()
   @Type(() => OwnerResponseDto)
   assignedTo: OwnerResponseDto | null;
 
