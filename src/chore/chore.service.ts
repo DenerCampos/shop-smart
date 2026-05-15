@@ -351,23 +351,15 @@ export class ChoreService {
       user.id,
     );
 
-    if (occ.definition.requirePhoto) {
-      if (!before || !after) {
-        throw new BadRequestException(
-          'Envie duas fotos nos campos "before" e "after".',
-        );
-      }
-    } else {
-      if (
-        !before &&
-        !after &&
-        !occ.photoBeforeUrl &&
-        !occ.photoAfterUrl
-      ) {
-        throw new BadRequestException(
-          'Envie ao menos uma imagem ou atualize uma já existente.',
-        );
-      }
+    if (
+      !before &&
+      !after &&
+      !occ.photoBeforeUrl &&
+      !occ.photoAfterUrl
+    ) {
+      throw new BadRequestException(
+        'Envie ao menos uma imagem.',
+      );
     }
 
     if (before) {
