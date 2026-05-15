@@ -17,6 +17,7 @@ import { User } from 'src/user/entities/user.entity';
 import { CreateShoppingListDto } from './dto/create-shopping-list.dto';
 import { UpdateShoppingListDto } from './dto/update-shopping-list.dto';
 import { CreateShoppingListItemDto } from './dto/create-shopping-list-item.dto';
+import { BulkAddShoppingListItemDto } from './dto/bulk-add-shopping-list-item.dto';
 import { UpdateShoppingListItemDto } from './dto/update-shopping-list-item.dto';
 import { ShoppingListFilterDto } from './dto/shopping-list-filter.dto';
 import { ItemSuggestionDto } from './dto/item-suggestion.dto';
@@ -119,6 +120,25 @@ export class ShoppingListController {
     const list = await this.shoppingListService.complete(id, user);
 
     return this.responseService.mapToDto(ShoppingListResponseDto, list);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':listId/items/bulk')
+  async addBulkItems(
+    @Param('listId') listId: string,
+    @Body() dto: BulkAddShoppingListItemDto,
+    @CurrentUser() user: User,
+  ): Promise<ShoppingListItemResponseDto[]> {
+    const items = await this.shoppingListService.addBulkItems(
+      listId,
+      dto,
+      user,
+    );
+
+    return this.responseService.mapArrayToDto(
+      ShoppingListItemResponseDto,
+      items,
+    );
   }
 
   @UseGuards(AuthGuard)

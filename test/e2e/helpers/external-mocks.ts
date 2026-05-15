@@ -1,7 +1,11 @@
 import { CouponReaderService } from 'src/coupon-reader/couponReader.service';
 import { GoogleDriveService } from 'src/google-drive/google-drive.service';
 import { User } from 'src/user/entities/user.entity';
-import { CouponTextResult } from 'src/text-recognition/types/textRecognitionType';
+import {
+  CouponTextResult,
+  ShoppingListItemTextAiResult,
+  ShoppingListItemTextAiResultArray,
+} from 'src/text-recognition/types/textRecognitionType';
 import { IImageRecognitionProvider } from 'src/image-recognition/providers/interfaces/image-recognition-provider.interface';
 import { ITextRecognitionProvider } from 'src/text-recognition/providers/interfaces/text-recognition-provider.interface';
 import { IAudioRecognitionProvider } from 'src/audio-recognition/providers/interfaces/audio-recognition-provider.interface';
@@ -33,17 +37,33 @@ export const mockImageRecognitionProviders: IImageRecognitionProvider[] = [
   },
 ];
 
+const baseShoppingItem = (name: string): ShoppingListItemTextAiResult => ({
+  name,
+  quantity: 1,
+  unit: 'un',
+  group: { name: 'Alimentação', isNew: false },
+  confidence: 1,
+  provider: 'gemini-text',
+});
+
 export const mockTextRecognitionProviders: ITextRecognitionProvider[] = [
   {
     name: 'gemini-text',
-    analyze: async () => ({
-      name: 'E2e item',
-      quantity: 1,
-      unit: 'un',
-      group: { name: 'Alimentação', isNew: false },
-      confidence: 1,
-      provider: 'gemini-text',
-    }),
+    analyze: async (text: string) =>
+      baseShoppingItem(text.trim() || 'E2e item'),
+    analyzeBulk: async (
+      text: string,
+    ): Promise<ShoppingListItemTextAiResultArray> => {
+      const names = text
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const items =
+        names.length > 0
+          ? names.map((n) => baseShoppingItem(n))
+          : [baseShoppingItem('E2e item')];
+      return { items };
+    },
     parseCoupon: async (): Promise<CouponTextResult> => ({
       name: 'E2e cupom',
       value: 10,

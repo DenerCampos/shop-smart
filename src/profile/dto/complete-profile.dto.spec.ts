@@ -77,6 +77,24 @@ describe('CompleteProfileDto (class-validator)', () => {
     expect(errors.some((e) => e.property === 'income')).toBe(true);
   });
 
+  it('rejeita quando income é menor que 1', async () => {
+    const dto = plainToInstance(CompleteProfileDto, {
+      ...valid,
+      income: 0,
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'income')).toBe(true);
+  });
+
+  it('rejeita quando income é negativo', async () => {
+    const dto = plainToInstance(CompleteProfileDto, {
+      ...valid,
+      income: -50,
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'income')).toBe(true);
+  });
+
   it('aceita quando income está ausente (campo opcional)', async () => {
     const { income: _i, ...withoutIncome } = valid;
     const dto = plainToInstance(CompleteProfileDto, withoutIncome);
