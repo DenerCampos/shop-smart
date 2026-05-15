@@ -87,6 +87,10 @@ export class ChoreOccurrence {
   @JoinColumn({ name: 'payrollSettlementId' })
   payrollSettlement: ChorePayrollSettlement | null;
 
+  /** Start of the window when this open occurrence is visible (next cycle for recurring). */
+  @Column({ type: 'datetime', nullable: true })
+  scheduledDate: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

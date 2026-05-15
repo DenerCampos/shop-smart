@@ -220,7 +220,7 @@ export class ExpenseController {
     FileInterceptor('image', {
       storage: memoryStorage(),
       limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
+        fileSize: 1.5 * 1024 * 1024,
         files: 1, // Aceita apenas 1 arquivo
       },
       fileFilter: (req, file, callback) => {

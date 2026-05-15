@@ -87,7 +87,7 @@ export class ProfileController {
     FileInterceptor('image', {
       storage: memoryStorage(),
       limits: {
-        fileSize: 5 * 1024 * 1024,
+        fileSize: 1.5 * 1024 * 1024,
         files: 1,
       },
     }),

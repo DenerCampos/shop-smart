@@ -102,6 +102,7 @@ export class ProfileService {
       file.buffer,
       fileName,
       file.mimetype,
+      'profile',
     );
 
     return await this.userService.update(user.id, {
