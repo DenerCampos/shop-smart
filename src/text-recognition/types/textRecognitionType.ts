@@ -17,6 +17,11 @@ export interface ShoppingListItemTextAiResult {
   provider: string;
 }
 
+/** Lista de itens interpretada em uma única chamada ao modelo. */
+export interface ShoppingListItemTextAiResultArray {
+  items: ShoppingListItemTextAiResult[];
+}
+
 /** Resultado para uso na lista de compras (grupo já resolvido no banco). */
 export interface ParsedShoppingListItemFromText {
   name: string;

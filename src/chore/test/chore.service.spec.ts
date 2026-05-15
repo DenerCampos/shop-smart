@@ -31,6 +31,7 @@ describe('ChoreService', () => {
     | 'findOccurrenceWaitingApproval'
     | 'findPayrollSettlementByGroupAndPeriod'
     | 'findOneOccurrenceVisible'
+    | 'insertOpenOccurrence'
   >>;
   let coinService: { addEarnedCoinsByAmount: jest.Mock };
   let userService: { find: jest.Mock };
@@ -56,6 +57,7 @@ describe('ChoreService', () => {
       findOccurrenceWaitingApproval: jest.fn(),
       findPayrollSettlementByGroupAndPeriod: jest.fn(),
       findOneOccurrenceVisible: jest.fn(),
+      insertOpenOccurrence: jest.fn(),
     };
 
     coinService = {
@@ -149,6 +151,50 @@ describe('ChoreService', () => {
       memberUser,
       7,
       expect.stringContaining('doméstica'),
+    );
+    expect(choreRepository.insertOpenOccurrence).not.toHaveBeenCalled();
+  });
+
+  it('approveOccurrence — cria próxima ocorrência diária com scheduledDate', async () => {
+    const createdAt = new Date(2026, 4, 1, 10, 0, 0);
+    const approvedAt = new Date(2026, 4, 2, 10, 0, 0);
+    const waiting = {
+      id: 'occ1',
+      deletedAt: null,
+      status: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
+      assignedTo: memberUser,
+      snapshotCoinReward: 5,
+      snapshotRewardMoney: 1,
+      definition: { id: 'def1' },
+      createdAt,
+    } as ChoreOccurrence;
+
+    choreRepository.findOccurrenceForApproveLocked.mockResolvedValue(waiting);
+    choreRepository.saveOccurrence.mockImplementation(async (o) => o);
+    choreRepository.findDefinitionById.mockResolvedValue({
+      id: 'def1',
+      deletedAt: null,
+      isActive: true,
+      recurrence: 'daily',
+    } as ChoreDefinition);
+
+    const afterApprove = {
+      ...waiting,
+      status: CHORE_OCCURRENCE_STATUS.COMPLETED,
+      approvedAt,
+      completedAt: approvedAt,
+      definition: { id: 'def1' },
+      createdAt,
+    } as ChoreOccurrence;
+
+    jest.spyOn(service, 'loadOccurrence').mockResolvedValue(afterApprove);
+
+    await service.approveOccurrence('g1', adminUser, 'occ1');
+
+    expect(choreRepository.insertOpenOccurrence).toHaveBeenCalledWith(
+      'g1',
+      expect.objectContaining({ id: 'def1', recurrence: 'daily' }),
+      new Date(2026, 4, 3, 10, 0, 0),
     );
   });
 

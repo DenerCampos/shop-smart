@@ -1,5 +1,6 @@
 let gdriveMocks: {
   filesCreate: jest.Mock;
+  filesList: jest.Mock;
   filesDelete: jest.Mock;
   permissionsCreate: jest.Mock;
 };
@@ -7,6 +8,7 @@ let gdriveMocks: {
 jest.mock('googleapis', () => {
   gdriveMocks = {
     filesCreate: jest.fn(),
+    filesList: jest.fn().mockResolvedValue({ data: { files: [] } }),
     filesDelete: jest.fn().mockResolvedValue({}),
     permissionsCreate: jest.fn().mockResolvedValue({}),
   };
@@ -20,6 +22,7 @@ jest.mock('googleapis', () => {
       drive: jest.fn().mockImplementation(() => ({
         files: {
           create: (...args: unknown[]) => gdriveMocks.filesCreate(...args),
+          list: (...args: unknown[]) => gdriveMocks.filesList(...args),
           delete: (...args: unknown[]) => gdriveMocks.filesDelete(...args),
         },
         permissions: {
@@ -50,6 +53,7 @@ describe('GoogleDriveService', () => {
         webContentLink: 'https://old-link',
       },
     });
+    gdriveMocks.filesList.mockResolvedValue({ data: { files: [] } });
     gdriveMocks.permissionsCreate.mockResolvedValue({});
 
     const appConfigMock = createGoogleDriveAppConfigMock();
@@ -79,14 +83,18 @@ describe('GoogleDriveService', () => {
   });
 
   describe('uploadFile', () => {
-    it('cria arquivo, define permissão e retorna link direto', async () => {
+    it('cria arquivo sem subpasta, define permissão e retorna link direto', async () => {
       const result = await service.uploadFile(
         Buffer.from('x'),
         'nome.png',
         'image/png',
       );
 
-      expect(gdriveMocks.filesCreate).toHaveBeenCalled();
+      expect(gdriveMocks.filesCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestBody: expect.objectContaining({ parents: ['folder-123'] }),
+        }),
+      );
       expect(gdriveMocks.permissionsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           fileId: 'file-abc',
@@ -99,6 +107,65 @@ describe('GoogleDriveService', () => {
         webViewLink: 'https://drive.google.com/file/d/file-abc/view',
         webContentLink: 'https://drive.google.com/uc?export=view&id=file-abc',
       });
+    });
+
+    it('cria subpasta quando não existe e faz upload nela', async () => {
+      gdriveMocks.filesList.mockResolvedValueOnce({ data: { files: [] } });
+      gdriveMocks.filesCreate
+        .mockResolvedValueOnce({ data: { id: 'subfolder-id' } })
+        .mockResolvedValueOnce({
+          data: {
+            id: 'file-abc',
+            name: 'foto.png',
+            webViewLink: 'https://drive.google.com/file/d/file-abc/view',
+          },
+        });
+
+      await service.uploadFile(Buffer.from('x'), 'foto.png', 'image/png', 'chore');
+
+      const [folderCreate, fileCreate] = gdriveMocks.filesCreate.mock.calls;
+      expect(folderCreate[0].requestBody).toMatchObject({
+        name: 'chore',
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: ['folder-123'],
+      });
+      expect(fileCreate[0].requestBody).toMatchObject({
+        parents: ['subfolder-id'],
+      });
+    });
+
+    it('reutiliza subpasta existente sem criar nova', async () => {
+      gdriveMocks.filesList.mockResolvedValueOnce({
+        data: { files: [{ id: 'existing-subfolder' }] },
+      });
+
+      await service.uploadFile(Buffer.from('x'), 'foto.png', 'image/png', 'profile');
+
+      const folderCreateCall = gdriveMocks.filesCreate.mock.calls.find(
+        (c) =>
+          c[0]?.requestBody?.mimeType === 'application/vnd.google-apps.folder',
+      );
+      expect(folderCreateCall).toBeUndefined();
+      expect(gdriveMocks.filesCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestBody: expect.objectContaining({ parents: ['existing-subfolder'] }),
+        }),
+      );
+    });
+
+    it('cacheia ID da subpasta na segunda chamada', async () => {
+      gdriveMocks.filesList.mockResolvedValueOnce({ data: { files: [] } });
+      gdriveMocks.filesCreate
+        .mockResolvedValueOnce({ data: { id: 'subfolder-id' } })
+        .mockResolvedValue({
+          data: { id: 'file-abc', name: 'f.png', webViewLink: '' },
+        });
+
+      await service.uploadFile(Buffer.from('x'), 'f.png', 'image/png', 'chore');
+      await service.uploadFile(Buffer.from('y'), 'g.png', 'image/png', 'chore');
+
+      // filesList só deve ter sido chamado uma vez (cache hit na segunda)
+      expect(gdriveMocks.filesList).toHaveBeenCalledTimes(1);
     });
 
     it('lança quando config do Drive está incompleta', async () => {

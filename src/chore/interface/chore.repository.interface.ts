@@ -96,6 +96,7 @@ export interface IChoreRepository {
   insertOpenOccurrence(
     familyGroupId: string,
     definition: ChoreDefinition,
+    scheduledDate: Date | null,
     manager?: EntityManager,
   ): Promise<void>;
 

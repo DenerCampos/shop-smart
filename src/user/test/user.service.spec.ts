@@ -83,7 +83,7 @@ describe('UserService', () => {
       expect(result.password).not.toBe('plain');
       const ok = await bcrypt.compare('plain', result.password);
       expect(ok).toBe(true);
-      expect(result.family).toBe('N');
+      expect(result.family).toBe('');
       expect(result.coatOfArms).toContain('brasao');
       expect(eventEmitter.emit).toHaveBeenCalledWith(
         'user.created',

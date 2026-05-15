@@ -45,6 +45,9 @@ export class FamilyGroupMemberDataResponseDto {
   totalRevenues: number;
 
   @Expose()
+  masked: boolean;
+
+  @Expose()
   @Type(() => ExpenseDataDto)
   expenses: ExpenseDataDto[];
 

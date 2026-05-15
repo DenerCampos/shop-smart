@@ -1,23 +1,34 @@
-import { IsBoolean, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class CompleteProfileDto {
+  @ValidateIf((o: CompleteProfileDto) => o.income != null)
   @IsNotEmpty()
   @IsString()
-  name: string;
+  name?: string;
 
   @IsNotEmpty()
   @IsString()
   family: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
-  income: number;
+  @Min(1)
+  income?: number;
 
+  @ValidateIf((o: CompleteProfileDto) => o.income != null)
   @IsNotEmpty()
   @IsString()
-  date: string;
+  date?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsBoolean()
   repeatMonthly?: boolean;
 }

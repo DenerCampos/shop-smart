@@ -23,7 +23,6 @@ describe('ProfileService', () => {
     Pick<
       RevenueService,
       | 'getRevenueByCurrentMonth'
-      | 'exist'
       | 'hasRecurringPreviousMonth'
       | 'create'
       | 'getLatest'
@@ -57,7 +56,6 @@ describe('ProfileService', () => {
   beforeEach(async () => {
     revenueService = {
       getRevenueByCurrentMonth: jest.fn().mockResolvedValue({ value: 100 }),
-      exist: jest.fn().mockResolvedValue(true),
       hasRecurringPreviousMonth: jest.fn().mockResolvedValue(false),
       create: jest.fn(),
       getLatest: jest.fn().mockResolvedValue([]),
@@ -138,7 +136,13 @@ describe('ProfileService', () => {
     expect(expenseService.getExpenseByCurrentMonth).toHaveBeenCalledWith(user);
   });
 
-  it('completeProfile cria receita e atualiza família', async () => {
+  it('getProfile retorna isFirstAccess=true quando usuário não tem família', async () => {
+    const user = createTestUser({ family: '' });
+    const profile = await service.getProfile(user);
+    expect(profile.isFirstAccess).toBe(true);
+  });
+
+  it('completeProfile cria receita e atualiza família quando income é informado', async () => {
     const user = createTestUser();
     revenueService.create.mockResolvedValue({ id: 'r1' } as Revenue);
     const dto: CompleteProfileDto = {
@@ -157,6 +161,20 @@ describe('ProfileService', () => {
       repeat: dto.repeatMonthly,
       date: new Date(dto.date),
     });
+    expect(userService.update).toHaveBeenCalledWith(user.id, {
+      family: dto.family,
+    });
+  });
+
+  it('completeProfile atualiza apenas a família quando income não é informado', async () => {
+    const user = createTestUser();
+    const dto: CompleteProfileDto = {
+      family: 'Santos',
+    };
+
+    await service.completeProfile(user, dto);
+
+    expect(revenueService.create).not.toHaveBeenCalled();
     expect(userService.update).toHaveBeenCalledWith(user.id, {
       family: dto.family,
     });
