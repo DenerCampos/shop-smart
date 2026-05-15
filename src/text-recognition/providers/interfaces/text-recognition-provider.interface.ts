@@ -1,6 +1,7 @@
 import {
   CouponTextResult,
   ShoppingListItemTextAiResult,
+  ShoppingListItemTextAiResultArray,
 } from '../../types/textRecognitionType';
 
 export interface TextRecognitionAnalyzeOptions {
@@ -24,6 +25,11 @@ export interface ITextRecognitionProvider {
     text: string,
     options?: TextRecognitionAnalyzeOptions,
   ): Promise<ShoppingListItemTextAiResult>;
+  /** Interpreta vários produtos em um texto (ex.: separados por vírgula). */
+  analyzeBulk?(
+    text: string,
+    options?: TextRecognitionAnalyzeOptions,
+  ): Promise<ShoppingListItemTextAiResultArray>;
   parseCoupon(
     text: string,
     options?: CouponParseOptions,

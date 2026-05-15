@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
-import { ShoppingListItemTextAiResult } from '../../types/textRecognitionType';
+import {
+  CouponTextResult,
+  ShoppingListItemTextAiResult,
+  ShoppingListItemTextAiResultArray,
+} from '../../types/textRecognitionType';
 import { TextRecognitionException } from '../../exceptions/textRecognition.exception';
 import { ApiQuotaException } from 'src/common/ai-quota/exceptions/apiQuota.exception';
 import {
@@ -10,7 +14,6 @@ import {
   ITextRecognitionProvider,
   TextRecognitionAnalyzeOptions,
 } from '../interfaces/text-recognition-provider.interface';
-import { CouponTextResult } from '../../types/textRecognitionType';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 
 /** Alinhado a shopping-list-item-unit (evita import do módulo shopping-list). */
@@ -78,6 +81,44 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
     return u ?? 'un';
   }
 
+  private mapParsedObjectToShoppingResult(
+    parsed: Record<string, unknown>,
+    groupsList: string[],
+  ): ShoppingListItemTextAiResult {
+    const nameRaw = parsed.name;
+    if (typeof nameRaw !== 'string' || !nameRaw.trim()) {
+      throw new TextRecognitionException(
+        'Resposta da IA sem nome de produto válido.',
+      );
+    }
+
+    let quantity = Number(parsed.quantity);
+    if (!Number.isFinite(quantity) || quantity < 0.01) {
+      quantity = 1;
+    }
+
+    const unit = this.coerceUnit(parsed.unit);
+
+    const groupObj = parsed.group as Record<string, unknown> | undefined;
+    const groupName =
+      typeof groupObj?.name === 'string' && groupObj.name.trim()
+        ? groupObj.name.trim()
+        : 'Alimentação';
+    const isNew = groupObj?.isNew === true || groupsList.length === 0;
+
+    return {
+      name: nameRaw.trim(),
+      quantity,
+      unit,
+      group: {
+        name: groupName,
+        isNew: Boolean(isNew),
+      },
+      confidence: 0.85,
+      provider: this.name,
+    };
+  }
+
   async analyze(
     text: string,
     options?: TextRecognitionAnalyzeOptions,
@@ -130,38 +171,7 @@ Regras:
           const cleaned = this.cleanModelJson(responseText);
           const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-          const nameRaw = parsed.name;
-          if (typeof nameRaw !== 'string' || !nameRaw.trim()) {
-            throw new TextRecognitionException(
-              'Resposta da IA sem nome de produto válido.',
-            );
-          }
-
-          let quantity = Number(parsed.quantity);
-          if (!Number.isFinite(quantity) || quantity < 0.01) {
-            quantity = 1;
-          }
-
-          const unit = this.coerceUnit(parsed.unit);
-
-          const groupObj = parsed.group as Record<string, unknown> | undefined;
-          const groupName =
-            typeof groupObj?.name === 'string' && groupObj.name.trim()
-              ? groupObj.name.trim()
-              : 'Alimentação';
-          const isNew = groupObj?.isNew === true || groupsList.length === 0;
-
-          return {
-            name: nameRaw.trim(),
-            quantity,
-            unit,
-            group: {
-              name: groupName,
-              isNew: Boolean(isNew),
-            },
-            confidence: 0.85,
-            provider: this.name,
-          };
+          return this.mapParsedObjectToShoppingResult(parsed, groupsList);
         } catch (error) {
           if (
             error instanceof TextRecognitionException ||
@@ -170,7 +180,106 @@ Regras:
             throw error;
           }
           throw new TextRecognitionException(
-            `Erro ao analisar texto: ${error.message}`,
+            `Erro ao analisar texto: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      },
+    );
+  }
+
+  async analyzeBulk(
+    text: string,
+    options?: TextRecognitionAnalyzeOptions,
+  ): Promise<ShoppingListItemTextAiResultArray> {
+    return this.aiCallTelemetry.measure(
+      'text_recognition',
+      this.name,
+      async () => {
+        try {
+          await this.apiQuotaService.checkAndIncrementQuota(
+            this.name,
+            this.dailyLimit,
+          );
+
+          const groupsList = options?.groups?.filter(Boolean) ?? [];
+          const groupsCsv =
+            groupsList.length > 0
+              ? groupsList.join(', ')
+              : '(nenhuma categoria cadastrada ainda)';
+
+          const allowedUnits = ALLOWED_UNITS.join(', ');
+
+          const prompt = `Você interpreta uma lista de compras em português. O usuário pode enviar vários produtos em uma única linha, normalmente separados por vírgulas (ex.: "feijão, arroz, 3 óleos, papel higiênico").
+
+Categorias já existentes do usuário (use uma delas quando fizer sentido; copie o nome exatamente como aparece na lista): ${groupsCsv}
+
+Retorne APENAS um JSON válido (sem markdown, sem texto extra), com as chaves em inglês:
+{
+  "items": [
+    {
+      "name": "nome do produto sem quantidade/unidade",
+      "quantity": número (mínimo 0.01, padrão 1),
+      "unit": uma destas strings exatas: ${allowedUnits},
+      "group": {
+        "name": "nome da categoria em português",
+        "isNew": boolean
+      }
+    }
+  ]
+}
+
+Regras:
+- Inclua um objeto em "items" para cada produto mencionado pelo usuário (ignore espaços vazios entre vírgulas).
+- Mesmas regras de categoria e unidade que para um item único: "isNew": false só quando "group.name" for exatamente um nome da lista de categorias existentes; caso contrário "isNew": true com nome curto em português.
+- Se não houver categorias cadastradas, use "isNew": true com nome razoável para cada item.
+- Unidade: infira do texto (kg, g, l, ml, pacotes → pack, dúzias → dz, peças → un).
+- Não inclua comentários nem blocos \`\`\`json.`;
+
+          const result = await this.model.generateContent(
+            `${prompt}\n\nTexto do usuário:\n${text}`,
+          );
+
+          const responseText = result.response.text();
+          const cleaned = this.cleanModelJson(responseText);
+          const root = JSON.parse(cleaned) as Record<string, unknown>;
+
+          const rawItems = root.items;
+          if (!Array.isArray(rawItems) || rawItems.length === 0) {
+            throw new TextRecognitionException(
+              'Resposta da IA sem lista de itens válida.',
+            );
+          }
+
+          const items: ShoppingListItemTextAiResult[] = [];
+          for (let i = 0; i < rawItems.length; i++) {
+            const el = rawItems[i];
+            if (!el || typeof el !== 'object' || Array.isArray(el)) {
+              throw new TextRecognitionException(
+                `Resposta da IA com item inválido na posição ${i}.`,
+              );
+            }
+            items.push(
+              this.mapParsedObjectToShoppingResult(
+                el as Record<string, unknown>,
+                groupsList,
+              ),
+            );
+          }
+
+          return { items };
+        } catch (error) {
+          if (
+            error instanceof TextRecognitionException ||
+            error instanceof ApiQuotaException
+          ) {
+            throw error;
+          }
+          throw new TextRecognitionException(
+            `Erro ao analisar lista de compras: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           );
         }
       },

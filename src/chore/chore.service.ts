@@ -358,7 +358,7 @@ export class ChoreService {
       !occ.photoAfterUrl
     ) {
       throw new BadRequestException(
-        'Envie ao menos uma imagem.',
+        'Envie ao menos uma imagem (before ou after). Você pode enviar uma por vez.',
       );
     }
 

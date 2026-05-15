@@ -12,6 +12,7 @@ import { ShoppingListItem } from './entities/shopping-list-item.entity';
 import { CreateShoppingListDto } from './dto/create-shopping-list.dto';
 import { UpdateShoppingListDto } from './dto/update-shopping-list.dto';
 import { CreateShoppingListItemDto } from './dto/create-shopping-list-item.dto';
+import { BulkAddShoppingListItemDto } from './dto/bulk-add-shopping-list-item.dto';
 import { UpdateShoppingListItemDto } from './dto/update-shopping-list-item.dto';
 import { ShoppingListFilterDto } from './dto/shopping-list-filter.dto';
 import { AppConfig } from 'src/common/app-config/app.config';
@@ -273,6 +274,48 @@ export class ShoppingListService {
     this.shoppingListGateway.emitToList(listId, 'item_added', itemDto);
 
     return item;
+  }
+
+  async addBulkItems(
+    listId: string,
+    dto: BulkAddShoppingListItemDto,
+    user: User,
+  ): Promise<ShoppingListItem[]> {
+    const list = await this.repository.findListById(listId);
+
+    if (!list) {
+      throw new NotExistException();
+    }
+
+    await this.validateListAccess(list, user.id);
+
+    const parsedItems = await this.textRecognitionService.parseShoppingListItems(
+      dto.text,
+      user,
+    );
+
+    const saved: ShoppingListItem[] = [];
+
+    for (const parsed of parsedItems) {
+      const item = await this.repository.createItem(
+        list,
+        user,
+        parsed.name,
+        parsed.quantity,
+        parsed.unit,
+        parsed.groupId,
+      );
+
+      saved.push(item);
+
+      const itemDto = this.responseService.mapToDto(
+        ShoppingListItemResponseDto,
+        item,
+      );
+      this.shoppingListGateway.emitToList(listId, 'item_added', itemDto);
+    }
+
+    return saved;
   }
 
   async updateItem(

@@ -105,4 +105,40 @@ describe('Family group / Shopping lists (e2e)', () => {
       .set(auth());
     expectClientError(res);
   });
+
+  it('POST /shopping-lists/:listId/items/bulk — 201 vários itens', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/shopping-lists')
+      .set(auth())
+      .send({ name: `Lista bulk e2e ${Date.now()}` })
+      .expect(201);
+    const listId = create.body.id as string;
+
+    const bulk = await request(app.getHttpServer())
+      .post(`/shopping-lists/${listId}/items/bulk`)
+      .set(auth())
+      .send({ text: 'feijão, arroz' })
+      .expect(201);
+
+    expect(Array.isArray(bulk.body)).toBe(true);
+    expect(bulk.body.length).toBe(2);
+    expect(bulk.body[0]).toEqual(
+      expect.objectContaining({ name: expect.any(String) }),
+    );
+  });
+
+  it('POST /shopping-lists/:listId/items/bulk — 404 lista inexistente', async () => {
+    const res = await request(app.getHttpServer())
+      .post(`/shopping-lists/00000000-0000-4000-8000-000000000099/items/bulk`)
+      .set(auth())
+      .send({ text: 'item único' });
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /shopping-lists/:listId/items/bulk — 401 sem token', async () => {
+    await request(app.getHttpServer())
+      .post(`/shopping-lists/00000000-0000-4000-8000-000000000099/items/bulk`)
+      .send({ text: 'x' })
+      .expect(401);
+  });
 });

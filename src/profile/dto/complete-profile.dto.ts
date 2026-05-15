@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
   ValidateIf,
 } from 'class-validator';
 
@@ -19,6 +20,7 @@ export class CompleteProfileDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(1)
   income?: number;
 
   @ValidateIf((o: CompleteProfileDto) => o.income != null)
