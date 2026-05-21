@@ -69,7 +69,15 @@ describe('GoogleDriveService', () => {
   });
 
   describe('extractFileIdFromUrl', () => {
-    it('extrai id do parâmetro id=', () => {
+    it('extrai id do formato lh3.googleusercontent.com/d/<id>', () => {
+      expect(
+        service.extractFileIdFromUrl(
+          'https://lh3.googleusercontent.com/d/ABC_xyz-1',
+        ),
+      ).toBe('ABC_xyz-1');
+    });
+
+    it('extrai id do formato legado uc?export=view&id=<id>', () => {
       expect(
         service.extractFileIdFromUrl(
           'https://drive.google.com/uc?export=view&id=ABC_xyz-1',
@@ -77,7 +85,7 @@ describe('GoogleDriveService', () => {
       ).toBe('ABC_xyz-1');
     });
 
-    it('retorna null quando não há id', () => {
+    it('retorna null quando não há id reconhecível', () => {
       expect(service.extractFileIdFromUrl('https://example.com')).toBeNull();
     });
   });
@@ -105,7 +113,7 @@ describe('GoogleDriveService', () => {
         fileId: 'file-abc',
         fileName: 'foto.png',
         webViewLink: 'https://drive.google.com/file/d/file-abc/view',
-        webContentLink: 'https://drive.google.com/uc?export=view&id=file-abc',
+        webContentLink: 'https://lh3.googleusercontent.com/d/file-abc',
       });
     });
 

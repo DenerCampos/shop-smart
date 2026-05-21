@@ -108,6 +108,32 @@ export class ShoppingListRepository implements IShoppingListRepository {
       .getOne();
   }
 
+  async findByNameAndUser(
+    name: string,
+    userId: string,
+    familyGroupIds: string[],
+  ): Promise<ShoppingList | null> {
+    const qb = this.listRepo
+      .createQueryBuilder('list')
+      .leftJoin('list.familyGroup', 'familyGroup')
+      .addSelect(['familyGroup.id', 'familyGroup.name'])
+      .leftJoin('list.createdBy', 'createdBy')
+      .addSelect(['createdBy.id', 'createdBy.name', 'createdBy.profileImage'])
+      .where('LOWER(list.name) = LOWER(:name)', { name })
+      .andWhere('list.deletedAt IS NULL');
+
+    if (familyGroupIds.length > 0) {
+      qb.andWhere(
+        '(list.createdById = :userId OR list.familyGroupId IN (:...familyGroupIds))',
+        { userId, familyGroupIds },
+      );
+    } else {
+      qb.andWhere('list.createdById = :userId', { userId });
+    }
+
+    return qb.getOne();
+  }
+
   async updateList(
     list: ShoppingList,
     data: Partial<ShoppingList>,

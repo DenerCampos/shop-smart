@@ -714,6 +714,14 @@ export class ShoppingListService {
     }
   }
 
+  async findByNameAndUser(
+    name: string,
+    user: User,
+  ): Promise<ShoppingList | null> {
+    const familyGroupIds = await this.getUserFamilyGroupIds(user.id);
+    return this.repository.findByNameAndUser(name, user.id, familyGroupIds);
+  }
+
   private async getUserFamilyGroupIds(userId: string): Promise<string[]> {
     try {
       const groups = await this.familyGroupService.findGroupsByUser(userId);

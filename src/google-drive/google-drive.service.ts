@@ -155,24 +155,9 @@ export class GoogleDriveService {
       fields: 'id,name,webViewLink,webContentLink',
     });
 
-    await this.checkRateLimit();
+    await this.setPublicPermission(response.data.id);
 
-    try {
-      await this.drive.permissions.create({
-        fileId: response.data.id,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Falha ao definir permissão pública do arquivo ${response.data.id}`,
-        error?.message,
-      );
-    }
-
-    const directImageUrl = `https://drive.google.com/uc?export=view&id=${response.data.id}`;
+    const directImageUrl = `https://lh3.googleusercontent.com/d/${response.data.id}`;
 
     return {
       fileId: response.data.id,
@@ -180,6 +165,36 @@ export class GoogleDriveService {
       webViewLink: response.data.webViewLink,
       webContentLink: directImageUrl,
     };
+  }
+
+  private async setPublicPermission(
+    fileId: string,
+    attempts = 3,
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        await this.checkRateLimit();
+        await this.drive.permissions.create({
+          fileId,
+          requestBody: { role: 'reader', type: 'anyone' },
+        });
+        return;
+      } catch (error) {
+        if (attempt === attempts) {
+          this.logger.error(
+            `Falha ao definir permissão pública do arquivo ${fileId} após ${attempts} tentativas`,
+            error?.message,
+          );
+          throw new InternalServerErrorException(
+            'Falha ao tornar o arquivo público no Google Drive.',
+          );
+        }
+        this.logger.warn(
+          `Tentativa ${attempt}/${attempts} falhou para permissão do arquivo ${fileId}: ${error?.message}`,
+        );
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
   }
 
   async deleteFile(fileId: string): Promise<void> {
@@ -195,7 +210,11 @@ export class GoogleDriveService {
   }
 
   extractFileIdFromUrl(url: string): string | null {
-    const match = url.match(/id=([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
+    // formato novo: https://lh3.googleusercontent.com/d/<id>
+    const lhMatch = url.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+    if (lhMatch) return lhMatch[1];
+    // formato antigo: https://drive.google.com/uc?export=view&id=<id>
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    return idMatch ? idMatch[1] : null;
   }
 }
