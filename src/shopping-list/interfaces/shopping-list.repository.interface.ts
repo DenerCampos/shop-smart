@@ -23,6 +23,12 @@ export interface IShoppingListRepository {
 
   findListWithItems(id: string): Promise<ShoppingList | null>;
 
+  findByNameAndUser(
+    name: string,
+    userId: string,
+    familyGroupIds: string[],
+  ): Promise<ShoppingList | null>;
+
   updateList(
     list: ShoppingList,
     data: Partial<ShoppingList>,

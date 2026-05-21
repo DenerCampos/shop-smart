@@ -24,6 +24,7 @@ import { FamilyGroupModule } from './family-group/family-group.module';
 import { ShoppingListModule } from './shopping-list/shopping-list.module';
 import { AlexaModule } from './alexa/alexa.module';
 import { ChoreModule } from './chore/chore.module';
+import { RecipeModule } from './recipe/recipe.module';
 import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from './common/logger/logger.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -66,6 +67,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
     ShoppingListModule,
     AlexaModule,
     ChoreModule,
+    RecipeModule,
   ],
   controllers: [],
   providers: [
