@@ -210,7 +210,11 @@ export class GoogleDriveService {
   }
 
   extractFileIdFromUrl(url: string): string | null {
-    const match = url.match(/id=([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
+    // formato novo: https://lh3.googleusercontent.com/d/<id>
+    const lhMatch = url.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+    if (lhMatch) return lhMatch[1];
+    // formato antigo: https://drive.google.com/uc?export=view&id=<id>
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    return idMatch ? idMatch[1] : null;
   }
 }
