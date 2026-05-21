@@ -12,11 +12,15 @@ services:
       - redis
     env_file:
       - .env
+    environment:
+      - TZ=America/Sao_Paulo
     networks:
       - shop_smart
     restart: always
     volumes:
       - ./logs:/usr/src/app/logs
+      - /etc/localtime:/etc/localtime:ro # Sincroniza o relógio com a VPS Linux
+      - /etc/timezone:/etc/timezone:ro
 
   db:
     image: mysql:8.0
@@ -29,12 +33,15 @@ services:
       MYSQL_PASSWORD: ${API_DB_PASS}
       MYSQL_ROOT_HOST: '%'
       MYSQL_DEFAULT_AUTHENTICATION_PLUGIN: mysql_native_password
+      TZ: America/Sao_Paulo # Faz o MySQL registrar os Timestamps corretamente
     command: 
       - --default-authentication-plugin=mysql_native_password
       - --authentication-policy=mysql_native_password
     volumes:
       - db_data:/var/lib/mysql
       - ./mysql-config/my.cnf:/etc/mysql/conf.d/custom.cnf 
+      - /etc/localtime:/etc/localtime:ro # Sincroniza o relógio com a VPS Linux
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "${API_DB_PORT}:3306"
     networks:
@@ -43,6 +50,11 @@ services:
 
   redis:
     image: redis:7.2.4
+    environment:
+      - TZ=America/Sao_Paulo # Opcional, para consistência no Redis
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     networks:
       - shop_smart
     restart: always
@@ -54,6 +66,7 @@ services:
     volumes:
       - /opt/shop_smart/backups:/backups
       - ./scripts:/scripts
+      - /etc/localtime:/etc/localtime:ro # Sincroniza também no backup
     environment:
       MYSQL_DATABASE: ${API_DB_NAME}
       MYSQL_USER: ${API_DB_USER}
