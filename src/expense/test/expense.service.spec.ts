@@ -13,6 +13,7 @@ import { User } from '../../user/entities/user.entity';
 import { Store } from '../../store/entities/store.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
 import { createQueryRunnerFactoryMock } from '../../common/test/query-runner-factory.mock';
+import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
 describe('ExpenseService', () => {
   let service: ExpenseService;
@@ -77,6 +78,7 @@ describe('ExpenseService', () => {
           provide: FamilyMemberResolverService,
           useValue: familyMemberResolver,
         },
+        provideEventEmitterMock(),
       ],
     }).compile();
 

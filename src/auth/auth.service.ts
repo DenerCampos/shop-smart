@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter } from 'events';
 import { UserService } from '../user/user.service';
 import { FamilyGroupService } from '../family-group/family-group.service';
 import { SignInDto } from './dto/signIn.dto';
@@ -20,6 +22,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { AppConfig } from '../common/app-config/app.config';
 import { SecurityAuditLogService } from '../common/logging/security-audit-log.service';
+import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { v4 as uuidv4 } from 'uuid';
 
 interface OauthSession {
@@ -53,6 +56,8 @@ export class AuthService {
     private oauthCodeRepository: Repository<OauthCode>,
     @InjectRepository(OauthConnection)
     private oauthConnectionRepository: Repository<OauthConnection>,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {}
 
   async signIn(signInDto: SignInDto): Promise<jwtTokenType> {
@@ -74,6 +79,8 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(payload);
 
     await this.usersService.saveToken(user.id, accessToken);
+
+    this.eventEmitter.emit('auth.login_success', { userId: user.id });
 
     return { accessToken };
   }
@@ -101,6 +108,8 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(payload);
 
     await this.usersService.saveToken(user.id, accessToken);
+
+    this.eventEmitter.emit('auth.login_success', { userId: user.id });
 
     return { accessToken };
   }

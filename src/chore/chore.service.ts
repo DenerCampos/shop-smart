@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
 import { User } from 'src/user/entities/user.entity';
@@ -14,6 +15,7 @@ import { UserService } from 'src/user/user.service';
 import { GoogleDriveService } from 'src/google-drive/google-drive.service';
 import { CoinService } from 'src/coin/coin.service';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { NotExistException } from 'src/exception/notExistException';
 import { logJson } from 'src/common/logging/log-event.util';
@@ -62,6 +64,8 @@ export class ChoreService {
     private readonly coinService: CoinService,
     private readonly pagination: Pagination,
     private readonly appConfig: AppConfig,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {
     const base = this.appConfig.getBaseUrl();
     this.choresBaseSegment = `${base}/family-groups`;
@@ -471,6 +475,8 @@ export class ChoreService {
       snapshotCoins,
       'Recompensa por tarefa doméstica aprovada',
     );
+
+    this.eventEmitter.emit('chore.approved', { userId: assigneeId });
 
     logJson(this.logger, {
       event: 'chore_approved',

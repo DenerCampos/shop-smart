@@ -1,4 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import {
@@ -52,6 +54,8 @@ export class ExpenseService {
     private coinService: CoinService,
     private queryRunnerFactory: QueryRunnerFactory,
     private readonly familyMemberResolver: FamilyMemberResolverService,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {}
 
   async create(
@@ -118,6 +122,12 @@ export class ExpenseService {
 
       //Log results promises
       logResultsPromises(results, ['addCoins']);
+
+      this.eventEmitter.emit('expense.created', { userId: user.id });
+
+      if (createExpenseDto.uri?.trim()) {
+        this.eventEmitter.emit('coupon.processed', { userId: user.id });
+      }
 
       return expense;
     } catch (error) {

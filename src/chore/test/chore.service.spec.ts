@@ -14,6 +14,7 @@ import { ChorePayrollSettlement } from '../entities/chore-payroll-settlement.ent
 import { CHORE_OCCURRENCE_STATUS } from '../types/chore-occurrence-status.type';
 import { User } from 'src/user/entities/user.entity';
 import { IChoreRepository } from '../interface/chore.repository.interface';
+import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
 describe('ChoreService', () => {
   let service: ChoreService;
@@ -82,6 +83,7 @@ describe('ChoreService', () => {
           useValue: { getBaseUrl: () => 'http://localhost:3000' },
         },
         { provide: Pagination, useValue: new Pagination() },
+        provideEventEmitterMock(),
       ],
     }).compile();
 

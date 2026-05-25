@@ -14,6 +14,7 @@ import { NotExistException } from '../../exception/notExistException';
 import { ShoppingList } from '../../shopping-list/entities/shopping-list.entity';
 import { ShoppingListItem } from '../../shopping-list/entities/shopping-list-item.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
 describe('RecipeService', () => {
   let service: RecipeService;
@@ -96,6 +97,7 @@ describe('RecipeService', () => {
         { provide: FamilyGroupService, useValue: familyGroupService },
         { provide: ShoppingListService, useValue: shoppingListService },
         { provide: GoogleDriveService, useValue: googleDriveService },
+        provideEventEmitterMock(),
       ],
     }).compile();
 

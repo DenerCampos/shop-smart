@@ -14,6 +14,7 @@ import { OauthCode } from '../entities/oauth-code.entity';
 import { OauthConnection } from '../entities/oauth-connection.entity';
 import { createRepositoryMock } from '../../common/test/typeorm-repository.mock';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
 describe('AuthController (integração)', () => {
   let app: INestApplication;
@@ -54,6 +55,7 @@ describe('AuthController (integração)', () => {
           provide: getRepositoryToken(OauthConnection),
           useValue: oauthConnectionRepo,
         },
+        provideEventEmitterMock(),
       ],
     }).compile();
 
