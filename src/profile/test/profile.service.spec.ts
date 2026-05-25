@@ -7,7 +7,8 @@ import { UserService } from 'src/user/user.service';
 import { ExpenseService } from 'src/expense/expense.service';
 import { RevenueService } from 'src/revenue/revenue.service';
 import { CoinService } from 'src/coin/coin.service';
-import { GoogleDriveService } from 'src/google-drive/google-drive.service';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 import { AuthService } from 'src/auth/auth.service';
 import { createTestUser } from 'src/common/test/user.fixture';
@@ -39,11 +40,8 @@ describe('ProfileService', () => {
     >
   >;
   let coinService: jest.Mocked<Pick<CoinService, 'getCoinsByUser'>>;
-  let googleDriveService: jest.Mocked<
-    Pick<
-      GoogleDriveService,
-      'extractFileIdFromUrl' | 'deleteFile' | 'uploadFile'
-    >
+  let fileStorage: jest.Mocked<
+    Pick<IFileStorageService, 'extractFileIdFromUrl' | 'deleteFile' | 'uploadFile'>
   >;
   let userService: jest.Mocked<Pick<UserService, 'update'>>;
   let familyMemberResolver: jest.Mocked<
@@ -70,14 +68,16 @@ describe('ProfileService', () => {
     coinService = {
       getCoinsByUser: jest.fn().mockResolvedValue(25),
     };
-    googleDriveService = {
+    fileStorage = {
       extractFileIdFromUrl: jest.fn(),
       deleteFile: jest.fn().mockResolvedValue(undefined),
       uploadFile: jest.fn().mockResolvedValue({
-        fileId: 'f1',
-        fileName: 'x',
-        webViewLink: 'w',
-        webContentLink: 'https://drive.google.com/uc?export=view&id=f1',
+        fileId: 'profile/new-photo.png',
+        fileName: 'new-photo.png',
+        webViewLink:
+          'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/new-photo.png',
+        webContentLink:
+          'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/new-photo.png',
       }),
     };
     userService = {
@@ -109,7 +109,7 @@ describe('ProfileService', () => {
         { provide: ExpenseService, useValue: expenseService },
         { provide: RevenueService, useValue: revenueService },
         { provide: CoinService, useValue: coinService },
-        { provide: GoogleDriveService, useValue: googleDriveService },
+        { provide: FILE_STORAGE, useValue: fileStorage },
         {
           provide: FamilyMemberResolverService,
           useValue: familyMemberResolver,
@@ -196,8 +196,12 @@ describe('ProfileService', () => {
   });
 
   it('uploadProfileImage remove arquivo antigo quando há profileImage', async () => {
-    googleDriveService.extractFileIdFromUrl.mockReturnValue('old-id');
-    const user = createTestUser({ profileImage: 'https://x?id=old-id' });
+    const oldUrl =
+      'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/old-photo.png';
+    fileStorage.extractFileIdFromUrl.mockReturnValueOnce(
+      'profile/old-photo.png',
+    );
+    const user = createTestUser({ profileImage: oldUrl });
     const file = {
       buffer: Buffer.from('i'),
       originalname: 'a.png',
@@ -206,10 +210,13 @@ describe('ProfileService', () => {
 
     await service.uploadProfileImage(user, file);
 
-    expect(googleDriveService.deleteFile).toHaveBeenCalledWith('old-id');
-    expect(googleDriveService.uploadFile).toHaveBeenCalled();
+    expect(fileStorage.deleteFile).toHaveBeenCalledWith(
+      'profile/old-photo.png',
+    );
+    expect(fileStorage.uploadFile).toHaveBeenCalled();
     expect(userService.update).toHaveBeenCalledWith(user.id, {
-      profileImage: 'https://drive.google.com/uc?export=view&id=f1',
+      profileImage:
+        'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/new-photo.png',
     });
   });
 

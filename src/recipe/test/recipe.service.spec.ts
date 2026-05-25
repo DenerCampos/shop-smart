@@ -6,7 +6,8 @@ import { AppConfig } from '../../common/app-config/app.config';
 import { Pagination } from '../../common/pagination/pagination';
 import { FamilyGroupService } from '../../family-group/family-group.service';
 import { ShoppingListService } from '../../shopping-list/shopping-list.service';
-import { GoogleDriveService } from '../../google-drive/google-drive.service';
+import { FILE_STORAGE } from '../../file-storage/file-storage.constants';
+import { IFileStorageService } from '../../file-storage/interfaces/file-storage.interface';
 import { User } from '../../user/entities/user.entity';
 import { Recipe } from '../entities/recipe.entity';
 import { FamilyGroup } from '../../family-group/entities/family-group.entity';
@@ -35,11 +36,8 @@ describe('RecipeService', () => {
       | 'deleteItem'
     >
   >;
-  let googleDriveService: jest.Mocked<
-    Pick<
-      GoogleDriveService,
-      'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'
-    >
+  let fileStorage: jest.Mocked<
+    Pick<IFileStorageService, 'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'>
   >;
 
   const user = (id: string): User => {
@@ -82,7 +80,7 @@ describe('RecipeService', () => {
       deleteItem: jest.fn(),
     };
 
-    googleDriveService = {
+    fileStorage = {
       uploadFile: jest.fn(),
       deleteFile: jest.fn(),
       extractFileIdFromUrl: jest.fn(),
@@ -96,7 +94,7 @@ describe('RecipeService', () => {
         Pagination,
         { provide: FamilyGroupService, useValue: familyGroupService },
         { provide: ShoppingListService, useValue: shoppingListService },
-        { provide: GoogleDriveService, useValue: googleDriveService },
+        { provide: FILE_STORAGE, useValue: fileStorage },
         provideEventEmitterMock(),
       ],
     }).compile();
@@ -217,24 +215,26 @@ describe('RecipeService', () => {
     );
   });
 
-  it('delete remove fotos do Drive e faz softRemove quando é o criador', async () => {
+  it('delete remove fotos do Supabase e faz softRemove quando é o criador', async () => {
     const owner = user('owner');
     const r = new Recipe();
     r.id = 'r1';
     r.createdBy = owner;
     r.familyGroup = familyGroup('fg1');
-    r.photos = ['https://drive.google.com/file/d/abc/view'];
+    r.photos = [
+      'https://test.supabase.co/storage/v1/object/public/shop-smart/recipe/abc.png',
+    ];
     repository.findById.mockResolvedValue(r);
     familyGroupService.findGroupsByUser.mockResolvedValue([
       familyGroup('fg1'),
     ] as any);
-    googleDriveService.extractFileIdFromUrl.mockReturnValue('abc');
+    fileStorage.extractFileIdFromUrl.mockReturnValue('recipe/abc.png');
     repository.softRemove.mockResolvedValue(true);
 
     const ok = await service.remove('r1', owner);
 
     expect(ok).toBe(true);
-    expect(googleDriveService.deleteFile).toHaveBeenCalledWith('abc');
+    expect(fileStorage.deleteFile).toHaveBeenCalledWith('recipe/abc.png');
     expect(repository.softRemove).toHaveBeenCalledWith('r1');
   });
 

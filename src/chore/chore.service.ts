@@ -12,7 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
 import { User } from 'src/user/entities/user.entity';
 import { UserService } from 'src/user/user.service';
-import { GoogleDriveService } from 'src/google-drive/google-drive.service';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
 import { CoinService } from 'src/coin/coin.service';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
@@ -60,7 +61,8 @@ export class ChoreService {
     private readonly dataSource: DataSource,
     private readonly familyGroupService: FamilyGroupService,
     private readonly userService: UserService,
-    private readonly googleDriveService: GoogleDriveService,
+    @Inject(FILE_STORAGE)
+    private readonly fileStorage: IFileStorageService,
     private readonly coinService: CoinService,
     private readonly pagination: Pagination,
     private readonly appConfig: AppConfig,
@@ -737,7 +739,7 @@ export class ChoreService {
 
     const fileName = `chore_${occurrenceId}_${kind}_${uuidv4()}${ext}`;
 
-    const uploadResult = await this.googleDriveService.uploadFile(
+    const uploadResult = await this.fileStorage.uploadFile(
       file.buffer,
       fileName,
       file.mimetype,

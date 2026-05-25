@@ -6,10 +6,12 @@ import {
 import { google, drive_v3 } from 'googleapis';
 import { Readable } from 'stream';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
+import { extractGoogleDriveFileIdFromUrl } from 'src/file-storage/utils/file-storage-url.util';
 import { GoogleDriveUploadResult } from './interfaces/google-drive.interface';
 
 @Injectable()
-export class GoogleDriveService {
+export class GoogleDriveService implements IFileStorageService {
   private readonly logger = new Logger(GoogleDriveService.name);
   private drive: drive_v3.Drive;
   private readonly folderId: string;
@@ -210,11 +212,6 @@ export class GoogleDriveService {
   }
 
   extractFileIdFromUrl(url: string): string | null {
-    // formato novo: https://lh3.googleusercontent.com/d/<id>
-    const lhMatch = url.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
-    if (lhMatch) return lhMatch[1];
-    // formato antigo: https://drive.google.com/uc?export=view&id=<id>
-    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    return idMatch ? idMatch[1] : null;
+    return extractGoogleDriveFileIdFromUrl(url);
   }
 }

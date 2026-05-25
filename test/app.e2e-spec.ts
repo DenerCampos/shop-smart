@@ -5,11 +5,11 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureE2eApp } from './configure-e2e-app';
 import { CouponReaderService } from '../src/coupon-reader/couponReader.service';
-import { GoogleDriveService } from '../src/google-drive/google-drive.service';
+import { FILE_STORAGE } from '../src/file-storage/file-storage.constants';
 import {
   mockAudioRecognitionProviders,
   mockCouponReaderService,
-  mockGoogleDriveService,
+  mockFileStorageService,
   mockImageRecognitionProviders,
   mockTextRecognitionProviders,
 } from './e2e/helpers/external-mocks';
@@ -34,8 +34,8 @@ describe('AppModule (e2e)', () => {
       .useValue(mockAudioRecognitionProviders)
       .overrideProvider(CouponReaderService)
       .useValue(mockCouponReaderService())
-      .overrideProvider(GoogleDriveService)
-      .useValue(mockGoogleDriveService())
+      .overrideProvider(FILE_STORAGE)
+      .useValue(mockFileStorageService())
       .compile();
 
     app = moduleFixture.createNestApplication({ logger: false });

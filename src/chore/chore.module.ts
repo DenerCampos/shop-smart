@@ -4,7 +4,7 @@ import { CommonModule } from 'src/common/common.module';
 import { FamilyGroupModule } from 'src/family-group/family-group.module';
 import { UserModule } from 'src/user/user.module';
 import { CoinModule } from 'src/coin/coin.module';
-import { GoogleDriveModule } from 'src/google-drive/google-drive.module';
+import { FileStorageModule } from 'src/file-storage/file-storage.module';
 import { ChoreController } from './chore.controller';
 import { ChoreService } from './chore.service';
 import { ChoreRepository } from './repositories/chore.repository';
@@ -19,7 +19,7 @@ import { ChorePayrollLine } from './entities/chore-payroll-line.entity';
     FamilyGroupModule,
     UserModule,
     CoinModule,
-    GoogleDriveModule,
+    FileStorageModule,
     TypeOrmModule.forFeature([
       ChoreDefinition,
       ChoreOccurrence,

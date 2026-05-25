@@ -1,5 +1,5 @@
 import { CouponReaderService } from 'src/coupon-reader/couponReader.service';
-import { GoogleDriveService } from 'src/google-drive/google-drive.service';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
 import { User } from 'src/user/entities/user.entity';
 import {
   CouponTextResult,
@@ -117,18 +117,22 @@ export function mockCouponReaderService(): Pick<CouponReaderService, 'read'> {
   };
 }
 
-export function mockGoogleDriveService(): Pick<
-  GoogleDriveService,
-  'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'
+export function mockFileStorageService(): jest.Mocked<
+  Pick<IFileStorageService, 'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'>
 > {
   return {
     uploadFile: jest.fn(async () => ({
-      fileId: 'e2e-drive-id',
-      fileName: 'profile.png',
-      webViewLink: 'https://example.com/view',
-      webContentLink: 'https://drive.google.com/uc?export=view&id=e2e-drive-id',
+      fileId: 'profile/e2e-photo.png',
+      fileName: 'e2e-photo.png',
+      webViewLink:
+        'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/e2e-photo.png',
+      webContentLink:
+        'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/e2e-photo.png',
     })),
     deleteFile: jest.fn(async () => undefined),
-    extractFileIdFromUrl: jest.fn(() => 'e2e-drive-id'),
+    extractFileIdFromUrl: jest.fn(() => 'profile/e2e-photo.png'),
   };
 }
+
+/** @deprecated Use mockFileStorageService — mantido para compatibilidade pontual. */
+export const mockGoogleDriveService = mockFileStorageService;

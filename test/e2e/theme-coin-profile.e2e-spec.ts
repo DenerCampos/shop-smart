@@ -174,7 +174,7 @@ describe('Theme / Coin / Profile (e2e)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('POST /profile/upload-image — 201 PNG (Google Drive mock)', async () => {
+  it('POST /profile/upload-image — 201 PNG (file storage mock)', async () => {
     const png = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       'base64',

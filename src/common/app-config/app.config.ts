@@ -143,6 +143,33 @@ export class AppConfig {
     );
   }
 
+  getSupabaseStorage() {
+    const rawUrl = this.configService.get<string>('SUPABASE_URL') ?? '';
+    return {
+      url: this.normalizeSupabaseUrl(rawUrl),
+      key: this.configService.get<string>('SUPABASE_KEY') ?? '',
+      bucket:
+        this.configService.get<string>('SUPABASE_STORAGE_BUCKET') ??
+        'shop-smart',
+    };
+  }
+
+  getFileStorageProvider(): 'supabase' | 'google-drive' {
+    const provider = this.configService.get<string>(
+      'FILE_STORAGE_PROVIDER',
+      'supabase',
+    );
+    return provider === 'google-drive' ? 'google-drive' : 'supabase';
+  }
+
+  /** URL base do projeto Supabase (sem /rest/v1 nem barra final). */
+  private normalizeSupabaseUrl(url: string): string {
+    return url
+      .trim()
+      .replace(/\/+$/, '')
+      .replace(/\/rest\/v1\/?$/i, '');
+  }
+
   getLoki(): LokiConfig {
     return getLokiConfig(this.configService);
   }
