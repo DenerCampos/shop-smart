@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'node:path';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmConfig } from './config/typeorm.config';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
@@ -25,6 +26,7 @@ import { ShoppingListModule } from './shopping-list/shopping-list.module';
 import { AlexaModule } from './alexa/alexa.module';
 import { ChoreModule } from './chore/chore.module';
 import { RecipeModule } from './recipe/recipe.module';
+import { MissionModule } from './mission/mission.module';
 import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from './common/logger/logger.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -33,6 +35,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       useClass: TypeOrmConfig,
     }),
@@ -68,6 +71,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
     AlexaModule,
     ChoreModule,
     RecipeModule,
+    MissionModule,
   ],
   controllers: [],
   providers: [

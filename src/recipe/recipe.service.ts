@@ -5,7 +5,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'events';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { NotExistException } from 'src/exception/notExistException';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
@@ -34,6 +36,8 @@ export class RecipeService {
     private readonly familyGroupService: FamilyGroupService,
     private readonly shoppingListService: ShoppingListService,
     private readonly googleDriveService: GoogleDriveService,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {
     this.recipesUrl = `${this.appConfig.getBaseUrl()}/recipes`;
   }
@@ -48,7 +52,7 @@ export class RecipeService {
       );
     }
 
-    return this.repository.createRecipe({
+    const recipe = await this.repository.createRecipe({
       title: dto.title,
       description: dto.description ?? null,
       ingredients: dto.ingredients.map((i) => ({
@@ -61,6 +65,10 @@ export class RecipeService {
       createdBy: user,
       familyGroup,
     });
+
+    this.eventEmitter.emit('recipe.created', { userId: user.id });
+
+    return recipe;
   }
 
   async findAll(

@@ -12,6 +12,7 @@ import { TextRecognitionService } from '../../text-recognition/textRecognition.s
 import { User } from '../../user/entities/user.entity';
 import { ShoppingList } from '../entities/shopping-list.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
 describe('ShoppingListService', () => {
   let service: ShoppingListService;
@@ -45,6 +46,7 @@ describe('ShoppingListService', () => {
         { provide: ResponseService, useValue: {} },
         { provide: ShoppingListGateway, useValue: {} },
         { provide: TextRecognitionService, useValue: {} },
+        provideEventEmitterMock(),
       ],
     }).compile();
 

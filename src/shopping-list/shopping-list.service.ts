@@ -5,6 +5,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { instanceToPlain } from 'class-transformer';
+import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { IShoppingListRepository } from './interfaces/shopping-list.repository.interface';
 import { User } from 'src/user/entities/user.entity';
 import { ShoppingList } from './entities/shopping-list.entity';
@@ -53,6 +55,8 @@ export class ShoppingListService {
     @Inject(forwardRef(() => ShoppingListGateway))
     private readonly shoppingListGateway: ShoppingListGateway,
     private readonly textRecognitionService: TextRecognitionService,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {}
 
   /**
@@ -78,7 +82,11 @@ export class ShoppingListService {
       );
     }
 
-    return this.repository.createList(dto.name, user, familyGroup);
+    const list = await this.repository.createList(dto.name, user, familyGroup);
+
+    this.eventEmitter.emit('shopping_list.created', { userId: user.id });
+
+    return list;
   }
 
   async findAll(

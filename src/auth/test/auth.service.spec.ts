@@ -14,6 +14,7 @@ import { OauthConnection } from '../entities/oauth-connection.entity';
 import { User } from '../../user/entities/user.entity';
 import { createRepositoryMock } from '../../common/test/typeorm-repository.mock';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
 describe('AuthService', () => {
   beforeAll(() => {
@@ -85,6 +86,7 @@ describe('AuthService', () => {
           provide: getRepositoryToken(OauthConnection),
           useValue: oauthConnectionRepo,
         },
+        provideEventEmitterMock(),
       ],
     }).compile();
 
