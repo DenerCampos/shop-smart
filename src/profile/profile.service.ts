@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
 import { User } from 'src/user/entities/user.entity';
 import { ProfileModel } from './models/profile.models';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
@@ -8,7 +10,6 @@ import { UserService } from 'src/user/user.service';
 import { ExpenseService } from 'src/expense/expense.service';
 import { RevenueService } from 'src/revenue/revenue.service';
 import { CoinService } from 'src/coin/coin.service';
-import { GoogleDriveService } from 'src/google-drive/google-drive.service';
 import { RegistrationModel } from './models/registration.models';
 import { Expense } from 'src/expense/entities/expense.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
@@ -28,7 +29,8 @@ export class ProfileService {
     private readonly expenseService: ExpenseService,
     private readonly revenueService: RevenueService,
     private readonly coinService: CoinService,
-    private readonly googleDriveService: GoogleDriveService,
+    @Inject(FILE_STORAGE)
+    private readonly fileStorage: IFileStorageService,
     private readonly familyMemberResolver: FamilyMemberResolverService,
     private readonly authService: AuthService,
   ) {}
@@ -88,17 +90,17 @@ export class ProfileService {
     file: Express.Multer.File,
   ): Promise<User> {
     if (user.profileImage) {
-      const oldFileId = this.googleDriveService.extractFileIdFromUrl(
+      const oldFileId = this.fileStorage.extractFileIdFromUrl(
         user.profileImage,
       );
       if (oldFileId) {
-        await this.googleDriveService.deleteFile(oldFileId);
+        await this.fileStorage.deleteFile(oldFileId);
       }
     }
 
     const fileName = `profile_${user.id}_${uuidv4()}${this.getExtension(file.originalname)}`;
 
-    const uploadResult = await this.googleDriveService.uploadFile(
+    const uploadResult = await this.fileStorage.uploadFile(
       file.buffer,
       fileName,
       file.mimetype,

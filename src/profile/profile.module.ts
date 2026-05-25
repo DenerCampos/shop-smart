@@ -6,7 +6,7 @@ import { UserModule } from 'src/user/user.module';
 import { ExpenseModule } from 'src/expense/expense.module';
 import { RevenueModule } from 'src/revenue/revenue.module';
 import { CoinModule } from 'src/coin/coin.module';
-import { GoogleDriveModule } from 'src/google-drive/google-drive.module';
+import { FileStorageModule } from 'src/file-storage/file-storage.module';
 import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
@@ -16,7 +16,7 @@ import { AuthModule } from 'src/auth/auth.module';
     ExpenseModule,
     RevenueModule,
     CoinModule,
-    GoogleDriveModule,
+    FileStorageModule,
     AuthModule,
   ],
   controllers: [ProfileController],

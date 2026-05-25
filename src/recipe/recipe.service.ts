@@ -8,10 +8,11 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'events';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
 import { NotExistException } from 'src/exception/notExistException';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
-import { GoogleDriveService } from 'src/google-drive/google-drive.service';
 import { ShoppingList } from 'src/shopping-list/entities/shopping-list.entity';
 import { ShoppingListService } from 'src/shopping-list/shopping-list.service';
 import { User } from 'src/user/entities/user.entity';
@@ -35,7 +36,8 @@ export class RecipeService {
     private readonly pagination: Pagination,
     private readonly familyGroupService: FamilyGroupService,
     private readonly shoppingListService: ShoppingListService,
-    private readonly googleDriveService: GoogleDriveService,
+    @Inject(FILE_STORAGE)
+    private readonly fileStorage: IFileStorageService,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {
@@ -179,7 +181,7 @@ export class RecipeService {
     const safeExt = ext.length > 8 ? 'jpg' : ext;
     const fileName = `recipe-${randomUUID()}.${safeExt}`;
 
-    const uploaded = await this.googleDriveService.uploadFile(
+    const uploaded = await this.fileStorage.uploadFile(
       file.buffer,
       fileName,
       file.mimetype,
@@ -276,9 +278,9 @@ export class RecipeService {
 
   private async deleteRecipePhotos(photos: string[]): Promise<void> {
     for (const photoUrl of photos) {
-      const fileId = this.googleDriveService.extractFileIdFromUrl(photoUrl);
+      const fileId = this.fileStorage.extractFileIdFromUrl(photoUrl);
       if (fileId) {
-        await this.googleDriveService.deleteFile(fileId);
+        await this.fileStorage.deleteFile(fileId);
       }
     }
   }

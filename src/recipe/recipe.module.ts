@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from 'src/common/common.module';
 import { FamilyGroupModule } from 'src/family-group/family-group.module';
-import { GoogleDriveModule } from 'src/google-drive/google-drive.module';
+import { FileStorageModule } from 'src/file-storage/file-storage.module';
 import { ShoppingListModule } from 'src/shopping-list/shopping-list.module';
 import { UserModule } from 'src/user/user.module';
 import { Recipe } from './entities/recipe.entity';
@@ -15,7 +15,7 @@ import { RecipeService } from './recipe.service';
     CommonModule,
     UserModule,
     FamilyGroupModule,
-    GoogleDriveModule,
+    FileStorageModule,
     ShoppingListModule,
     TypeOrmModule.forFeature([Recipe]),
   ],

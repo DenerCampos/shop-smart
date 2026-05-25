@@ -5,11 +5,11 @@ import * as request from 'supertest';
 import { AppModule } from '../../../src/app.module';
 import { configureE2eApp } from '../../configure-e2e-app';
 import { CouponReaderService } from '../../../src/coupon-reader/couponReader.service';
-import { GoogleDriveService } from '../../../src/google-drive/google-drive.service';
+import { FILE_STORAGE } from '../../../src/file-storage/file-storage.constants';
 import {
   mockAudioRecognitionProviders,
   mockCouponReaderService,
-  mockGoogleDriveService,
+  mockFileStorageService,
   mockImageRecognitionProviders,
   mockTextRecognitionProviders,
 } from './external-mocks';
@@ -20,7 +20,7 @@ export const E2E_SEED_PASSWORD = 'Valid123';
 
 /**
  * `AppModule` completo + MySQL (`shop_smart_test`) + mocks de fronteiras externas
- * (Gemini-shaped providers, coupon HTTP, Google Drive). Ver `external-mocks.ts`.
+ * (Gemini-shaped providers, coupon HTTP, file storage). Ver `external-mocks.ts`.
  */
 export async function createE2eApplication(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
@@ -36,8 +36,8 @@ export async function createE2eApplication(): Promise<INestApplication> {
     .useValue(mockAudioRecognitionProviders)
     .overrideProvider(CouponReaderService)
     .useValue(mockCouponReaderService())
-    .overrideProvider(GoogleDriveService)
-    .useValue(mockGoogleDriveService())
+    .overrideProvider(FILE_STORAGE)
+    .useValue(mockFileStorageService())
     .compile();
 
   const app = moduleFixture.createNestApplication({

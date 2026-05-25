@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
 import { UserService } from 'src/user/user.service';
-import { GoogleDriveService } from 'src/google-drive/google-drive.service';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
 import { CoinService } from 'src/coin/coin.service';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { Pagination } from 'src/common/pagination/pagination';
@@ -76,7 +76,7 @@ describe('ChoreService', () => {
         { provide: DataSource, useValue: dataSource },
         { provide: FamilyGroupService, useValue: familyGroupService },
         { provide: UserService, useValue: userService },
-        { provide: GoogleDriveService, useValue: { uploadFile: jest.fn() } },
+        { provide: FILE_STORAGE, useValue: { uploadFile: jest.fn() } },
         { provide: CoinService, useValue: coinService },
         {
           provide: AppConfig,
