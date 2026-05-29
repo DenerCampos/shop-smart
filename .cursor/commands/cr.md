@@ -1,11 +1,18 @@
 ---
-description: Comando para realizar Code Review detalhado do código Shop Smart
-tags: [code-review, quality, architecture]
+description: Code Review (staged ou branches) — arquitetura, segurança, testes e docs
+tags: [code-review, quality, architecture, security]
 ---
 
 # Code Review - Shop Smart API
 
-Você é um especialista em code review para o projeto **Shop Smart API**. Seu objetivo é analisar o código fornecido e garantir que ele segue todas as regras do projeto, boas práticas de clean code, e a arquitetura estabelecida.
+Você é revisor de código do **Shop Smart API**. Analise **apenas o diff** indicado e produza relatório acionável para o desenvolvedor revisar **antes do commit/merge**.
+
+**Leia e aplique** (não inventar regras fora deles):
+- `.cursor/rules/code-review.mdc` — checklist completo e exemplos
+- `.cursor/rules/regra-projeto.mdc` — arquitetura, testes, observabilidade
+- `/.cursor/rules/workflow.mdc` — git (`homolog`), docs em `.cursor/docs/`
+
+**Branch de integração padrão:** `homolog` (não `main`). Use `main` só se `homolog` não existir no repo.
 
 ## 🔀 Modo de Operação
 
@@ -19,12 +26,12 @@ Quando executado sem parâmetros, o comando irá seguir esta ordem de prioridade
 
 **a) Verificar alterações em Staged:**
 - Se houver arquivos em staged (`git diff --cached --name-only`)
-- Fazer code review APENAS das alterações em staged vs main
+- Fazer code review APENAS das alterações em staged (diff `--cached`)
 - Analisar somente os arquivos que estão prontos para commit
 
 **b) Se não houver staged, analisar branch atual:**
 - Identificar a branch atual
-- Fazer diff da branch atual com a branch `main`
+- Fazer diff da branch atual com `homolog` (`git diff homolog...HEAD`)
 - Analisar todas as mudanças (arquivos adicionados, modificados, removidos)
 - Realizar code review completo das alterações
 
@@ -36,16 +43,16 @@ Quando executado sem parâmetros, o comando irá seguir esta ordem de prioridade
    - Analisar APENAS as mudanças staged vs working directory
 3. **SE NÃO HOUVER STAGED:**
    - Executar `git branch --show-current` para identificar a branch atual
-   - Executar `git diff main...HEAD --name-only` para listar arquivos alterados
-   - Executar `git diff main...HEAD` para obter as mudanças completas
+   - Executar `git diff homolog...HEAD --name-only` (ou `main...HEAD` se não houver `homolog`)
+   - Executar `git diff homolog...HEAD` para obter as mudanças completas
 4. Analisar cada arquivo modificado seguindo o checklist de code review
 5. Fornecer feedback estruturado com prioridades (🔴 Crítico, 🟡 Importante, 🟢 Sugestão)
 
 #### 2. **Code Review entre Branches Específicas** (com parâmetros)
 ```bash
+cr feat/SP-75 homolog
 cr feat/SP-75 main
-cr develop staging
-cr feature/new-module main
+cr homolog main
 ```
 Quando executado com parâmetros, o comando irá:
 - Fazer diff entre as duas branches especificadas
@@ -70,7 +77,7 @@ Quando executado com parâmetros, o comando irá:
    - Com 2 parâmetros → Comparar as branches especificadas (ignora staged)
    - Sem parâmetros → Verificar staged primeiro
      - **Se houver staged** → Analisar apenas staged changes vs main
-     - **Se não houver staged** → Comparar branch atual com main
+     - **Se não houver staged** → Comparar branch atual com `homolog`
 
 2. **Obter as Mudanças:**
    - Listar todos os arquivos alterados
@@ -113,7 +120,7 @@ git status  # Shows: nothing to commit
 # Executa code review
 cr
 
-# Resultado: Analisa todas as mudanças da branch atual vs main
+# Resultado: Analisa todas as mudanças da branch atual vs homolog
 ```
 
 **Exemplo 3: Quero comparar duas branches específicas**
@@ -139,10 +146,10 @@ git commit -m "feat: add feature service"
 # 5. Continuo desenvolvendo outros arquivos
 # 6. Antes de fazer PR, reviso tudo
 git add .
-cr  # Analisa todos os staged vs main
+cr  # Analisa staged
 
-# 7. Ou posso revisar toda a branch
-cr feat/minha-feature main
+# 7. Antes de merge na homolog — revisar a branch da tarefa
+cr feat/SP-75 homolog
 ```
 
 ### 📊 Formato de Saída
@@ -153,7 +160,50 @@ cr feat/minha-feature main
 ## 📌 Informações
 - **Modo**: Staged Changes | Branch Comparison | Custom Branches
 - **Branch Origem**: feat/SP-75 (ou "Staged Changes" se for staged)
-- **Branch Destino**: main
+- **Branch Destino**: homolog (ou informada)
+- **Card Trello** (se inferível): SP-XX pelo nome da branch
+
+## 🔒 Segurança (seção obrigatória no relatório)
+
+Analise **cada alteração** contra esta lista. Qualquer 🔴 em segurança **bloqueia** aprovação.
+
+### Autenticação e autorização
+- [ ] Rotas protegidas com `AuthGuard` (ou guard equivalente); sem endpoint sensível público por engano
+- [ ] `userId` (e `familyGroupId` quando aplicável) vêm do **JWT/sessão**, nunca só de `@Query()` / `@Body()` / `@Param()` confiados pelo cliente
+- [ ] **Ownership**: update/delete/get por id validam que o recurso pertence ao usuário/grupo antes da operação
+- [ ] **Multi-tenant**: queries e QueryBuilder com filtro `userId` / `familyGroupId`; soft delete com `deletedAt IS NULL` quando a entidade usa delete lógico
+
+### Dados sensíveis e segredos
+- [ ] Senhas e refresh tokens: BCrypt; `@Exclude()` em entity/DTO de resposta
+- [ ] **Nada** de senha, token, API key ou PII em `logJson`, `console.log` ou mensagens de erro ao cliente
+- [ ] Arquivos `.env`, chaves Gemini, Loki, Supabase, Google Drive **fora** do diff (se aparecerem no diff → 🔴 crítico)
+- [ ] Respostas usam DTO de saída — não vazar campos internos, hashes ou metadados de provider
+
+### Entrada e abuso
+- [ ] DTOs com `class-validator`; `ValidationPipe` com `whitelist: true` (sem mass assignment)
+- [ ] Upload (multer): limite de tamanho, tipos MIME/extensão; paths de storage sem traversal (`../`)
+- [ ] **Throttler** em rotas caras ou públicas (IA, auth, upload) quando fizer sentido
+- [ ] Sem `repository.query()` com concatenação de string; parâmetros sempre bound
+
+### Domínios de risco do projeto
+- [ ] **IA (Gemini)**: prompts não expõem dados de outro usuário; quota/erro tratados; telemetria sem conteúdo sensível do usuário
+- [ ] **Coupon reader / scraping**: URLs controladas; sem SSRF (não buscar URL arbitrária do cliente sem allowlist)
+- [ ] **WebSocket** (shopping-list): autenticação na conexão; sala/evento isolado por usuário ou família
+- [ ] **OAuth / Alexa / Google Drive**: tokens armazenados e revogados com segurança; scopes mínimos
+- [ ] **Arquivos** (`file-storage`, `supabase-storage`): URLs assinadas/expiração; bucket/path não adivinhável entre tenants
+
+### Erros e observabilidade
+- [ ] `AllExceptionsFilter`: respostas sem stack trace em produção; sem vazar SQL ou detalhes internos
+- [ ] Eventos `logJson` com `event` estável; sem payload com credenciais
+
+Registrar achados em **## 🔒 Segurança** no relatório (🔴/🟡/🟢 + arquivo + linha + correção).
+
+## 📄 Documentação e entrega (workflow)
+
+- [ ] Feature nova ou regra alterada: existe/atualiza `.cursor/docs/<feature>.md`?
+- [ ] Índice em `regra-projeto.mdc` (Docs de domínio) atualizado?
+- [ ] **Testes unitários** para lógica nova/alterada em `*.spec.ts`
+- [ ] **E2E** em `test/**/*.e2e-spec.ts` para rota HTTP nova ou contrato alterado; rodar com `npm run test:e2e:low-mem -- --testPathPattern=<spec>` (pouca RAM, um arquivo por vez)
 - **Arquivos Analisados**: 12
 - **Arquivos Modificados**: 8
 - **Arquivos Novos**: 3
@@ -220,7 +270,7 @@ cr feat/minha-feature main
 - [ ] **HTTP Methods**: @Get(), @Post(), @Put(), @Patch(), @Delete()
 - [ ] **@Body()**, **@Param()**, **@Query()**: Usados corretamente
 - [ ] **Status codes**: Apropriados para cada operação
-- [ ] **Swagger decorators**: @ApiTags(), @ApiOperation(), @ApiResponse()
+- [ ] **Sem Swagger** no projeto (não exigir `@Api*` — ver `regra-projeto.mdc`)
 
 ### 4. TypeORM - Banco de Dados
 
@@ -251,7 +301,7 @@ cr feat/minha-feature main
   - @Min(), @Max(), @Length()
   - @IsEnum() para enums
 - [ ] **class-transformer**: @Exclude(), @Expose(), @Transform()
-- [ ] **Swagger**: @ApiProperty() em todos os campos
+- [ ] **Sem** `@ApiProperty` (projeto sem OpenAPI ativo)
 - [ ] **Nomenclatura**: CreateXDto, UpdateXDto, FilterXDto, ResponseXDto
 
 ### 6. Clean Code
@@ -280,24 +330,7 @@ cr feat/minha-feature main
 
 ### 7. Segurança
 
-#### ✅ Autenticação e Autorização
-- [ ] **AuthGuard**: Aplicado em rotas protegidas
-- [ ] **JWT**: Validação de tokens
-- [ ] **Senhas**: Hasheadas com BCrypt (NUNCA plain text)
-- [ ] **Dados sensíveis**: Não expostos nas respostas (@Exclude())
-- [ ] **Validação**: Todas as entradas validadas
-
-#### ✅ Validação de Entrada
-- [ ] **ValidationPipe**: Aplicado globalmente ou por rota
-- [ ] **DTOs**: Com validadores apropriados
-- [ ] **Whitelist**: true (remover campos extras)
-- [ ] **SQL Injection**: Prevenido (usar ORM corretamente)
-- [ ] **XSS**: Inputs sanitizados quando necessário
-
-#### ✅ Autorização de Recursos
-- [ ] **Multi-tenant**: Filtrar por userId
-- [ ] **Ownership**: Validar propriedade do recurso antes de operações
-- [ ] **Permissions**: Verificar permissões apropriadas
+Usar a seção **🔒 Segurança (obrigatória no relatório)** acima + detalhes em `.cursor/rules/code-review.mdc` (🛡️ Segurança, Red Flags).
 
 ### 8. Performance
 
@@ -346,12 +379,9 @@ cr feat/minha-feature main
 
 ### 11. Documentação
 
-#### ✅ Swagger/OpenAPI
-- [ ] **@ApiTags()**: Em controllers
-- [ ] **@ApiOperation()**: Em cada endpoint
-- [ ] **@ApiResponse()**: Status codes documentados
-- [ ] **@ApiProperty()**: Em todos os DTOs
-- [ ] **@ApiBearerAuth()**: Em rotas protegidas
+#### ✅ `.cursor/docs/` (obrigatório no workflow)
+- [ ] Doc de domínio criada/atualizada para feature ou mudança de regra
+- [ ] `regra-projeto.mdc` lista o arquivo em Docs de domínio
 
 #### ✅ Comentários
 - [ ] **JSDoc**: Para métodos públicos complexos
@@ -540,8 +570,9 @@ export class CreateExpenseDto {
 - **TypeORM Docs**: https://typeorm.io/
 - **Clean Code**: Princípios de código limpo
 - **SOLID Principles**: Princípios de design orientado a objetos
-- **Shop Smart Rules**: `.cursor/rules/regra-projeto.md`
-- **Code Review Guide**: `.cursor/rules/code-review.md`
+- **Regras**: `.cursor/rules/regra-projeto.mdc`
+- **Code Review**: `.cursor/rules/code-review.mdc`
+- **Workflow**: `/.cursor/rules/workflow.mdc`
 
 ## 📌 Lembre-se
 

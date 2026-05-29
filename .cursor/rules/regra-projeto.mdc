@@ -1,691 +1,207 @@
 ---
+description: Padrões, checklist e índice do Shop Smart API (NestJS)
 alwaysApply: true
 ---
 
-# Shop Smart API - Regras do Projeto
+# Shop Smart API — Regras do Projeto
 
-## 📋 Informações Gerais
-- **Nome do Projeto**: Shop Smart API
-- **Tipo**: Backend REST API
-- **Versão**: 0.0.1
-- **Licença**: UNLICENSED (Privado)
-- **Descrição**: Sistema de gerenciamento financeiro pessoal com gamificação e recursos de leitura de cupons fiscais
+> **Sempre ativo** (`alwaysApply: true`). Ao criar ou alterar funcionalidade, execute o checklist abaixo e **atualize este arquivo** (índice de módulos, endpoints e docs).
 
-## 🛠️ Stack Tecnológica
+## Checklist obrigatório — nova funcionalidade
 
-### Linguagem Principal
-- **TypeScript**: ~5.4
-  - Module: CommonJS
-  - Target: ES2017
-  - Decorators: Habilitado
-  - Strict Mode: Parcialmente desabilitado (para flexibilidade)
+Use como lista de verificação em toda entrega. Marque cada item antes de considerar pronto.
 
-### Framework Principal
-- **NestJS**: ^11.0.0
-  - @nestjs/common: ^11.0.0
-  - @nestjs/core: ^11.0.0
-  - @nestjs/platform-express: ^11.0.0
-  - @nestjs/config: ^4.0.0
-  - @nestjs/cli: ^11.0.0
-  - @nestjs/schematics: ^11.0.0
-  - @nestjs/jwt: ^11.0.0
-  - @nestjs/typeorm: ^11.0.0
-  - @nestjs/swagger: ^11.0.0
-  - @nestjs/throttler: ^6.0.0
-  - @nestjs/testing: ^11.0.0
+- [ ] **Domínio**: módulo em `src/<dominio>/` (controller → service → repository; DTOs request/response; entidades em `entities/`).
+- [ ] **Contrato HTTP**: DTO de entrada (quando houver body/query) e DTO de saída; controller usa `responseService.mapToDto()` / `mapPaginatedToDto()` — nunca retorna entidade crua.
+- [ ] **Multi-tenant**: filtrar por `userId` (e `familyGroupId` quando o domínio for familiar); validar propriedade antes de update/delete.
+- [ ] **Banco**: migration em `db/migrations/` se entidade/coluna mudou (`npm run migration:generate db/migrations/NomeDescritivo`). Nunca `synchronize: true` em produção.
+- [ ] **Testes unitários**: `src/**/test/*.spec.ts` ou `*.spec.ts` no módulo para service/regras novas ou alteradas.
+- [ ] **Testes E2E**: `test/**/*.e2e-spec.ts` para rota HTTP nova ou contrato alterado. Rodar com **pouca RAM** (pode demorar): `npm run test:e2e:low-mem -- --testPathPattern=<arquivo>` — ver `.cursor/docs/testes.md` e `test/E2E-ESTRATEGIA.md`.
+- [ ] **Observabilidade**: erros HTTP via `AllExceptionsFilter`; novos eventos com `logJson` e `event` estável; IA com `AiCallTelemetryService.measure()` nos providers Gemini.
+- [ ] **Documentação**: criar (feature nova) ou atualizar (regra/contrato alterado) `.cursor/docs/<dominio>.md` — ver `/.cursor/rules/workflow.mdc` seção Documentação.
+- [ ] **Atualizar este arquivo**: incluir módulo/rota na seção [Índice de módulos](#índice-de-módulos) e endpoint em [API REST](#api-rest).
 
-### Banco de Dados e ORM
-- **TypeORM**: ^0.3.16
-- **MySQL**: 8.0
-  - Driver: mysql2 ^3.3.3
-- **Sistema de Migrações**: Habilitado
-  - Migrations baseadas em entidades
-  - Backup automático diário (02:00)
-  - **NUNCA usar synchronize em produção**
+### Comandos de verificação (executar na raiz `api/shop-smart`)
 
-### Autenticação e Segurança
-- **JWT**: @nestjs/jwt ^11.0.0
-- **BCrypt**: ^5.1.0 (hash de senhas - 10 rounds)
-
-### Validação e Transformação
-- **class-validator**: ^0.14.0
-- **class-transformer**: ^0.5.1
-
-### Documentação
-- **Swagger/OpenAPI**: @nestjs/swagger ^11.0.0 (disponível mas não utilizado no projeto)
-
-### Web Scraping
-- **Cheerio**: ^1.0.0-rc.12 (parsing HTML)
-- **Axios**: ^1.4.0 (HTTP client)
-
-### Cache
-- **Redis**: 7.2.4
-
-### Utilities
-- **dotenv**: ^16.0.3
-- **uuid**: ^9.0.0
-- **RxJS**: ^7.8.1
-
-### Logging e observabilidade
-- **Winston** + **nest-winston**: logger principal; `main.ts` usa `bufferLogs: true` e `app.useLogger(WINSTON_MODULE_NEST_PROVIDER)`.
-- **winston-loki**: transporte opcional para **Grafana Cloud Loki** (`LOKI_ENABLED`, `LOKI_HOST`, `LOKI_USER_ID`, `LOKI_API_TOKEN`); import do transport com `import LokiTransport = require('winston-loki')` (pacote usa `export =`).
-- Leitura/normalização de env em `src/common/app-config/loki.config.ts` (`getLokiConfig`); `AppConfig.getLoki()` delega para esse helper.
-
-### Testing
-- **Jest**: 29.3.1
-  - ts-jest: 29.0.3
-  - supertest: ^6.1.3
-
-### Code Quality
-- **ESLint**: ^8.0.1
-  - @typescript-eslint/eslint-plugin: ^5.0.0
-  - @typescript-eslint/parser: ^5.0.0
-  - eslint-config-prettier: ^8.3.0
-  - eslint-plugin-prettier: ^4.0.0
-- **Prettier**: ^2.3.2
-
-## 🏗️ Arquitetura e Estrutura
-
-### Padrão Arquitetural
-- **Arquitetura em Camadas (Layered Architecture)**
-- **Domain-Driven Design (DDD)** - Organização modular por domínio
-- **Repository Pattern** - Abstração de acesso a dados
-- **Dependency Injection** - Injeção de dependências nativa do NestJS
-
-### Estrutura de Pastas
-```
-src/
-├── auth/                 # Módulo de autenticação JWT
-├── user/                 # Módulo de usuários
-├── expense/              # Módulo de despesas
-├── revenue/              # Módulo de receitas
-├── coin/                 # Módulo de moedas (gamificação)
-├── theme/                # Módulo de temas visuais
-├── profile/              # Módulo de perfil do usuário
-├── reports/              # Módulo de relatórios financeiros
-├── coupon-reader/        # Módulo de leitura de cupons fiscais
-├── image-recognition/    # Módulo de reconhecimento de imagens
-├── group/                # Módulo de grupos de despesas
-├── shopping-list/      # Listas de compras (REST + WebSocket)
-├── payment/              # Módulo de formas de pagamento
-├── store/                # Módulo de lojas/estabelecimentos
-├── common/               # Módulo compartilhado
-│   ├── app-config/       # Configurações (inclui loki.config.ts / getLokiConfig)
-│   ├── logger/           # LoggerModule (Winston global + Loki opcional)
-│   ├── logging/          # Observabilidade: logJson, audit IA, auth
-│   ├── filters/          # AllExceptionsFilter (exceções globais)
-│   ├── middleware/       # RequestLoggingMiddleware (latência HTTP)
-│   ├── decorators/       # Decorators customizados
-│   ├── event-emitter/    # Sistema de eventos
-│   ├── pagination/       # Sistema de paginação
-│   ├── query-runner/     # Query builder helpers
-│   ├── response/         # Padronização de respostas
-│   ├── types/            # Tipos compartilhados
-│   └── utils/            # Utilidades
-├── exception/            # Exceções customizadas
-├── config/               # Configurações (TypeORM, etc)
-└── main.ts              # Entry point da aplicação
-
-db/
-├── data-source.ts        # Configuração do DataSource
-└── migrations/           # Arquivos de migração
-```
-
-### Responsabilidades por Camada
-
-#### 1. Controller Layer
-- Recebe requisições HTTP
-- Valida DTOs (automático via class-validator)
-- Chama services apropriados
-- **SEMPRE** mapeia entidades para DTOs de resposta usando `responseService.mapToDto()`
-- Retorna respostas HTTP padronizadas
-- **Não deve conter lógica de negócio**
-- **NUNCA retornar entidades diretamente - sempre usar DTOs**
-
-#### 2. Service Layer
-- Contém **TODA** lógica de negócio
-- Implementa regras de domínio
-- Orquestra repositórios
-- Gerencia transações
-- Emite eventos de domínio
-- Sistema de paginação
-- Aplicação de filtros e ordenação
-- **Camada mais importante da aplicação**
-
-#### 3. Repository Layer
-- Abstração de acesso ao banco
-- Query building específico
-- Otimizações de queries
-- Reutilização de queries complexas
-- **Não deve conter lógica de negócio**
-- **QueryBuilder e relações para respostas mapeadas com `ResponseService.mapToDto`**: relações ManyToOne (e aninhadas) que precisam aparecer no JSON devem ser carregadas de forma que o `instanceToPlain` do class-transformer as inclua no objeto plano. Referência: `ExpenseRepository.findAll` — para `expense.user` usa-se **`leftJoin('expense.user', 'user')` + `addSelect(['user.id', 'user.name', ...])`**, e não apenas `leftJoinAndSelect` em todos os casos. Selecionar **somente as colunas** necessárias ao DTO de resposta (evita excesso de dados e segue o padrão do projeto).
-- **Soft delete**: em QueryBuilder sobre entidades com `@DeleteDateColumn`, incluir explicitamente `alias.deletedAt IS NULL` na cláusula `WHERE` quando o fluxo equivalente com `find`/`findOne` do repositório já exclui registros apagados (para não divergir do comportamento esperado).
-
-#### 4. Entity Layer
-- Definição de entidades TypeORM
-- Mapeamento objeto-relacional
-- Relacionamentos entre entidades
-- Constraints e validações de banco
-- **Apenas estrutura de dados**
-
-#### 5. DTO Layer
-- Data Transfer Objects
-- Validação de entrada (class-validator) em DTOs de request
-- Transformação de dados (class-transformer)
-- **Sempre separar DTOs de request e response**
-- **OBRIGATÓRIO: Todo request deve ter um DTO de entrada**
-- **OBRIGATÓRIO: Todo response deve ter um DTO de saída**
-- Nunca expor entidades diretamente nas respostas
-- Usar @Expose() do class-transformer em DTOs de response
-- **NÃO usar decorators do Swagger** (projeto sem documentação)
-- **`ResponseService.mapToDto` / `mapPaginatedToDto`**: o mapeamento faz `instanceToPlain(entidade)` e depois `plainToClass(Dto, plain, { excludeExtraneousValues: true })`. Relações TypeORM nem sempre entram no plain quando montadas só com `@Transform(({ obj }) => obj.relation?.campo)` sobre propriedades “achatadas”, porque `obj` pode não trazer `relation` no objeto plano.
-- **DTOs de resposta com relações**: seguir o padrão de **`ExpenseResponseDto`** e **`ItemResponseDto` (expense)**: expor objetos aninhados com **`@Expose()` + `@Type(() => XxxResponseDto)`** (ex.: `user: OwnerResponseDto`, `group: GroupResponseDto`, `payment: PaymentResponseDto`). Reutilizar DTOs já existentes em `src/common/dto` ou no módulo (ex.: `OwnerResponseDto`, `GroupResponseDto`) quando fizer sentido.
-- **Evitar** como padrão principal: vários campos derivados só com `@Transform` a partir de `obj.relation` para substituir o objeto aninhado — usar `@Type` no aninhado e queries alinhadas ao repositório (item anterior).
-- Ao montar manualmente um item dentro de um `@Transform` (ex.: agrupar itens), preferir **`plainToClass(Dto, instanceToPlain(entidade), { excludeExtraneousValues: true })`** em vez de `plainToClass(Dto, { ...entidade }, …)`, para preservar relações hidratadas pelo TypeORM.
-
-#### 6. Exception Layer
-- Exceções customizadas do projeto:
-  - `AlreadyExistsException` - Recurso já existe
-  - `NotExistException` - Recurso não encontrado
-  - `InsufficientResourceException` - Recurso insuficiente
-  - `RemoveException` - Erro ao remover
-  - `UpdateException` - Erro ao atualizar
-
-### Módulos Principais
-
-#### Auth Module
-- Autenticação JWT
-- Login e registro de usuários
-- Guard de proteção de rotas (`AuthGuard`)
-- Refresh tokens
-- Hash de senhas com BCrypt
-
-#### User Module
-- Gerenciamento de usuários
-- Perfis de usuário
-- Sistema de eventos de usuário
-- Relacionamentos com outros módulos
-
-#### Expense Module
-- Registro de despesas
-- Despesas recorrentes
-- Relacionamento com: grupo, loja, forma de pagamento
-- Histórico de despesas
-- Queries otimizadas para listagens
-
-#### Revenue Module
-- Registro de receitas
-- Receitas recorrentes
-- Controle de entradas financeiras
-- Integração com sistema de moedas
-
-#### Coin Module
-- Sistema de moedas (gamificação)
-- Ganho e gasto de moedas
-- Histórico de transações
-- Eventos de moeda para desacoplamento
-
-#### Theme Module
-- Temas visuais compráveis com moedas
-- Temas do usuário
-- Gerenciamento de temas disponíveis
-
-#### Coupon Reader Module
-- Leitura de cupons fiscais
-- Web scraping de dados de NF-e
-- Parsing de HTML (Cheerio)
-- Extração automática de produtos e valores
-
-#### Image Recognition Module
-- Reconhecimento de imagens de produtos
-- Integração com provedores de IA
-- Extração de dados de imagens
-- Providers abstraídos para flexibilidade
-
-#### Reports Module
-- Relatórios financeiros detalhados
-- Agregações e estatísticas
-- Queries otimizadas para análise
-- Múltiplos tipos de visualizações
-
-#### Profile Module
-- Dados de perfil do usuário
-- Personalização de experiência
-- Configurações do usuário
-
-#### Resource Modules (Group, Payment, Store)
-- Grupos de despesas (categorias)
-- Formas de pagamento
-- Lojas/estabelecimentos
-- CRUD completo para cada recurso
-- Relacionamento com usuário (multi-tenant)
-
-### Common Module
-- **App Config**: Configurações centralizadas da aplicação (inclui Loki/Grafana)
-- **Logger**: `LoggerModule` global (`WinstonModule` + console + Loki condicional); `AppLoggerService` opcional para injeção
-- **Logging**: `logJson()` + contexto `Observability`; `SecurityAuditLogService` (falhas de login/refresh); `AiCallTelemetryService` (`measure` para chamadas Gemini)
-- **Decorators**: Decorators customizados do NestJS
-- **Event Emitter**: Sistema de eventos interno
-- **Pagination**: Sistema de paginação reutilizável
-- **Query Runner**: Helpers para construção de queries
-- **Response**: Padronização de respostas HTTP
-- **Utils**: Funções utilitárias compartilhadas
-
-## 🗄️ Banco de Dados
-
-### Configuração MySQL
-- **Versão**: 8.0
-- **Charset**: utf8mb4_unicode_ci
-- **Pool Size**: 2 conexões (otimizado para recursos limitados)
-- **Idle Timeout**: 30s
-- **Keep Alive**: Habilitado
-- **SSL**: Configurável via variável de ambiente
-
-### Sistema de Migrações
 ```bash
-# Gerar migração baseada em mudanças de entidades
-npm run migration:generate db/migrations/NomeDaMigracao
-
-# Executar migrações pendentes
-npm run migration:run
-
-# Reverter última migração
-npm run migration:revert
-
-# Ver status das migrações
+npm run lint
+npm run typecheck
+npm run test
+# rota HTTP nova — um spec por vez (economiza RAM):
+npm run test:e2e:low-mem -- --testPathPattern=nome-do-spec
+# mudança de schema:
 npm run migration:show
-
-# Dropar schema (CUIDADO! Apenas em desenvolvimento)
-npm run migration:drop
 ```
 
-### Backup Automático
-- Backup diário automático às 02:00
-- Backups salvos em `/opt/shop_smart/backups`
-- Script de backup manual: `./backup-now.sh`
-- Container dedicado para backups no Docker Compose
+Scaffold de módulo: `npm run generate:module -- nomeDoModulo` (ou `./create-module.sh nomeDoModulo`).
 
-### Boas Práticas de Banco
-- **Sempre usar migrations**
-- **NUNCA usar `synchronize: true` em produção**
-- Fazer backup antes de mudanças críticas
-- Testar migrations em desenvolvimento
-- Revisar SQL gerado antes de aplicar
-- Usar índices em campos frequentemente consultados
-- Evitar N+1 queries (usar eager loading quando apropriado)
+---
 
-## 🐳 Docker e Deploy
+## Visão geral
 
-### Docker Compose Services
-1. **API**: Aplicação NestJS
-   - Porta: Configurável via `API_PORT`
-   - Restart: Always
-   - Logs: Volume montado
+| Item | Valor |
+|------|--------|
+| Projeto | Shop Smart API |
+| Stack | NestJS 11, TypeScript ~5.4, TypeORM, MySQL 8, Node ≥ 20 |
+| Padrão | Camadas + DDD por módulo, Repository Pattern, DI NestJS |
+| Docs detalhadas | `.cursor/docs/*.md` (ver [Docs de domínio](#docs-de-domínio)) |
 
-2. **DB (MySQL)**: Banco de dados
-   - Porta: Configurável via `API_DB_PORT`
-   - Volume persistente: `db_data`
-   - Config customizada: `mysql-config/my.cnf`
+---
 
-3. **Redis**: Cache
-   - Versão: 7.2.4
-   - Restart: Always
+## Índice de módulos
 
-4. **Backup**: Container Alpine para backups
-   - Scripts em `/scripts`
-   - Backups em `/opt/shop_smart/backups`
+Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
-### Variáveis de Ambiente
-```env
-# API
-API_PORT=3000
-NODE_ENV=development|production
+| Módulo | Pasta | Responsabilidade resumida |
+|--------|-------|---------------------------|
+| auth | `auth/` | JWT, login, refresh, guards |
+| user | `user/` | Usuários |
+| expense | `expense/` | Despesas, recorrência, itens |
+| revenue | `revenue/` | Receitas |
+| coin | `coin/` | Moedas (gamificação) |
+| theme | `theme/` | Temas visuais |
+| profile | `profile/` | Perfil |
+| reports | `reports/` | Relatórios financeiros |
+| coupon-reader | `coupon-reader/` | NF-e / cupom fiscal |
+| image-recognition | `image-recognition/` | IA imagem (Gemini + factory) |
+| audio-recognition | `audio-recognition/` | IA áudio |
+| text-recognition | `text-recognition/` | IA texto |
+| group, payment, store | `group/`, `payment/`, `store/` | Recursos financeiros |
+| family-group | `family-group/` | Grupos familiares, membros |
+| shopping-list | `shopping-list/` | Listas de compras (+ WebSocket) |
+| chore | `chore/` | Tarefas/quests familiares |
+| recipe | `recipe/` | Receitas |
+| mission | `mission/` | Missões dinâmicas (SP-78) |
+| alexa | `alexa/` | Integração Alexa |
 
-# Database
-API_DB_HOST=localhost
-API_DB_PORT=3306
-API_DB_USER=root
-API_DB_PASS=senha
-API_DB_NAME=shop_smart
-API_DB_ROOT_PASS=senha_root
+**Infraestrutura** (não expor como REST principal; usar via services):
 
-# SSL (Opcional)
-SSL_CERT=
+| Módulo | Pasta | Uso |
+|--------|-------|-----|
+| common | `common/` | Config, logger, logging, filters, middleware, pagination, response |
+| file-storage | `file-storage/` | Abstração de armazenamento de arquivos |
+| supabase-storage | `supabase-storage/` | Provider Supabase |
+| google-drive | `google-drive/` | Google Drive (tokens, upload) |
+| exception | `exception/` | Exceções de domínio |
+| config | `config/` | TypeORM, etc. |
 
-# Frontend (CORS)
-FRONTEND_URL=http://localhost:3000
+---
 
-# Grafana Cloud Loki (opcional)
-LOKI_ENABLED=false
-LOKI_HOST=https://logs-prod-REGION.grafana.net
-LOKI_USER_ID=
-LOKI_API_TOKEN=
-```
+## Estrutura de um módulo
 
-## 📦 Scripts Disponíveis
-
-### Development
-```bash
-npm run start           # Inicia a aplicação
-npm run start:dev       # Inicia em modo watch (recarrega automático)
-npm run start:debug     # Inicia em modo debug
-npm run build           # Build de produção
-```
-
-### Production
-```bash
-npm run start:prod      # Inicia em produção (otimizado)
-```
-
-### Testing
-```bash
-npm run test            # Executa testes unitários
-npm run test:watch      # Testes em modo watch
-npm run test:cov        # Testes com cobertura
-npm run test:e2e        # Testes end-to-end
-npm run test:debug      # Testes em modo debug
-```
-
-### Code Quality
-```bash
-npm run lint            # Executa ESLint com auto-fix
-npm run format          # Formata código com Prettier
-```
-
-### Database
-```bash
-npm run typeorm              # Comando base TypeORM
-npm run schema:log           # Visualiza schema SQL
-npm run migration:generate   # Gera migração
-npm run migration:run        # Executa migrações
-npm run migration:revert     # Reverte migração
-npm run migration:show       # Status das migrações
-npm run migration:drop       # Dropa schema
-```
-
-### Utilities
-```bash
-./create-module.sh nomeDoModulo  # Cria estrutura completa de módulo
-./backup-now.sh                  # Executa backup manual do banco
-```
-
-## 🔐 Segurança
-
-### Autenticação e Autorização
-- JWT Tokens com expiração configurável
-- Passwords hasheadas com BCrypt (10 rounds)
-- Guards do NestJS para proteção de rotas
-- Validação de tokens em todas as rotas protegidas
-- **Nunca armazenar senhas em plain text**
-
-### Validação de Entrada
-- `ValidationPipe` global habilitado
-- `whitelist: true` - Remove campos não declarados
-- `transform: true` - Transforma payloads automaticamente
-- DTOs com class-validator decorators obrigatórios
-- **Validar TODAS as entradas do usuário**
-
-### CORS
-- Configurado por ambiente (dev/prod)
-- Origins permitidas:
-  - Development: localhost:3000, localhost:5173
-  - Production: FRONTEND_URL do .env
-  - Suporte a ngrok para testes
-- Credentials: true
-- Headers: Configuráveis
-
-### Serialização
-- `ClassSerializerInterceptor` global
-- Controle de campos expostos via `@Exclude()` decorators
-- Proteção de dados sensíveis (senhas, tokens, etc)
-- **Nunca expor dados sensíveis nas respostas**
-
-## 🚀 Performance
-
-### Otimizações de Banco
-- Pool de conexões limitado (2 conexões)
-- Queries lentas logadas (>1s)
-- Índices em campos frequentemente consultados
-- **Sempre usar paginação em listagens**
-- Evitar SELECT * (selecionar apenas campos necessários)
-- Usar relacionamentos eager loading com cuidado
-
-### Logs (implementação)
-- **Transporte**: Winston; níveis por `NODE_ENV` no `LoggerModule` (ex.: `debug` em development, `warn` em produção no root logger).
-- **Registro global de exceções**: `AllExceptionsFilter` (`src/common/filters/all-exceptions.filter.ts`), registrado em `AppModule` com `APP_FILTER`. Eventos JSON (via `logJson`):
-  - `quota_exceeded` — `ApiQuotaException` (provider, limites, uso)
-  - `throttle_exceeded` — `ThrottlerException`
-  - `http_exception` — demais `HttpException` (status, path, mensagem resumida)
-  - `unhandled_error` — erros não HTTP (stack só em `development`)
-- **HTTP por requisição**: `RequestLoggingMiddleware` (`src/common/middleware/request-logging.middleware.ts`), aplicado a `*` em `AppModule.configure`; no `res.on('finish')` grava `http_request` (`method`, `path`, `status_code`, `duration_ms`). Preferir middleware ao interceptor para status final correto.
-- **Formato para Grafana/Loki**: uma linha **JSON** por evento de negócio usando `logJson` (`src/common/logging/log-event.util.ts`); contexto Nest `Observability`. No Explore (Loki): `{app="shop-smart-api"} | json | event="..."`.
-- **Autenticação**: `SecurityAuditLogService` — antes de `UnauthorizedException` em `AuthService.signIn` / `refreshToken`: `auth_login_failed` (email + `reason: invalid_credentials`) e `auth_refresh_failed` (email + `user_not_found` | `invalid_refresh`). **Nunca** logar senha nem token de refresh.
-- **IA (Gemini)**: `AiCallTelemetryService.measure()` envolve `analyze()` nos providers `GeminiProvider`, `GeminiAudioProvider`, `GeminiTextProvider`; evento `ai_provider_call` com `feature`, `provider`, `duration_ms`, `ok`; em falha `failure` (`quota` | `unknown`) e `error_message` truncada. `parseCoupon` do texto não usa `measure` (apenas `analyze`).
-- **Duplicação**: falha de quota em rota de IA pode gerar `ai_provider_call` com `ok: false` e também `quota_exceeded` no filter — aceitável para dashboards distintos.
-- **Boas práticas**: não espalhar `Logger` em todo `catch` que só relança; o filter cobre a resposta HTTP. Para novos eventos, reutilizar `logJson` e campo `event` estável.
-- **SQL TypeORM**: queries lentas / log SQL conforme ambiente (regra existente do projeto)
-
-### Cache
-- Redis disponível para cache
-- Redução de chamadas ao banco
-- TTL configurável por tipo de dado
-- **Usar cache para dados frequentemente acessados**
-
-## 🧪 Testing
-
-### Obrigatoriedade (entrega de código)
-- **Testes unitários (obrigatório)**: toda **nova função** ou **alteração relevante** em lógica de aplicação deve vir acompanhada de testes unitários no padrão do projeto (`*.spec.ts` em `src/`, Jest + `@nestjs/testing`). Prioridade: **services**, utilitários compartilhados, regras de domínio e fluxos com branches/erros.
-- **Testes de integração / E2E (obrigatório para rotas HTTP)**: ao **implementar uma nova rota** (ou mudança de contrato HTTP que afete clientes), incluir teste de integração seguindo o padrão já estabelecido:
-  - arquivos em `test/**/*.e2e-spec.ts`;
-  - app via `test/e2e/helpers/create-e2e-app.ts` (ou equivalente alinhado a `test/configure-e2e-app.ts`), com mocks de fronteiras externas em `test/e2e/helpers/external-mocks.ts` quando aplicável;
-  - ambiente e banco: ver `.env.test.example`, `test/e2e-global-setup.js` e documentação em `test/E2E-ESTRATEGIA.md` / `.cursor/docs/testes.md`.
-- **Cobertura mínima de cenários**: além do caminho feliz, cobrir respostas de erro relevantes (validação 4xx, 401/403, 404, regras de negócio que lançam exceções do domínio), quando fizer parte do comportamento público da função ou da rota.
-
-### Configuração Jest
-- Test regex: `.*\.spec\.ts$`
-- Transform: ts-jest
-- Coverage: Habilitada
-- Environment: Node
-- Root dir: src/
-
-### Estrutura de Testes
-- Testes unitários por módulo (`*.spec.ts` sob `src/`)
-- Testes E2E / integração (`test/**/*.e2e-spec.ts`, config `test/jest-e2e.json`)
-- Mocks e stubs com `@nestjs/testing`
-- **Testar lógica de negócio crítica** e contratos HTTP novos ou alterados
-
-## 💡 Boas Práticas de Código
-
-### Princípios SOLID
-- **S**ingle Responsibility Principle - Uma classe, uma responsabilidade
-- **O**pen/Closed Principle - Aberto para extensão, fechado para modificação
-- **L**iskov Substitution Principle - Interfaces e abstrações consistentes
-- **I**nterface Segregation Principle - Interfaces específicas
-- **D**ependency Inversion Principle - Depender de abstrações
-
-### Clean Code
-- **Nomes descritivos**: Variáveis, funções e classes com nomes claros
-- **Funções pequenas**: Cada função deve fazer uma coisa
-- **DRY (Don't Repeat Yourself)**: Evitar duplicação de código
-- **Comentários úteis**: Comentar o "porquê", não o "como"
-- **Formatação consistente**: Usar Prettier
-- **Tratamento de erros**: Sempre tratar erros apropriadamente
-
-### Estrutura de Módulo
 ```
 nome-modulo/
-├── nome-modulo.controller.ts    # Endpoints HTTP
-├── nome-modulo.service.ts       # Lógica de negócio
-├── nome-modulo.module.ts        # Configuração do módulo
-├── dto/                         # Data Transfer Objects
-│   ├── create-*.dto.ts         # DTO de criação
-│   ├── update-*.dto.ts         # DTO de atualização
-│   ├── filter-*.dto.ts         # DTO de filtros
-│   └── response-*.dto.ts       # DTO de resposta
-├── entities/                    # Entidades TypeORM
-│   └── *.entity.ts
-├── repositories/                # Repositórios customizados
-│   └── *.repository.ts
-├── interfaces/                  # Interfaces TypeScript
-│   └── *.interface.ts
-├── types/                       # Types e Enums
-│   └── *.type.ts
-├── events/                      # Eventos de domínio (se necessário)
-│   └── *.event.ts
-└── test/                        # Testes
-    └── *.spec.ts
+├── nome-modulo.controller.ts
+├── nome-modulo.service.ts
+├── nome-modulo.module.ts
+├── dto/
+├── entities/
+├── repositories/          # quando queries forem complexas
+├── interfaces/
+├── types/
+└── test/*.spec.ts
 ```
 
-### Código
-- **Um módulo por domínio/funcionalidade**
-- **Separação clara de responsabilidades** (Controller → Service → Repository)
-- **DTOs para entrada e saída** (nunca expor entidades diretamente)
-- **OBRIGATÓRIO: Todo endpoint deve ter DTO de request (quando aplicável) e response**
-- **Usar `responseService.mapToDto()` para mapear responses**
-- **Validação em todas as entradas** (class-validator)
-- **Exceções customizadas** (usar exceptions da pasta exception/)
-- **Eventos de domínio** para desacoplamento entre módulos
-- **Injeção de dependências** (usar constructor injection)
-- **Async/await** para operações assíncronas
-- **TypeScript strict** onde possível
+### Camadas (resumo executável)
 
-### Banco de Dados
-- **Sempre usar migrations** (nunca alterar banco manualmente)
-- **Nunca usar `synchronize` em produção**
-- **Backup antes de mudanças críticas**
-- **Testar migrations em desenvolvimento**
-- **Revisar SQL gerado** antes de aplicar
-- **Usar transações** para operações críticas
-- **Índices** em campos de busca e foreign keys
+1. **Controller** — HTTP, validação de DTO, `mapToDto`, sem regra de negócio.
+2. **Service** — toda lógica de negócio, transações, eventos.
+3. **Repository** — queries; soft delete: `deletedAt IS NULL` no QueryBuilder; relações para DTO: `leftJoin` + `addSelect` de colunas necessárias (padrão `ExpenseRepository.findAll`).
+4. **DTO response** — `@Expose()` + `@Type(() => XxxResponseDto)` para aninhados; evitar só `@Transform` em `obj.relation` sem hidratar relação.
+5. **Exceções** — `AlreadyExistsException`, `NotExistException`, `InsufficientResourceException`, `RemoveException`, `UpdateException`.
 
-### Git e Deploy
-- **Nunca commitar .env** (usar .env.example)
-- **Commits semânticos** (feat, fix, refactor, etc)
-- **Revisar código antes de merge**
-- **Testar localmente antes de deploy**
-- **Backups antes de deploy em produção**
-- **Rollback plan** para cada deploy
+---
 
-### Documentação
-- **README atualizado** com instruções claras
-- **Comentários em código complexo**
-- **Migrations documentadas** (comentários sobre o propósito)
-- **Changelog** atualizado com mudanças significativas
-- **Projeto SEM Swagger/OpenAPI** - Não usar decorators de documentação
+## API REST
 
-## 🔄 Sistema de Eventos
+Prefixos atuais (atualizar ao criar controller):
 
-### Event Emitter
-- Sistema de eventos interno (NestJS EventEmitter)
-- Eventos de domínio para comunicação entre módulos
-- Desacoplamento de lógica de negócio
-- **Usar eventos para ações que não devem bloquear o fluxo principal**
+| Prefixo | Módulo |
+|---------|--------|
+| `auth` | auth |
+| `/user` | user |
+| `/expense` | expense |
+| `/revenue` | revenue |
+| `/coin` | coin |
+| `/theme` | theme |
+| `/profile` | profile |
+| `/reports` | reports |
+| `/group`, `/payment`, `/store` | resources |
+| `/coupon-reader` | coupon-reader |
+| `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
+| `/family-group` | family-group |
+| `/shopping-lists` | shopping-list |
+| `family-groups/:familyGroupId/chores` | chore |
+| `/recipes` | recipe |
+| `missions` | mission |
+| `alexa` | alexa |
 
-### Eventos Disponíveis
-- **User events**: criação, atualização de usuário
-- **Coin events**: ganho, gasto de moedas
-- **Outros eventos de domínio** conforme necessidade
+REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em DELETE sem body.
 
-### Padrão de Nomenclatura
-- `{dominio}.{acao}` (ex: `user.created`, `coin.earned`)
+---
 
-## 🌐 API REST
+## Stack e integrações
 
-### Endpoints Base
-- `/auth/*` - Autenticação e autorização
-- `/users/*` - Gerenciamento de usuários
-- `/expenses/*` - Despesas
-- `/revenues/*` - Receitas
-- `/coins/*` - Sistema de moedas
-- `/themes/*` - Temas visuais
-- `/groups/*` - Grupos de despesas
-- `/payments/*` - Formas de pagamento
-- `/stores/*` - Lojas
-- `/reports/*` - Relatórios financeiros
-- `/profile/*` - Perfil do usuário
-- `/coupon-reader/*` - Leitura de cupons
-- `/image-recognition/*` - Reconhecimento de imagens
+- **Validação global**: `ValidationPipe` (`whitelist`, `transform`).
+- **Serialização**: `ClassSerializerInterceptor`; sem decorators Swagger (projeto sem OpenAPI ativo).
+- **Throttling**: `ThrottlerGuard` global.
+- **Agendamento**: `@nestjs/schedule` (`ScheduleModule`).
+- **WebSockets**: `@nestjs/websockets` + `socket.io` (ex.: shopping-list).
+- **Arquivos**: `file-storage` + `supabase-storage`; ver `.cursor/docs/file-storage.md`.
+- **Logging**: Winston + Loki opcional (`LOKI_*`); `RequestLoggingMiddleware`; `logJson` com contexto `Observability`.
+- **IA**: providers Gemini com factory; telemetria `ai_provider_call`.
 
-### Padrões de Response
-- **Sucesso**: Status 2xx com dados
-  - 200: OK (GET, PUT, PATCH)
-  - 201: Created (POST)
-  - 204: No Content (DELETE)
-- **Erro**: Status 4xx/5xx com mensagem clara
-  - 400: Bad Request (validação)
-  - 401: Unauthorized (não autenticado)
-  - 403: Forbidden (sem permissão)
-  - 404: Not Found (recurso não encontrado)
-  - 409: Conflict (conflito de dados)
-  - 500: Internal Server Error (erro no servidor)
-- **Paginação**: Metadata incluída em todas as listagens
+---
 
-### Convenções REST
-- **GET**: Buscar recursos (nunca alterar estado)
-- **POST**: Criar novo recurso
-- **PUT/PATCH**: Atualizar recurso existente
-- **DELETE**: Remover recurso
-- **Usar plural para recursos**: `/users`, `/expenses`
-- **IDs na URL**: `/users/:id`
-- **Query params para filtros**: `/expenses?month=1&year=2024`
+## Banco de dados
 
-## 📝 Scripts Customizados
+```bash
+npm run migration:generate db/migrations/NomeDaMigracao
+npm run migration:run
+npm run migration:revert
+npm run migration:show
+npm run db:create          # script de bases locais
+```
 
-### create-module.sh
-- Gera estrutura completa de módulo automaticamente
-- Cria: controller, service, module, entities, dto, repository, types, test
-- **Uso**: `./create-module.sh nomeDoModulo`
-- Seguir convenções do projeto
+Backup manual: `./backup-now.sh`. Pool pequeno (2 conexões) — paginar listagens; evitar N+1.
 
-### backup-now.sh
-- Executa backup manual do banco de dados
-- Salva em `backups/manual_backup_YYYYMMDD_HHMMSS.sql.gz`
-- **Usar antes de mudanças críticas**
+---
 
-## 🎯 Regras de Negócio
+## Testes
 
-### Multi-tenant
-- Todos os recursos são isolados por usuário
-- Sempre filtrar por `userId` nas queries
-- Validar propriedade do recurso antes de operações
+| Tipo | Onde | Quando |
+|------|------|--------|
+| Unitário | `src/**/*.spec.ts` | Service, utils, branches e erros |
+| E2E | `test/**/*.e2e-spec.ts` | Rotas HTTP novas ou contrato alterado |
 
-### Gamificação
-- Sistema de moedas para engajamento
-- Temas compráveis com moedas
-- Eventos de ganho/gasto de moedas
+Ambiente E2E: `.env.test.example`, `test/e2e-global-setup.js`, mocks em `test/e2e/helpers/external-mocks.ts`.
 
-### Despesas e Receitas
-- Suporte a recorrência
-- Relacionamento com grupos, lojas e formas de pagamento
-- Histórico completo de operações
+**Execução em máquina com pouca memória** (prioridade: RAM, não velocidade):
+- `npm run test:e2e:low-mem -- --testPathPattern=<spec>` — um arquivo por vez
+- `--runInBand` + `--forceExit` (já no script); **evitar** `test:e2e:cov` localmente
+- Suíte completa só antes de merge em `homolog`; no dia a dia, só o spec da tarefa
 
-### Cupons Fiscais
-- Leitura automática de NF-e
-- Parsing de HTML para extração de dados
-- Criação automática de despesas baseadas no cupom
+Cenários mínimos: happy path + 4xx validação + 401/403/404 + exceções de domínio relevantes.
 
-## 🚨 Regras Críticas
+---
 
-### NUNCA FAZER:
-- ❌ Commitar senhas ou tokens no código
-- ❌ Usar `synchronize: true` em produção
-- ❌ Expor senhas ou dados sensíveis nas respostas
-- ❌ Permitir SQL injection (sempre usar ORM corretamente)
-- ❌ Ignorar validação de entrada
-- ❌ Fazer queries sem paginação em listagens
-- ❌ Alterar banco de dados diretamente (sempre usar migrations)
-- ❌ Deployar sem testar localmente
-- ❌ Ignorar erros silenciosamente
+## Docs de domínio
 
-### SEMPRE FAZER:
-- ✅ Validar todas as entradas do usuário
-- ✅ Usar DTOs para entrada e saída
-- ✅ Tratar erros apropriadamente
-- ✅ Fazer backup antes de mudanças críticas
-- ✅ Testar código antes de commit (**unitários** para funções alteradas; **E2E/integração** para novas rotas — ver seção Testing)
-- ✅ Documentar código complexo
-- ✅ Seguir padrões do projeto
-- ✅ Usar TypeScript corretamente (tipagem forte)
-- ✅ Implementar logs úteis
-- ✅ Pensar em performance e escalabilidade
+Pasta: `api/shop-smart/.cursor/docs/` — **criar arquivo novo em toda funcionalidade**; **atualizar** quando regras, contratos ou fluxo mudarem (ver `/.cursor/rules/workflow.mdc`).
 
+Referenciar ao implementar (criar arquivo se não existir):
+
+- `testes.md` — estratégia de testes
+- `file-storage.md` — armazenamento de arquivos
+- `lista-de-compras.md` — shopping list
+- `grupo-familiar.md`, `recurring-family-group-feature.md` — family group
+- `cupom-reader.md` — cupons
+- `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
+
+---
+
+## Regras críticas
+
+**Nunca:** commitar secrets; `synchronize` em produção; expor entidade/senha na response; SQL manual fora de migration; listagem sem paginação; deploy sem testes locais.
+
+**Sempre:** DTO entrada/saída; validar entrada; migration para schema; testes (unit + E2E se HTTP); doc em `.cursor/docs/` alinhada ao código; atualizar **este** `regra-projeto.mdc` no checklist de nova funcionalidade.
