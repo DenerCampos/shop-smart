@@ -20,10 +20,7 @@ async function login(app: INestApplication, email: string): Promise<string> {
   return res.body.accessToken as string;
 }
 
-async function insertUser(
-  app: INestApplication,
-  email: string,
-): Promise<void> {
+async function insertUser(app: INestApplication, email: string): Promise<void> {
   const ds = app.get(DataSource);
   const existing = await ds.query(
     'SELECT `id` FROM `user` WHERE `email` = ? LIMIT 1',

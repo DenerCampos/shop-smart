@@ -71,7 +71,9 @@ export class MissionEventsListener implements OnModuleInit {
         userId,
         missionKey: key,
         error_message:
-          err instanceof Error ? err.message : 'Unknown mission increment error',
+          err instanceof Error
+            ? err.message
+            : 'Unknown mission increment error',
       });
     }
   }

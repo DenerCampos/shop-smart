@@ -45,6 +45,9 @@ export class MissionDefinition {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => UserMissionProgress, (progress) => progress.missionDefinition)
+  @OneToMany(
+    () => UserMissionProgress,
+    (progress) => progress.missionDefinition,
+  )
   progresses: UserMissionProgress[];
 }

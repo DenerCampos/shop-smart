@@ -5,7 +5,9 @@ import { MissionDefinition } from '../entities/mission-definition.entity';
 import { UserMissionProgress } from '../entities/user-mission-progress.entity';
 import { User } from 'src/user/entities/user.entity';
 
-const makeMission = (overrides: Partial<MissionDefinition> = {}): MissionDefinition =>
+const makeMission = (
+  overrides: Partial<MissionDefinition> = {},
+): MissionDefinition =>
   ({
     id: 'def-1',
     key: 'daily_login',
@@ -19,7 +21,7 @@ const makeMission = (overrides: Partial<MissionDefinition> = {}): MissionDefinit
     updatedAt: new Date(),
     progresses: [],
     ...overrides,
-  } as MissionDefinition);
+  }) as MissionDefinition;
 
 const makeProgress = (
   overrides: Partial<UserMissionProgress> = {},
@@ -38,10 +40,10 @@ const makeProgress = (
     missionDefinition: makeMission(),
     user: { id: 'user-1' } as User,
     ...overrides,
-  } as UserMissionProgress);
+  }) as UserMissionProgress;
 
 const makeUser = (overrides: Partial<User> = {}): User =>
-  ({ id: 'user-1', ...overrides } as User);
+  ({ id: 'user-1', ...overrides }) as User;
 
 describe('MissionService', () => {
   let service: MissionService;
@@ -291,9 +293,14 @@ describe('MissionService', () => {
     it('sets isCompleted=true for under-80% mission when spending is below threshold', async () => {
       userService.find.mockResolvedValue(makeUser());
       expenseService.getExpenseByCurrentMonth.mockResolvedValue({ value: 700 });
-      revenueService.getRevenueByCurrentMonth.mockResolvedValue({ value: 1000 });
+      revenueService.getRevenueByCurrentMonth.mockResolvedValue({
+        value: 1000,
+      });
 
-      const mission80 = makeMission({ key: 'monthly_spend_under_80', id: 'def-80' });
+      const mission80 = makeMission({
+        key: 'monthly_spend_under_80',
+        id: 'def-80',
+      });
       missionDefRepo.findByKey.mockImplementation((key: string) => {
         const map: Record<string, MissionDefinition | null> = {
           monthly_spend_under_80: mission80,
@@ -317,9 +324,14 @@ describe('MissionService', () => {
     it('sets isCompleted=false when spending exceeds threshold', async () => {
       userService.find.mockResolvedValue(makeUser());
       expenseService.getExpenseByCurrentMonth.mockResolvedValue({ value: 900 });
-      revenueService.getRevenueByCurrentMonth.mockResolvedValue({ value: 1000 });
+      revenueService.getRevenueByCurrentMonth.mockResolvedValue({
+        value: 1000,
+      });
 
-      const mission80 = makeMission({ key: 'monthly_spend_under_80', id: 'def-80' });
+      const mission80 = makeMission({
+        key: 'monthly_spend_under_80',
+        id: 'def-80',
+      });
       missionDefRepo.findByKey.mockResolvedValue(mission80);
       progressRepo.findByUserAndMission.mockResolvedValue(null);
       progressRepo.upsert.mockResolvedValue({});
@@ -336,9 +348,14 @@ describe('MissionService', () => {
     it('does not downgrade an already-claimed mission', async () => {
       userService.find.mockResolvedValue(makeUser());
       expenseService.getExpenseByCurrentMonth.mockResolvedValue({ value: 900 });
-      revenueService.getRevenueByCurrentMonth.mockResolvedValue({ value: 1000 });
+      revenueService.getRevenueByCurrentMonth.mockResolvedValue({
+        value: 1000,
+      });
 
-      const mission80 = makeMission({ key: 'monthly_spend_under_80', id: 'def-80' });
+      const mission80 = makeMission({
+        key: 'monthly_spend_under_80',
+        id: 'def-80',
+      });
       missionDefRepo.findByKey.mockResolvedValue(mission80);
       progressRepo.findByUserAndMission.mockResolvedValue(
         makeProgress({ isClaimed: true }),

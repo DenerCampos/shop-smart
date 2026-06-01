@@ -122,7 +122,10 @@ describe('Chore / mesada (e2e)', () => {
 
     const payroll = await request(app.getHttpServer())
       .get(`/family-groups/${groupId}/chores/payroll/pending`)
-      .query({ month: pendBefore.getMonth() + 1, year: pendBefore.getFullYear() })
+      .query({
+        month: pendBefore.getMonth() + 1,
+        year: pendBefore.getFullYear(),
+      })
       .set(auth())
       .expect(200);
 

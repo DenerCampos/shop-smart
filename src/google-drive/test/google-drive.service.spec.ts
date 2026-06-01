@@ -129,7 +129,12 @@ describe('GoogleDriveService', () => {
           },
         });
 
-      await service.uploadFile(Buffer.from('x'), 'foto.png', 'image/png', 'chore');
+      await service.uploadFile(
+        Buffer.from('x'),
+        'foto.png',
+        'image/png',
+        'chore',
+      );
 
       const [folderCreate, fileCreate] = gdriveMocks.filesCreate.mock.calls;
       expect(folderCreate[0].requestBody).toMatchObject({
@@ -147,7 +152,12 @@ describe('GoogleDriveService', () => {
         data: { files: [{ id: 'existing-subfolder' }] },
       });
 
-      await service.uploadFile(Buffer.from('x'), 'foto.png', 'image/png', 'profile');
+      await service.uploadFile(
+        Buffer.from('x'),
+        'foto.png',
+        'image/png',
+        'profile',
+      );
 
       const folderCreateCall = gdriveMocks.filesCreate.mock.calls.find(
         (c) =>
@@ -156,7 +166,9 @@ describe('GoogleDriveService', () => {
       expect(folderCreateCall).toBeUndefined();
       expect(gdriveMocks.filesCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          requestBody: expect.objectContaining({ parents: ['existing-subfolder'] }),
+          requestBody: expect.objectContaining({
+            parents: ['existing-subfolder'],
+          }),
         }),
       );
     });

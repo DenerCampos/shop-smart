@@ -141,4 +141,134 @@ describe('Family group / Shopping lists (e2e)', () => {
       .send({ text: 'x' })
       .expect(401);
   });
+
+  it('PATCH /shopping-lists/:id/complete — 400 em lista já finalizada', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/shopping-lists')
+      .set(auth())
+      .send({ name: `Lista complete e2e ${Date.now()}` })
+      .expect(201);
+    const listId = create.body.id as string;
+
+    await request(app.getHttpServer())
+      .patch(`/shopping-lists/${listId}/complete`)
+      .set(auth())
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/shopping-lists/${listId}/complete`)
+      .set(auth());
+    expectClientError(res);
+    expect(res.status).toBe(400);
+  });
+
+  it('PATCH /shopping-lists/:id/complete-with-remaining — finaliza e cria nova lista', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/shopping-lists')
+      .set(auth())
+      .send({ name: `Lista partial e2e ${Date.now()}` })
+      .expect(201);
+    const listId = create.body.id as string;
+
+    const bulk = await request(app.getHttpServer())
+      .post(`/shopping-lists/${listId}/items/bulk`)
+      .set(auth())
+      .send({ text: 'feijão, arroz, leite' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/shopping-lists/items/${bulk.body[0].id}/toggle`)
+      .set(auth())
+      .expect(200);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/shopping-lists/${listId}/complete-with-remaining`)
+      .set(auth())
+      .expect(200);
+
+    expect(res.body.completed).toEqual(
+      expect.objectContaining({
+        id: listId,
+        status: 'completed',
+      }),
+    );
+    expect(res.body.newList).toEqual(
+      expect.objectContaining({
+        status: 'active',
+        pendingCount: 2,
+        itemsCount: 2,
+      }),
+    );
+    expect(res.body.newList.id).not.toBe(listId);
+  });
+
+  it('PATCH /shopping-lists/:id/complete-with-remaining — 400 sem itens in_cart', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/shopping-lists')
+      .set(auth())
+      .send({ name: `Lista partial err e2e ${Date.now()}` })
+      .expect(201);
+    const listId = create.body.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/shopping-lists/${listId}/items/bulk`)
+      .set(auth())
+      .send({ text: 'feijão, arroz' })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .patch(`/shopping-lists/${listId}/complete-with-remaining`)
+      .set(auth());
+    expectClientError(res);
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /shopping-lists/:id/recreate — nova lista ativa a partir de finalizada', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/shopping-lists')
+      .set(auth())
+      .send({ name: `Lista recreate e2e ${Date.now()}` })
+      .expect(201);
+    const listId = create.body.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/shopping-lists/${listId}/items/bulk`)
+      .set(auth())
+      .send({ text: 'feijão, arroz' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/shopping-lists/${listId}/complete`)
+      .set(auth())
+      .expect(200);
+
+    const recreated = await request(app.getHttpServer())
+      .post(`/shopping-lists/${listId}/recreate`)
+      .set(auth())
+      .expect(201);
+
+    expect(recreated.body).toEqual(
+      expect.objectContaining({
+        status: 'active',
+        itemsCount: 2,
+        pendingCount: 2,
+      }),
+    );
+    expect(recreated.body.id).not.toBe(listId);
+  });
+
+  it('POST /shopping-lists/:id/recreate — 400 em lista active', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/shopping-lists')
+      .set(auth())
+      .send({ name: `Lista recreate err e2e ${Date.now()}` })
+      .expect(201);
+    const listId = create.body.id as string;
+
+    const res = await request(app.getHttpServer())
+      .post(`/shopping-lists/${listId}/recreate`)
+      .set(auth());
+    expectClientError(res);
+    expect(res.status).toBe(400);
+  });
 });

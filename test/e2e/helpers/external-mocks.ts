@@ -118,7 +118,10 @@ export function mockCouponReaderService(): Pick<CouponReaderService, 'read'> {
 }
 
 export function mockFileStorageService(): jest.Mocked<
-  Pick<IFileStorageService, 'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'>
+  Pick<
+    IFileStorageService,
+    'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'
+  >
 > {
   return {
     uploadFile: jest.fn(async () => ({

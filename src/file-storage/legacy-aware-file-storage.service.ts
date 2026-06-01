@@ -45,7 +45,12 @@ export class LegacyAwareFileStorageService implements IFileStorageService {
     mimeType: string,
     subfolder?: string,
   ): Promise<FileStorageUploadResult> {
-    return this.getPrimary().uploadFile(fileBuffer, fileName, mimeType, subfolder);
+    return this.getPrimary().uploadFile(
+      fileBuffer,
+      fileName,
+      mimeType,
+      subfolder,
+    );
   }
 
   extractFileIdFromUrl(url: string): string | null {

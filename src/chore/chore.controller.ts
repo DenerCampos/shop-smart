@@ -291,10 +291,7 @@ export class ChoreController {
     @Param('familyGroupId') familyGroupId: string,
     @CurrentUser() user: User,
   ): Promise<ChorePayrollSuggestionResponseDto> {
-    const s = await this.choreService.getPayrollSuggestion(
-      familyGroupId,
-      user,
-    );
+    const s = await this.choreService.getPayrollSuggestion(familyGroupId, user);
     return this.responseService.mapToDto(ChorePayrollSuggestionResponseDto, s);
   }
 

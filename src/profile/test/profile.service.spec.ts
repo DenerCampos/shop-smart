@@ -41,7 +41,10 @@ describe('ProfileService', () => {
   >;
   let coinService: jest.Mocked<Pick<CoinService, 'getCoinsByUser'>>;
   let fileStorage: jest.Mocked<
-    Pick<IFileStorageService, 'extractFileIdFromUrl' | 'deleteFile' | 'uploadFile'>
+    Pick<
+      IFileStorageService,
+      'extractFileIdFromUrl' | 'deleteFile' | 'uploadFile'
+    >
   >;
   let userService: jest.Mocked<Pick<UserService, 'update'>>;
   let familyMemberResolver: jest.Mocked<
