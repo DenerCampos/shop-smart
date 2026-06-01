@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ShoppingList } from '../entities/shopping-list.entity';
@@ -409,12 +406,7 @@ export class ShoppingListRepository implements IShoppingListRepository {
         list.familyGroup ?? undefined,
       );
 
-      await this.copyItemsWithManager(
-        manager,
-        list.items ?? [],
-        newList,
-        user,
-      );
+      await this.copyItemsWithManager(manager, list.items ?? [], newList, user);
 
       const reloaded = await this.findListByIdWithManager(manager, newList.id);
 

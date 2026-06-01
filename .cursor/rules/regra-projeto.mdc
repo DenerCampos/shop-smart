@@ -196,6 +196,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `lista-de-compras.md` — shopping list
 - `grupo-familiar.md`, `recurring-family-group-feature.md` — family group
 - `cupom-reader.md` — cupons
+- `missoes.md` — missões dinâmicas (SP-78 / SP-110)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 
 ---

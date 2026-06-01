@@ -8,6 +8,30 @@ import {
 } from './helpers/create-e2e-app';
 import { expectClientError } from './helpers/expect-response';
 
+function minimalExpenseBody(overrides: Record<string, unknown> = {}) {
+  return {
+    name: `Despesa missão e2e ${Date.now()}`,
+    value: 50,
+    repeat: false,
+    store: { name: `Loja missão e2e ${Date.now()}` },
+    uri: '',
+    date: new Date().toISOString(),
+    items: [
+      {
+        code: '1',
+        name: 'Item e2e',
+        quantity: 1,
+        unit: 'un',
+        value: 50,
+        total: 50,
+        group: { name: 'Alimentação' },
+      },
+    ],
+    payment: { name: 'Dinheiro' },
+    ...overrides,
+  };
+}
+
 describe('Missions (e2e)', () => {
   let app: INestApplication;
   let token: string;
@@ -132,5 +156,102 @@ describe('Missions (e2e)', () => {
 
     expect(res.status).toBe(403);
     expectClientError(res);
+  });
+
+  it('POST /expense — conclui missão daily_coupon', async () => {
+    await request(app.getHttpServer())
+      .post('/expense')
+      .set(auth())
+      .send(minimalExpenseBody())
+      .expect(201);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/missions')
+      .set(auth())
+      .expect(200);
+
+    const dailyCoupon = listRes.body.find(
+      (item: { mission: { key: string } }) =>
+        item.mission.key === 'daily_coupon',
+    );
+
+    expect(dailyCoupon).toBeDefined();
+    expect(dailyCoupon.progress).toEqual(
+      expect.objectContaining({
+        isCompleted: true,
+        id: expect.any(String),
+      }),
+    );
+  });
+
+  it('POST /revenue — conclui missão daily_revenue', async () => {
+    await request(app.getHttpServer())
+      .post('/revenue')
+      .set(auth())
+      .send({
+        name: `Receita missão e2e ${Date.now()}`,
+        value: 200,
+        repeat: false,
+        date: new Date().toISOString(),
+      })
+      .expect(201);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/missions')
+      .set(auth())
+      .expect(200);
+
+    const dailyRevenue = listRes.body.find(
+      (item: { mission: { key: string } }) =>
+        item.mission.key === 'daily_revenue',
+    );
+
+    expect(dailyRevenue).toBeDefined();
+    expect(dailyRevenue.progress).toEqual(
+      expect.objectContaining({
+        isCompleted: true,
+        id: expect.any(String),
+      }),
+    );
+    expect(dailyRevenue.mission.rewardCoins).toBe(20);
+  });
+
+  it('POST /expense após receita — atualiza missão mensal monthly_spend_under_80', async () => {
+    const now = new Date().toISOString();
+
+    await request(app.getHttpServer())
+      .post('/revenue')
+      .set(auth())
+      .send({
+        name: `Receita mensal e2e ${Date.now()}`,
+        value: 999_999,
+        repeat: false,
+        date: now,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/expense')
+      .set(auth())
+      .send(minimalExpenseBody({ value: 100, date: now }))
+      .expect(201);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/missions')
+      .set(auth())
+      .expect(200);
+
+    const monthly80 = listRes.body.find(
+      (item: { mission: { key: string } }) =>
+        item.mission.key === 'monthly_spend_under_80',
+    );
+
+    expect(monthly80).toBeDefined();
+    expect(monthly80.progress).toEqual(
+      expect.objectContaining({
+        isCompleted: true,
+        id: expect.any(String),
+      }),
+    );
   });
 });
