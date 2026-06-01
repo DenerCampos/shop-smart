@@ -161,9 +161,9 @@ describe('ShoppingListService', () => {
         }),
       );
 
-      await expect(
-        service.completeWithRemaining('l1', user()),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.completeWithRemaining('l1', user())).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('lança BadRequestException sem itens in_cart', async () => {
@@ -173,9 +173,9 @@ describe('ShoppingListService', () => {
         }),
       );
 
-      await expect(
-        service.completeWithRemaining('l1', user()),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.completeWithRemaining('l1', user())).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('lança BadRequestException quando lista não está active', async () => {
@@ -189,20 +189,20 @@ describe('ShoppingListService', () => {
         }),
       );
 
-      await expect(
-        service.completeWithRemaining('l1', user()),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.completeWithRemaining('l1', user())).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('delega persistência ao repository e emite eventos', async () => {
       const pending = item('Leite', SHOPPING_LIST_ITEM_STATUS.PENDING);
       const list = activeList({
-        items: [
-          item('Arroz', SHOPPING_LIST_ITEM_STATUS.IN_CART),
-          pending,
-        ],
+        items: [item('Arroz', SHOPPING_LIST_ITEM_STATUS.IN_CART), pending],
       });
-      const completed = activeList({ id: 'l1', status: SHOPPING_LIST_STATUS.COMPLETED });
+      const completed = activeList({
+        id: 'l1',
+        status: SHOPPING_LIST_STATUS.COMPLETED,
+      });
       const newList = activeList({
         id: 'l2',
         items: [pending],

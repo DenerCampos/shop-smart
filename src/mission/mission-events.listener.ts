@@ -27,9 +27,18 @@ export class MissionEventsListener implements OnModuleInit {
     );
 
     this.eventEmitter.on(
-      'coupon.processed',
+      'expense.created',
       async (payload: DomainEventPayload) => {
         await this.safeIncrement(payload.userId, 'daily_coupon');
+        await this.safeFinancialUpdate(payload.userId);
+      },
+    );
+
+    this.eventEmitter.on(
+      'revenue.created',
+      async (payload: DomainEventPayload) => {
+        await this.safeIncrement(payload.userId, 'daily_revenue');
+        await this.safeFinancialUpdate(payload.userId);
       },
     );
 
@@ -51,13 +60,6 @@ export class MissionEventsListener implements OnModuleInit {
       'chore.approved',
       async (payload: DomainEventPayload) => {
         await this.safeIncrement(payload.userId, 'monthly_chore_complete');
-      },
-    );
-
-    this.eventEmitter.on(
-      'expense.created',
-      async (payload: DomainEventPayload) => {
-        await this.safeFinancialUpdate(payload.userId);
       },
     );
   }

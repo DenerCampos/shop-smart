@@ -85,8 +85,5 @@ export interface IShoppingListRepository {
     pendingItems: ShoppingListItem[],
   ): Promise<{ completed: ShoppingList; newList: ShoppingList }>;
 
-  recreateFromCompleted(
-    list: ShoppingList,
-    user: User,
-  ): Promise<ShoppingList>;
+  recreateFromCompleted(list: ShoppingList, user: User): Promise<ShoppingList>;
 }

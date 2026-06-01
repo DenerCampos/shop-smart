@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from '../../common/event-emitter/event-emitter.provider';
 import { RevenueService } from '../revenue.service';
 import { IRevenueRepository } from '../interface/revenue.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
@@ -15,6 +17,7 @@ describe('RevenueService', () => {
     Pick<IRevenueRepository, 'create' | 'findAll'>
   >;
   let coinService: jest.Mocked<Pick<CoinService, 'addCoins'>>;
+  let eventEmitter: jest.Mocked<Pick<EventEmitter, 'emit'>>;
 
   const user = (): User => {
     const u = new User();
@@ -33,6 +36,7 @@ describe('RevenueService', () => {
       findAll: jest.fn().mockResolvedValue([[], 0]),
     };
     coinService = { addCoins: jest.fn().mockResolvedValue(undefined) };
+    eventEmitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,6 +45,7 @@ describe('RevenueService', () => {
         { provide: AppConfig, useValue: createAppConfigMock() },
         Pagination,
         { provide: CoinService, useValue: coinService },
+        { provide: EVENT_EMITTER, useValue: eventEmitter },
         {
           provide: FamilyMemberResolverService,
           useValue: {
@@ -68,6 +73,9 @@ describe('RevenueService', () => {
     expect(result).toBe(rev);
     expect(revenueRepository.create).toHaveBeenCalled();
     expect(coinService.addCoins).toHaveBeenCalled();
+    expect(eventEmitter.emit).toHaveBeenCalledWith('revenue.created', {
+      userId: 'u1',
+    });
   });
 
   it('findAll repassa userIds do resolver', async () => {
