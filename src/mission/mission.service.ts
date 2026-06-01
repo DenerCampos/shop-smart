@@ -179,7 +179,10 @@ export class MissionService {
       throw new ForbiddenException('A recompensa já foi resgatada.');
     }
 
-    const claimed = await this.progressRepo.claimIfEligible(user.id, progressId);
+    const claimed = await this.progressRepo.claimIfEligible(
+      user.id,
+      progressId,
+    );
 
     if (!claimed) {
       throw new ForbiddenException('A recompensa já foi resgatada.');

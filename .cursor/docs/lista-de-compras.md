@@ -212,13 +212,46 @@ Soft delete de uma lista.
 
 #### `PATCH /shopping-lists/:id/complete`
 
-Finaliza uma lista: muda status para `completed` e marca todos os itens pendentes como `in_cart`.
+Finaliza uma lista ativa: muda status para `completed` e marca todos os itens pendentes como `in_cart`.
 
 **Auth**: Bearer Token (JWT)
 
 **Response** (200): `ShoppingListResponseDto`
 
 **WebSocket Event**: Emite `list_completed` para todos na room da lista.
+
+**Erros**: `400` se a lista nao estiver `active`.
+
+---
+
+#### `PATCH /shopping-lists/:id/complete-with-remaining`
+
+Finaliza a lista ativa e cria uma **nova lista ativa** com o mesmo nome, grupo familiar e apenas os itens que estavam `pending` (copiados como pendentes). Exige pelo menos um item `in_cart` e um `pending`.
+
+**Auth**: Bearer Token (JWT)
+
+**Response** (200):
+
+```json
+{
+  "completed": { "...ShoppingListResponseDto" },
+  "newList": { "...ShoppingListResponseDto" }
+}
+```
+
+**WebSocket Event**: Emite `list_completed` na lista original.
+
+---
+
+#### `POST /shopping-lists/:id/recreate`
+
+Cria uma **nova lista ativa** a partir de uma lista `completed`, com o mesmo nome, grupo familiar e todos os itens (como `pending`). A lista original permanece finalizada.
+
+**Auth**: Bearer Token (JWT)
+
+**Response** (201): `ShoppingListResponseDto`
+
+**Erros**: `400` se a lista nao estiver `completed`.
 
 ---
 
@@ -649,8 +682,10 @@ function useShoppingListSocket(listId: string, token: string) {
 4. Todos os membros conectados recebem `item_added` via WebSocket
 5. No mercado, clica no checkbox -> PATCH /items/:id/toggle
 6. Todos veem o item riscado via `item_toggled`
-7. Finaliza compra -> PATCH /:id/complete
+7. Finaliza compra -> PATCH /:id/complete (volta ao dashboard de listas ativas)
 8. Todos recebem `list_completed`
+9. Compra parcial em um mercado -> PATCH /:id/complete-with-remaining (nova lista so com pendentes)
+10. Recriar lista finalizada -> POST /:id/recreate (nova lista ativa com mesmos itens)
 ```
 
 ---

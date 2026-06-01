@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   forwardRef,
   Inject,
@@ -208,6 +209,12 @@ export class ShoppingListService {
 
     await this.validateListAccess(list, user.id);
 
+    if (list.status !== SHOPPING_LIST_STATUS.ACTIVE) {
+      throw new BadRequestException(
+        'Somente listas ativas podem ser finalizadas.',
+      );
+    }
+
     await this.repository.completeAllItems(listId, user.id);
 
     const updated = await this.repository.updateList(list, {
@@ -219,6 +226,82 @@ export class ShoppingListService {
     });
 
     return updated;
+  }
+
+  async recreate(listId: string, user: User): Promise<ShoppingList> {
+    const list = await this.repository.findListWithItems(listId);
+
+    if (!list) {
+      throw new NotExistException();
+    }
+
+    await this.validateListAccess(list, user.id);
+
+    if (list.status !== SHOPPING_LIST_STATUS.COMPLETED) {
+      throw new BadRequestException(
+        'Somente listas finalizadas podem ser recriadas.',
+      );
+    }
+
+    const newList = await this.repository.recreateFromCompleted(list, user);
+
+    this.eventEmitter.emit('shopping_list.created', { userId: user.id });
+
+    return newList;
+  }
+
+  async completeWithRemaining(
+    listId: string,
+    user: User,
+  ): Promise<{ completed: ShoppingList; newList: ShoppingList }> {
+    const list = await this.repository.findListWithItems(listId);
+
+    if (!list) {
+      throw new NotExistException();
+    }
+
+    await this.validateListAccess(list, user.id);
+
+    if (list.status !== SHOPPING_LIST_STATUS.ACTIVE) {
+      throw new BadRequestException(
+        'Somente listas ativas podem ser finalizadas.',
+      );
+    }
+
+    const pendingItems = (list.items ?? []).filter(
+      (item) => item.status === SHOPPING_LIST_ITEM_STATUS.PENDING,
+    );
+
+    if (pendingItems.length === 0) {
+      throw new BadRequestException(
+        'Não há itens pendentes para criar uma nova lista.',
+      );
+    }
+
+    const hasPurchasedItems = (list.items ?? []).some(
+      (item) => item.status === SHOPPING_LIST_ITEM_STATUS.IN_CART,
+    );
+
+    if (!hasPurchasedItems) {
+      throw new BadRequestException(
+        'É necessário ter pelo menos um item comprado para usar esta ação.',
+      );
+    }
+
+    const { completed, newList } =
+      await this.repository.finalizeWithRemainingAndBranch(
+        list,
+        user,
+        pendingItems,
+      );
+
+    this.shoppingListGateway.emitToList(listId, 'list_completed', {
+      listId,
+    });
+
+    this.eventEmitter.emit('shopping_list.created', { userId: user.id });
+
+    return { completed, newList };
   }
 
   async addItem(
@@ -297,10 +380,8 @@ export class ShoppingListService {
 
     await this.validateListAccess(list, user.id);
 
-    const parsedItems = await this.textRecognitionService.parseShoppingListItems(
-      dto.text,
-      user,
-    );
+    const parsedItems =
+      await this.textRecognitionService.parseShoppingListItems(dto.text, user);
 
     const saved: ShoppingListItem[] = [];
 

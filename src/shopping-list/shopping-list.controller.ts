@@ -26,6 +26,7 @@ import { ShoppingListResponseDto } from './dto/shopping-list-response.dto';
 import { ShoppingListDetailResponseDto } from './dto/shopping-list-detail-response.dto';
 import { ShoppingListItemResponseDto } from './dto/shopping-list-item-response.dto';
 import { ItemSuggestionResponseDto } from './dto/item-suggestion-response.dto';
+import { CompleteWithRemainingResponseDto } from './dto/complete-with-remaining-response.dto';
 import { paginationData } from 'src/common/pagination/pagination';
 
 @Controller('/shopping-lists')
@@ -118,6 +119,34 @@ export class ShoppingListController {
     @CurrentUser() user: User,
   ): Promise<ShoppingListResponseDto> {
     const list = await this.shoppingListService.complete(id, user);
+
+    return this.responseService.mapToDto(ShoppingListResponseDto, list);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/complete-with-remaining')
+  async completeWithRemaining(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<CompleteWithRemainingResponseDto> {
+    const result = await this.shoppingListService.completeWithRemaining(
+      id,
+      user,
+    );
+
+    return this.responseService.mapToDto(CompleteWithRemainingResponseDto, {
+      completed: result.completed,
+      newList: result.newList,
+    });
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/recreate')
+  async recreate(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<ShoppingListResponseDto> {
+    const list = await this.shoppingListService.recreate(id, user);
 
     return this.responseService.mapToDto(ShoppingListResponseDto, list);
   }

@@ -18,13 +18,8 @@ const WINSTON_LEVELS = new Set([
 ]);
 
 /** Padrão: debug em dev, warn em prod (menos ruído). Use API_LOG_LEVEL=info para incluir http_request no Loki. */
-function resolveWinstonLevel(
-  config: ConfigService,
-  isDev: boolean,
-): string {
-  const raw = (config.get<string>('API_LOG_LEVEL') ?? '')
-    .trim()
-    .toLowerCase();
+function resolveWinstonLevel(config: ConfigService, isDev: boolean): string {
+  const raw = (config.get<string>('API_LOG_LEVEL') ?? '').trim().toLowerCase();
   if (raw && WINSTON_LEVELS.has(raw)) {
     return raw;
   }

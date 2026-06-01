@@ -32,9 +32,7 @@ export class SupabaseStorageService implements IFileStorageService {
 
   private validateConfig(config: Partial<SupabaseStorageConfig>): void {
     const required: (keyof SupabaseStorageConfig)[] = ['url', 'key', 'bucket'];
-    const missing = required.filter(
-      (key) => !String(config[key] ?? '').trim(),
-    );
+    const missing = required.filter((key) => !String(config[key] ?? '').trim());
     if (missing.length > 0) {
       throw new InternalServerErrorException(
         `Configuração do Supabase Storage incompleta. Variáveis ausentes: ${missing.join(

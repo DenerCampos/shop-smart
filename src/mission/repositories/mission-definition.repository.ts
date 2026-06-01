@@ -5,9 +5,7 @@ import { MissionDefinition } from '../entities/mission-definition.entity';
 import { IMissionDefinitionRepository } from '../interfaces/mission-definition.repository.interface';
 
 @Injectable()
-export class MissionDefinitionRepository
-  implements IMissionDefinitionRepository
-{
+export class MissionDefinitionRepository implements IMissionDefinitionRepository {
   constructor(
     @InjectRepository(MissionDefinition)
     private readonly repo: Repository<MissionDefinition>,

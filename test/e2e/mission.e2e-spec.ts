@@ -75,7 +75,14 @@ describe('Missions (e2e)', () => {
       .expect(200);
 
     const dailyLogin = listRes.body.find(
-      (item: { mission: { key: string }; progress: { isCompleted: boolean; isClaimed: boolean; id: string | null } }) =>
+      (item: {
+        mission: { key: string };
+        progress: {
+          isCompleted: boolean;
+          isClaimed: boolean;
+          id: string | null;
+        };
+      }) =>
         item.mission.key === 'daily_login' &&
         item.progress.isCompleted &&
         !item.progress.isClaimed &&

@@ -99,7 +99,9 @@ describe('SupabaseStorageService', () => {
 
     it('lança quando config está incompleta', async () => {
       const badConfig = createSupabaseStorageAppConfigMock({
-        getSupabaseStorage: jest.fn().mockReturnValue({ url: '', key: '', bucket: '' }),
+        getSupabaseStorage: jest
+          .fn()
+          .mockReturnValue({ url: '', key: '', bucket: '' }),
       });
 
       const module: TestingModule = await Test.createTestingModule({

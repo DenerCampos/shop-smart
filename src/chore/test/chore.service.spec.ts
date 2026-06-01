@@ -23,17 +23,19 @@ describe('ChoreService', () => {
     assertAcceptedMembership: jest.Mock;
   };
   let dataSource: { transaction: jest.Mock };
-  let choreRepository: jest.Mocked<Pick<
-    IChoreRepository,
-    | 'findOccurrenceForStartLocked'
-    | 'saveOccurrence'
-    | 'findOccurrenceForApproveLocked'
-    | 'findDefinitionById'
-    | 'findOccurrenceWaitingApproval'
-    | 'findPayrollSettlementByGroupAndPeriod'
-    | 'findOneOccurrenceVisible'
-    | 'insertOpenOccurrence'
-  >>;
+  let choreRepository: jest.Mocked<
+    Pick<
+      IChoreRepository,
+      | 'findOccurrenceForStartLocked'
+      | 'saveOccurrence'
+      | 'findOccurrenceForApproveLocked'
+      | 'findDefinitionById'
+      | 'findOccurrenceWaitingApproval'
+      | 'findPayrollSettlementByGroupAndPeriod'
+      | 'findOneOccurrenceVisible'
+      | 'insertOpenOccurrence'
+    >
+  >;
   let coinService: { addEarnedCoinsByAmount: jest.Mock };
   let userService: { find: jest.Mock };
 
@@ -47,7 +49,9 @@ describe('ChoreService', () => {
     };
 
     dataSource = {
-      transaction: jest.fn(async (fn: (m: unknown) => Promise<unknown>) => fn({})),
+      transaction: jest.fn(async (fn: (m: unknown) => Promise<unknown>) =>
+        fn({}),
+      ),
     };
 
     choreRepository = {
@@ -144,7 +148,10 @@ describe('ChoreService', () => {
 
     jest.spyOn(service, 'loadOccurrence').mockResolvedValue(afterApprove);
     jest
-      .spyOn(service as unknown as { spawnOpenOccurrence: jest.Mock }, 'spawnOpenOccurrence')
+      .spyOn(
+        service as unknown as { spawnOpenOccurrence: jest.Mock },
+        'spawnOpenOccurrence',
+      )
       .mockResolvedValue(undefined);
 
     await service.approveOccurrence('g1', adminUser, 'occ1');
@@ -232,7 +239,10 @@ describe('ChoreService', () => {
 
   it('submitOccurrence — exige par de fotos quando requirePhoto', async () => {
     jest
-      .spyOn(service as unknown as { loadOccurrenceWritable: jest.Mock }, 'loadOccurrenceWritable')
+      .spyOn(
+        service as unknown as { loadOccurrenceWritable: jest.Mock },
+        'loadOccurrenceWritable',
+      )
       .mockResolvedValue({
         definition: { requirePhoto: true },
         photoBeforeUrl: null,

@@ -130,7 +130,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/coupon-reader` | coupon-reader |
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
 | `/family-group` | family-group |
-| `/shopping-lists` | shopping-list |
+| `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
 | `family-groups/:familyGroupId/chores` | chore |
 | `/recipes` | recipe |
 | `missions` | mission |

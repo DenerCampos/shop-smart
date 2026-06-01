@@ -1,9 +1,6 @@
 import { FamilyGroup } from 'src/family-group/entities/family-group.entity';
 import { User } from 'src/user/entities/user.entity';
-import {
-  Recipe,
-  RecipeIngredient,
-} from '../entities/recipe.entity';
+import { Recipe, RecipeIngredient } from '../entities/recipe.entity';
 
 export interface IRecipeRepository {
   createRecipe(params: {
