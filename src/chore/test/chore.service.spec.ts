@@ -34,6 +34,8 @@ describe('ChoreService', () => {
       | 'findPayrollSettlementByGroupAndPeriod'
       | 'findOneOccurrenceVisible'
       | 'insertOpenOccurrence'
+      | 'sumPendingCoinRewards'
+      | 'celebratePendingCoinRewards'
     >
   >;
   let coinService: { addEarnedCoinsByAmount: jest.Mock };
@@ -63,6 +65,8 @@ describe('ChoreService', () => {
       findPayrollSettlementByGroupAndPeriod: jest.fn(),
       findOneOccurrenceVisible: jest.fn(),
       insertOpenOccurrence: jest.fn(),
+      sumPendingCoinRewards: jest.fn(),
+      celebratePendingCoinRewards: jest.fn(),
     };
 
     coinService = {
@@ -252,5 +256,45 @@ describe('ChoreService', () => {
     await expect(
       service.submitOccurrence('g1', memberUser, 'occ1'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('getPendingCoinRewards — valida membership e delega ao repositório', async () => {
+    choreRepository.sumPendingCoinRewards.mockResolvedValue(12);
+
+    const total = await service.getPendingCoinRewards('g1', memberUser);
+
+    expect(familyGroupService.assertAcceptedMembership).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(choreRepository.sumPendingCoinRewards).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(total).toBe(12);
+  });
+
+  it('celebratePendingCoinRewards — valida membership e retorna total celebrado', async () => {
+    choreRepository.celebratePendingCoinRewards.mockResolvedValue(7);
+
+    const total = await service.celebratePendingCoinRewards('g1', memberUser);
+
+    expect(familyGroupService.assertAcceptedMembership).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(choreRepository.celebratePendingCoinRewards).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(total).toBe(7);
+  });
+
+  it('celebratePendingCoinRewards — retorna zero quando não há pendentes', async () => {
+    choreRepository.celebratePendingCoinRewards.mockResolvedValue(0);
+
+    const total = await service.celebratePendingCoinRewards('g1', memberUser);
+
+    expect(total).toBe(0);
   });
 });

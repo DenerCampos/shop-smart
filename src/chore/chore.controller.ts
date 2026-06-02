@@ -37,6 +37,7 @@ import { FamilyGroupService } from 'src/family-group/family-group.service';
 import { UserService } from 'src/user/user.service';
 import { paginationData } from 'src/common/pagination/pagination';
 import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
+import { ChorePendingCoinRewardDto } from './dto/chore-pending-coin-reward.dto';
 
 @Controller('family-groups/:familyGroupId/chores')
 export class ChoreController {
@@ -352,5 +353,37 @@ export class ChoreController {
       periodYm: settled.periodYm,
       settledAt: settled.settledAt,
     };
+  }
+
+  @Get('coin-rewards/pending')
+  @UseGuards(AuthGuard)
+  async pendingCoinRewards(
+    @Param('familyGroupId') familyGroupId: string,
+    @CurrentUser() user: User,
+  ): Promise<ChorePendingCoinRewardDto> {
+    const totalCoins = await this.choreService.getPendingCoinRewards(
+      familyGroupId,
+      user,
+    );
+
+    return this.responseService.mapToDto(ChorePendingCoinRewardDto, {
+      totalCoins,
+    });
+  }
+
+  @Post('coin-rewards/celebrate')
+  @UseGuards(AuthGuard)
+  async celebrateCoinRewards(
+    @Param('familyGroupId') familyGroupId: string,
+    @CurrentUser() user: User,
+  ): Promise<ChorePendingCoinRewardDto> {
+    const totalCoins = await this.choreService.celebratePendingCoinRewards(
+      familyGroupId,
+      user,
+    );
+
+    return this.responseService.mapToDto(ChorePendingCoinRewardDto, {
+      totalCoins,
+    });
   }
 }

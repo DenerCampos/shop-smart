@@ -84,6 +84,9 @@ export class ChoreOccurrence {
   @Column({ type: 'datetime', nullable: true })
   completedAt: Date | null;
 
+  @Column({ type: 'datetime', nullable: true })
+  coinRewardCelebratedAt: Date | null;
+
   /** Calendar month when the chore became completed (earn month), formato YYYYMM. */
   @Column({ type: 'int', nullable: true })
   earnedPeriodYm: number | null;

@@ -22,6 +22,8 @@ import { CoinResponseDto } from './dto/coin-response.dto';
 import { paginationData } from 'src/common/pagination/pagination';
 import { CoinListDto } from './dto/coin-list.dto';
 import { BalanceCoinDto } from './dto/balance-coin.dto';
+import { CoinStatementQueryDto } from './dto/coin-statement-query.dto';
+import { CoinStatementResponseDto } from './dto/coin-statement-response.dto';
 
 @Controller('/coin')
 export class CoinController {
@@ -58,6 +60,17 @@ export class CoinController {
     const coins = await this.coinService.getCoinsByUser(user);
 
     return this.responseService.mapToDto(BalanceCoinDto, { balance: coins });
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/statement')
+  async getStatement(
+    @CurrentUser() user: User,
+    @Query() query: CoinStatementQueryDto,
+  ): Promise<CoinStatementResponseDto> {
+    const statement = await this.coinService.getStatement(user, query);
+
+    return this.responseService.mapToDto(CoinStatementResponseDto, statement);
   }
 
   @UseGuards(AuthGuard)

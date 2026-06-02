@@ -1,9 +1,12 @@
 import { IsIn, IsNotEmpty, IsString } from 'class-validator';
-import { coinType } from '../types/coinType';
+
+/** Tipos expostos em `POST /coin/addCoins` (créditos automáticos internos usam `coinType` no service). */
+export const ADD_COIN_HTTP_TYPES = ['coupon'] as const;
+export type AddCoinHttpType = (typeof ADD_COIN_HTTP_TYPES)[number];
 
 export class AddCoinDto {
   @IsNotEmpty()
   @IsString()
-  @IsIn(['coupon', 'group', 'payment', 'store', 'resource'])
-  type: coinType;
+  @IsIn([...ADD_COIN_HTTP_TYPES])
+  type: AddCoinHttpType;
 }
