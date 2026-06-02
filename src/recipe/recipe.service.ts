@@ -176,8 +176,10 @@ export class RecipeService {
     }
 
     const ext =
-      file.originalname?.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') ||
-      'jpg';
+      file.originalname
+        ?.split('.')
+        .pop()
+        ?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
     const safeExt = ext.length > 8 ? 'jpg' : ext;
     const fileName = `recipe-${randomUUID()}.${safeExt}`;
 

@@ -42,11 +42,7 @@ function toPeriodYm(d: Date): number {
 }
 
 function previousPeriodYm(reference: Date): number {
-  const d = new Date(
-    reference.getFullYear(),
-    reference.getMonth() - 1,
-    1,
-  );
+  const d = new Date(reference.getFullYear(), reference.getMonth() - 1, 1);
   return d.getFullYear() * 100 + (d.getMonth() + 1);
 }
 
@@ -111,7 +107,10 @@ export class ChoreService {
     user: User,
     query: ChoreDefinitionFilterDto,
   ): Promise<paginationData<ChoreDefinition>> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -140,10 +139,11 @@ export class ChoreService {
   ): Promise<ChoreDefinition> {
     await this.familyGroupService.assertFamilyAdmin(familyGroupId, user.id);
 
-    const def = await this.choreRepository.findDefinitionByIdAndGroupWithRelations(
-      definitionId,
-      familyGroupId,
-    );
+    const def =
+      await this.choreRepository.findDefinitionByIdAndGroupWithRelations(
+        definitionId,
+        familyGroupId,
+      );
 
     if (!def || def.deletedAt) {
       throw new NotExistException();
@@ -151,8 +151,12 @@ export class ChoreService {
 
     Object.assign(def, {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
-      ...(dto.description !== undefined ? { description: dto.description } : {}),
-      ...(dto.rewardValue !== undefined ? { rewardValue: dto.rewardValue } : {}),
+      ...(dto.description !== undefined
+        ? { description: dto.description }
+        : {}),
+      ...(dto.rewardValue !== undefined
+        ? { rewardValue: dto.rewardValue }
+        : {}),
       ...(dto.coinReward !== undefined ? { coinReward: dto.coinReward } : {}),
       ...(dto.requirePhoto !== undefined
         ? { requirePhoto: dto.requirePhoto }
@@ -173,10 +177,11 @@ export class ChoreService {
   ): Promise<void> {
     await this.familyGroupService.assertFamilyAdmin(familyGroupId, user.id);
 
-    const def = await this.choreRepository.findDefinitionByIdAndGroupWithRelations(
-      definitionId,
-      familyGroupId,
-    );
+    const def =
+      await this.choreRepository.findDefinitionByIdAndGroupWithRelations(
+        definitionId,
+        familyGroupId,
+      );
 
     if (!def || def.deletedAt) {
       throw new NotExistException();
@@ -190,7 +195,10 @@ export class ChoreService {
     user: User,
     query: ChoreOccurrenceQueryDto,
   ): Promise<paginationData<ChoreOccurrence>> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -217,7 +225,10 @@ export class ChoreService {
     user: User,
     query: ChoreOccurrenceQueryDto,
   ): Promise<paginationData<ChoreOccurrence>> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -272,7 +283,10 @@ export class ChoreService {
     query: ChoreHistoryQueryDto,
     isAdmin: boolean,
   ): Promise<paginationData<ChoreOccurrence>> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -308,7 +322,10 @@ export class ChoreService {
     user: User,
     occurrenceId: string,
   ): Promise<ChoreOccurrence> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     await this.dataSource.transaction(async (manager) => {
       const occ = await this.choreRepository.findOccurrenceForStartLocked(
@@ -349,7 +366,10 @@ export class ChoreService {
     before?: Express.Multer.File | undefined,
     after?: Express.Multer.File | undefined,
   ): Promise<ChoreOccurrence> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const occ = await this.loadOccurrenceWritable(
       occurrenceId,
@@ -357,12 +377,7 @@ export class ChoreService {
       user.id,
     );
 
-    if (
-      !before &&
-      !after &&
-      !occ.photoBeforeUrl &&
-      !occ.photoAfterUrl
-    ) {
+    if (!before && !after && !occ.photoBeforeUrl && !occ.photoAfterUrl) {
       throw new BadRequestException(
         'Envie ao menos uma imagem (before ou after). Você pode enviar uma por vez.',
       );
@@ -394,7 +409,10 @@ export class ChoreService {
     user: User,
     occurrenceId: string,
   ): Promise<ChoreOccurrence> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const occ = await this.loadOccurrenceWritable(
       occurrenceId,
@@ -455,7 +473,9 @@ export class ChoreService {
       snapshotCoins =
         occ.snapshotCoinReward != null ? Number(occ.snapshotCoinReward) : 0;
       snapshotMoney =
-        occ.snapshotRewardMoney != null ? Number(occ.snapshotRewardMoney) : null;
+        occ.snapshotRewardMoney != null
+          ? Number(occ.snapshotRewardMoney)
+          : null;
 
       await this.choreRepository.saveOccurrence(occ, manager);
     });
@@ -505,11 +525,7 @@ export class ChoreService {
         defFresh.recurrence as RecurringChore,
         approvedAt,
       );
-      await this.spawnOpenOccurrence(
-        familyGroupId,
-        defFresh,
-        scheduledDate,
-      );
+      await this.spawnOpenOccurrence(familyGroupId, defFresh, scheduledDate);
     }
 
     return this.loadOccurrence(occurrenceId, familyGroupId);
@@ -574,7 +590,10 @@ export class ChoreService {
     periodYm: number;
     members: { totalPending: number; memberId: string }[];
   }> {
-    await this.familyGroupService.assertAcceptedMembership(familyGroupId, user.id);
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
 
     const ref = new Date();
     const periodYm =

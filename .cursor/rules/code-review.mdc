@@ -30,18 +30,15 @@ O projeto segue uma **Arquitetura em Camadas** com **Domain-Driven Design (DDD)*
 ```typescript
 @Controller('expenses')
 @UseGuards(AuthGuard)
-@ApiTags('Expenses')
 export class ExpenseController {
   constructor(private readonly expenseService: ExpenseService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new expense' })
   async create(@Body() dto: CreateExpenseDto, @Request() req) {
     return this.expenseService.create(dto, req.user.id);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all expenses' })
   async findAll(@Query() filters: FilterExpenseDto, @Request() req) {
     return this.expenseService.findAll(filters, req.user.id);
   }
@@ -432,6 +429,51 @@ async update(id: string, dto: UpdateExpenseDto): Promise<Expense> {
 }
 ```
 
+#### Grupos familiares (`familyGroupId`)
+- `userId` do JWT + validar que o usuário pertence ao grupo antes de operações em `chore`, `shopping-list`, etc.
+- Nunca confiar só em `familyGroupId` vindo do body/query sem checagem de membership.
+
+### 4. Segredos, logs e respostas de erro
+
+- [ ] `.env`, tokens Gemini/Loki/Supabase/Google **fora** do repositório e do diff
+- [ ] `logJson` / Winston: sem senha, refresh token, JWT completo ou PII desnecessária
+- [ ] `AllExceptionsFilter`: cliente não recebe stack SQL nem detalhes internos em produção
+- [ ] DTO de resposta com `@Expose()`; campos internos omitidos (`excludeExtraneousValues`)
+
+### 5. Upload, arquivos e rede
+
+- [ ] Multer: limite de tamanho e validação de MIME/extensão
+- [ ] Paths de storage sem path traversal; URLs assinadas com expiração quando aplicável
+- [ ] **Coupon reader / HTTP externo**: sem SSRF (URL do cliente só com allowlist)
+- [ ] `file-storage` / `supabase-storage`: isolamento por tenant/usuário
+
+### 6. IA, WebSocket e integrações
+
+- [ ] Providers Gemini: factory + mocks em E2E; quota (`ApiQuotaException`) tratada
+- [ ] Prompts/dados de IA não misturam dados de outro `userId`
+- [ ] **WebSocket** (`shopping-list`): autenticação na conexão; salas isoladas por família/usuário
+- [ ] **Alexa / OAuth / Google Drive**: tokens com escopo mínimo; revogação e armazenamento seguro
+
+### 7. Abuso e hardening
+
+- [ ] `ValidationPipe`: `whitelist: true`, `forbidNonWhitelisted` quando fizer sentido
+- [ ] `ThrottlerGuard` em auth, IA e uploads pesados
+- [ ] Sem `synchronize: true` em produção; migrations revisadas
+- [ ] Rate limit / tamanho de payload em rotas que aceitam imagem/áudio/texto grande
+
+### Checklist rápido (revisor)
+
+| Item | 🔴 se falhar |
+|------|----------------|
+| Rota sensível sem `AuthGuard` | Sim |
+| `userId`/`familyGroupId` do cliente sem validar JWT/membership | Sim |
+| Secret ou `.env` no commit | Sim |
+| Senha/token em log ou response | Sim |
+| `repository.query()` com concatenação | Sim |
+| Listagem sem paginação em endpoint novo | Sim |
+
+Comando `/cr`: seção **🔒 Segurança** obrigatória no relatório (`.cursor/commands/cr.md`).
+
 ---
 
 ## ⚡ Performance
@@ -717,9 +759,34 @@ async findExpense(id: string, userId: string): Promise<Expense> {
 
 ### O que o revisor deve verificar (obrigatório no projeto)
 - **Novas ou alteradas funções** (principalmente em services, helpers e regras de negócio): existe **`*.spec.ts`** correspondente ou casos adicionados aos testes existentes? Os testes cobrem **cenários importantes** (sucesso, erros esperados, limites e branches relevantes), não apenas um happy path vazio?
-- **Novas rotas HTTP** (ou mudança de contrato de API): existe teste **E2E / integração** em `test/**/*.e2e-spec.ts` no **padrão do repositório** (`createE2eApplication`, `configureE2eApp`, auth com seed quando necessário, mocks em `external-mocks` para serviços externos)?
+- **Novas rotas HTTP** (ou mudança de contrato de API): existe teste **E2E** em `test/**/*.e2e-spec.ts` no padrão do repositório (`create-e2e-app.ts`, `configure-e2e-app.ts`, seed, `external-mocks`).
 - **Qualidade da suíte**: nomes de `describe`/`it` claros; **Arrange–Act–Assert**; mocks estáveis; asserções que validem status, formato de resposta e regras que importem para o domínio (paginação, ownership, etc.).
 - **Lacunas comuns a apontar**: função pública sem teste; rota nova só com teste manual; teste que não cobre validação (`ValidationPipe`) ou códigos HTTP esperados; teste fraco (só `toBeDefined` sem comportamento).
+
+### E2E em máquina com pouca RAM (prioridade: memória, não velocidade)
+
+O E2E sobe app Nest + MySQL (`shop_smart_test`) + `globalSetup` (build + migrations + seeds). **Pode demorar mais**; o objetivo é **não estourar memória**.
+
+**Preferir (desenvolvimento local / review):**
+
+```bash
+# Um arquivo ou módulo por vez (menor pico de RAM)
+npm run test:e2e:low-mem -- --testPathPattern=nome-do-arquivo
+
+# Ou script equivalente manual:
+NODE_OPTIONS=--max-old-space-size=1024 jest --config ./test/jest-e2e.json --runInBand --forceExit --testPathPattern=mission
+```
+
+**Regras de execução:**
+- **Sempre** `--runInBand` (um worker) — já está em `npm run test:e2e` / `test:e2e:low-mem`
+- **Evitar** `npm run test:e2e:cov` em máquina fraca (cobertura E2E consome muita RAM)
+- Rodar **só o spec novo/alterado** durante o desenvolvimento; suíte completa antes de merge em `homolog`
+- Garantir `app.close()` / teardown do Nest no `afterAll` de cada spec (evita handles e memória retida)
+- `.env.test` com `API_DB_NAME=shop_smart_test` apenas
+
+**Unitários** (mais leves): `npm run test:low-mem` quando a máquina for limitada.
+
+Detalhes: `.cursor/docs/testes.md`, `test/E2E-ESTRATEGIA.md`.
 
 ### 1. Estrutura de Testes
 
@@ -847,48 +914,16 @@ interface PaginatedUserResult {
 
 ## 📝 Documentação
 
-### 1. Swagger/OpenAPI
+### 1. Domínio (`.cursor/docs/`)
 
-#### Documentar Endpoints
-```typescript
-@Controller('expenses')
-@ApiTags('Expenses')
-@ApiBearerAuth()
-export class ExpenseController {
-  @Post()
-  @ApiOperation({ summary: 'Create a new expense' })
-  @ApiResponse({ status: 201, description: 'Expense created', type: ResponseExpenseDto })
-  @ApiResponse({ status: 400, description: 'Invalid input' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(@Body() dto: CreateExpenseDto, @Request() req) {
-    return this.expenseService.create(dto, req.user.id);
-  }
-}
-```
+- Feature nova ou regra alterada: arquivo `.cursor/docs/<dominio>.md` criado/atualizado
+- Índice em `regra-projeto.mdc` (Docs de domínio) atualizado
+- **Projeto sem Swagger ativo** — não exigir `@Api*` em review
 
-#### Documentar DTOs
-```typescript
-export class CreateExpenseDto {
-  @ApiProperty({
-    description: 'Expense value in currency',
-    example: 150.50,
-    minimum: 0.01,
-  })
-  @IsNumber()
-  @Min(0.01)
-  value: number;
+### 2. Comentários e README
 
-  @ApiProperty({
-    description: 'Expense description',
-    example: 'Grocery shopping',
-    minLength: 3,
-    maxLength: 200,
-  })
-  @IsString()
-  @Length(3, 200)
-  description: string;
-}
-```
+- JSDoc/comentários só em lógica não óbvia
+- README ou doc de testes se mudar fluxo E2E/migrations
 
 ---
 
@@ -903,13 +938,14 @@ export class CreateExpenseDto {
 - [ ] DTOs separados (request vs response)
 
 ### Segurança
-- [ ] AuthGuard aplicado em rotas protegidas
-- [ ] Senhas hasheadas com BCrypt
-- [ ] Dados sensíveis excluídos das respostas (@Exclude)
-- [ ] Todas as entradas validadas (class-validator)
-- [ ] Queries seguras (sem SQL injection)
-- [ ] Multi-tenant: filtrar por userId
-- [ ] Ownership validado antes de operações
+- [ ] AuthGuard em rotas protegidas; `userId` do JWT (não do body/query)
+- [ ] `familyGroupId` com validação de membership quando aplicável
+- [ ] Senhas BCrypt; `@Exclude` em campos sensíveis
+- [ ] DTOs validados; `whitelist: true`; sem mass assignment
+- [ ] Queries sem concatenação SQL; multi-tenant em listagens
+- [ ] Ownership antes de update/delete
+- [ ] Sem secrets/.env no diff; sem PII/token em logs
+- [ ] Upload/IA/WebSocket/OAuth conforme seção 🛡️ Segurança
 
 ### Performance
 - [ ] Paginação implementada em listagens
@@ -949,7 +985,6 @@ export class CreateExpenseDto {
 ### Validação
 - [ ] DTOs com class-validator
 - [ ] Mensagens de erro claras
-- [ ] Swagger decorators (@ApiProperty)
 - [ ] Validações de negócio no service
 
 ### Testes
@@ -960,10 +995,9 @@ export class CreateExpenseDto {
 - [ ] Coverage adequado para o que foi alterado
 
 ### Documentação
-- [ ] Swagger/OpenAPI documentado
-- [ ] @ApiTags(), @ApiOperation(), @ApiResponse()
+- [ ] `.cursor/docs/<feature>.md` criada/atualizada
 - [ ] Comentários em código complexo
-- [ ] README atualizado se necessário
+- [ ] README ou `testes.md` se mudar E2E/migrations
 
 ### Git
 - [ ] Commits semânticos
@@ -976,12 +1010,15 @@ export class CreateExpenseDto {
 ## 🚨 Red Flags (Problemas Críticos)
 
 ### Segurança
-- 🔴 Senhas em plain text
-- 🔴 Dados sensíveis expostos
-- 🔴 SQL injection possível
-- 🔴 Falta de autenticação
-- 🔴 Falta de validação de ownership
-- 🔴 XSS vulnerabilities
+- 🔴 Senhas em plain text ou sem hash
+- 🔴 Dados sensíveis em response ou log
+- 🔴 SQL injection (`query` com concatenação)
+- 🔴 Rota sensível sem autenticação
+- 🔴 IDOR: `userId`/`familyGroupId` do cliente sem validação
+- 🔴 Secrets, `.env` ou API keys no commit
+- 🔴 SSRF (URL arbitrária em scraping/HTTP)
+- 🔴 WebSocket sem auth ou sala cruzando tenants
+- 🔴 Upload sem limite/tipo; path traversal
 
 ### Performance
 - 🔴 Listagens sem paginação

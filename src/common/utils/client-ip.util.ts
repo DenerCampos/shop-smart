@@ -1,9 +1,7 @@
 import { Request } from 'express';
 
 /** Normaliza IPv6 mapeado e loopback para leitura humana nos logs. */
-export function normalizeClientIp(
-  ip: string | undefined,
-): string | undefined {
+export function normalizeClientIp(ip: string | undefined): string | undefined {
   if (ip == null || ip === '') return undefined;
   const trimmed = ip.trim();
   if (!trimmed) return undefined;

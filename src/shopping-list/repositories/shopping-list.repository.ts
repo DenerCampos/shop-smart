@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ShoppingList } from '../entities/shopping-list.entity';
 import { ShoppingListItem } from '../entities/shopping-list-item.entity';
 import { IShoppingListRepository } from '../interfaces/shopping-list.repository.interface';
@@ -10,6 +10,7 @@ import { FamilyGroup } from 'src/family-group/entities/family-group.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { Item } from 'src/expense/entities/item.entity';
 import { SHOPPING_LIST_ITEM_STATUS } from '../types/shopping-list-item-status.type';
+import { SHOPPING_LIST_STATUS } from '../types/shopping-list-status.type';
 
 @Injectable()
 export class ShoppingListRepository implements IShoppingListRepository {
@@ -20,6 +21,7 @@ export class ShoppingListRepository implements IShoppingListRepository {
     private readonly itemRepo: Repository<ShoppingListItem>,
     @InjectRepository(Item)
     private readonly expenseItemRepo: Repository<Item>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createList(
@@ -353,5 +355,142 @@ export class ShoppingListRepository implements IShoppingListRepository {
     qb.orderBy('list.updatedAt', 'DESC');
 
     return qb.getOne();
+  }
+
+  async finalizeWithRemainingAndBranch(
+    list: ShoppingList,
+    user: User,
+    pendingItems: ShoppingListItem[],
+  ): Promise<{ completed: ShoppingList; newList: ShoppingList }> {
+    return this.dataSource.transaction(async (manager) => {
+      await this.completeAllItemsWithManager(manager, list.id, user.id);
+
+      await manager.update(ShoppingList, list.id, {
+        status: SHOPPING_LIST_STATUS.COMPLETED,
+      });
+
+      const newList = await this.createListWithManager(
+        manager,
+        list.name,
+        user,
+        list.familyGroup ?? undefined,
+      );
+
+      await this.copyItemsWithManager(manager, pendingItems, newList, user);
+
+      const completed = await this.findListByIdWithManager(manager, list.id);
+      const reloadedNewList = await this.findListByIdWithManager(
+        manager,
+        newList.id,
+      );
+
+      if (!completed || !reloadedNewList) {
+        throw new InternalServerErrorException(
+          'Falha ao recarregar listas após finalização parcial.',
+        );
+      }
+
+      return { completed, newList: reloadedNewList };
+    });
+  }
+
+  async recreateFromCompleted(
+    list: ShoppingList,
+    user: User,
+  ): Promise<ShoppingList> {
+    return this.dataSource.transaction(async (manager) => {
+      const newList = await this.createListWithManager(
+        manager,
+        list.name,
+        user,
+        list.familyGroup ?? undefined,
+      );
+
+      await this.copyItemsWithManager(manager, list.items ?? [], newList, user);
+
+      const reloaded = await this.findListByIdWithManager(manager, newList.id);
+
+      if (!reloaded) {
+        throw new InternalServerErrorException(
+          'Falha ao recarregar lista recriada.',
+        );
+      }
+
+      return reloaded;
+    });
+  }
+
+  private async completeAllItemsWithManager(
+    manager: EntityManager,
+    listId: string,
+    userId: string,
+  ): Promise<void> {
+    await manager
+      .createQueryBuilder()
+      .update(ShoppingListItem)
+      .set({
+        status: SHOPPING_LIST_ITEM_STATUS.IN_CART,
+        checkedBy: { id: userId } as User,
+      })
+      .where('shoppingListId = :listId', { listId })
+      .andWhere('status = :status', {
+        status: SHOPPING_LIST_ITEM_STATUS.PENDING,
+      })
+      .execute();
+  }
+
+  private async createListWithManager(
+    manager: EntityManager,
+    name: string,
+    user: User,
+    familyGroup?: FamilyGroup,
+  ): Promise<ShoppingList> {
+    const list = manager.create(ShoppingList, {
+      name,
+      createdBy: user,
+      ...(familyGroup && { familyGroup }),
+    });
+
+    return manager.save(list);
+  }
+
+  private async copyItemsWithManager(
+    manager: EntityManager,
+    sourceItems: ShoppingListItem[],
+    targetList: ShoppingList,
+    user: User,
+  ): Promise<void> {
+    for (const item of sourceItems) {
+      const itemData: Partial<ShoppingListItem> = {
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        shoppingList: targetList,
+        addedBy: user,
+      };
+
+      if (item.group?.id) {
+        itemData.group = { id: item.group.id } as Group;
+      }
+
+      await manager.save(manager.create(ShoppingListItem, itemData));
+    }
+  }
+
+  private async findListByIdWithManager(
+    manager: EntityManager,
+    id: string,
+  ): Promise<ShoppingList | null> {
+    return manager
+      .getRepository(ShoppingList)
+      .createQueryBuilder('list')
+      .leftJoin('list.familyGroup', 'familyGroup')
+      .addSelect(['familyGroup.id', 'familyGroup.name'])
+      .leftJoin('list.createdBy', 'createdBy')
+      .addSelect(['createdBy.id', 'createdBy.name', 'createdBy.profileImage'])
+      .leftJoinAndSelect('list.items', 'items', 'items.deletedAt IS NULL')
+      .where('list.id = :id', { id })
+      .andWhere('list.deletedAt IS NULL')
+      .getOne();
   }
 }

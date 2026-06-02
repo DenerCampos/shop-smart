@@ -608,11 +608,10 @@ export class FamilyGroupService {
     familyGroupId: string,
     userId: string,
   ): Promise<boolean> {
-    const member =
-      await this.familyGroupRepository.findMemberByGroupAndUser(
-        familyGroupId,
-        userId,
-      );
+    const member = await this.familyGroupRepository.findMemberByGroupAndUser(
+      familyGroupId,
+      userId,
+    );
 
     return (
       !!member &&

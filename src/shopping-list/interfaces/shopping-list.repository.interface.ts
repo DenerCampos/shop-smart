@@ -78,4 +78,12 @@ export interface IShoppingListRepository {
     listId: string,
     name: string,
   ): Promise<ShoppingListItem | null>;
+
+  finalizeWithRemainingAndBranch(
+    list: ShoppingList,
+    user: User,
+    pendingItems: ShoppingListItem[],
+  ): Promise<{ completed: ShoppingList; newList: ShoppingList }>;
+
+  recreateFromCompleted(list: ShoppingList, user: User): Promise<ShoppingList>;
 }

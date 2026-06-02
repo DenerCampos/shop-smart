@@ -17,8 +17,9 @@ Referência para localização dos arquivos, comandos e estratégia de mocks **s
 | `npm run test:watch` | Mesmo conjunto em modo watch. |
 | `npm run test:cov` | Cobertura em `coverage/`. |
 | `npm run test:cov:ci` | Cobertura com `--forceExit` (mesmo critério de `test:ci`). |
-| `npm run test:e2e` | Apenas `test/**/*.e2e-spec.ts` — [`test/jest-e2e.json`](../../test/jest-e2e.json): carrega [`.env.test`](../../.env.test) (obrigatório), `globalSetup` (build + `migration:run` + seeds no `shop_smart_test`), suíte, `globalTeardown` (`schema:drop` no mesmo banco). Usa `--forceExit` no script para encerrar após handles do pool MySQL. |
-| `npm run test:e2e:cov` | Igual ao `test:e2e` com `--coverage`; relatório em `coverage-e2e/` (só `src/**/*.ts`, exclui `*.spec.ts`), separado de `coverage/` dos unitários. |
+| `npm run test:e2e` | Apenas `test/**/*.e2e-spec.ts` — [`test/jest-e2e.json`](../../test/jest-e2e.json): carrega [`.env.test`](../../.env.test) (obrigatório), `globalSetup` (build + `migration:run` + seeds no `shop_smart_test`), suíte, `globalTeardown` (`schema:drop` no mesmo banco). Usa `--runInBand` e `--forceExit`. |
+| `npm run test:e2e:low-mem` | **Preferir em máquina com pouca RAM**: heap limitado a ~1 GB (`NODE_OPTIONS=--max-old-space-size=1024`), `--runInBand`, `--forceExit`, `--logHeapUsage`. Pode demorar mais; troca velocidade por menor pico de memória. Combine com `--testPathPattern=<spec>` para um arquivo por vez. |
+| `npm run test:e2e:cov` | Igual ao `test:e2e` com `--coverage` e heap 4 GB — **evitar em máquina fraca**; relatório em `coverage-e2e/`. |
 | `npm run test:e2e:ci` | E2E com `--forceExit` (redundante se `test:e2e` já incluir; mantido para pipelines que chamem o alvo explícito). |
 | `npm run db:create` | [`scripts/create-shop-smart-databases.sh`](../../scripts/create-shop-smart-databases.sh) — cria `shop_smart` e `shop_smart_test` (`IF NOT EXISTS`) e aplica `GRANT`. Sem `mysql` no host, defina **`MYSQL_DOCKER_CONTAINER`** (ex.: `gym-flow-mysql`) no `.env` / `.env.test` para executar SQL via `docker exec`. |
 | `npm run seed:test` | Build + seeds de dev usando `.env.test` (debug manual sem Jest). |
@@ -65,12 +66,13 @@ Se após `npm test` aparecer *“Jest did not exit…”*, há operações assí
 
 1. **Criar bases e permissões (uma vez por ambiente):** `npm run db:create` (exige `mysql` no PATH e senha de admin via `MYSQL_ADMIN_PASS` ou `API_DB_ROOT_PASS` no `.env`). Alternativa: SQL em [`scripts/create-shop-smart-databases.sql`](../../scripts/create-shop-smart-databases.sql).
 2. **Variáveis:** copie [`.env.test.example`](../../.env.test.example) para **`.env.test`** na raiz (arquivo ignorado pelo Git). É obrigatório **`API_DB_NAME=shop_smart_test`** — o `globalSetup` / `globalTeardown` abortam ou ignoram se o nome for outro (proteção contra `schema:drop` no banco errado).
-3. **Fluxo ao rodar `npm run test:e2e`:** `test/load-env-test.js` → `e2e-global-setup.js` (`npm run build`, `typeorm migration:run`, `run-all.dev.seed.js`) → testes → `e2e-global-teardown.js` (`typeorm schema:drop`). Seeds usam o mesmo bundle de dev e **não** rodam com `NODE_ENV=production`.
-4. **Desenvolvimento local:** o `.env` habitual pode continuar com `API_DB_NAME=shop_smart`; só o E2E usa `shop_smart_test`.
-5. **Credenciais de seed (login):** o usuário criado em [`db/seeds/user.dev.seed.ts`](../../db/seeds/user.dev.seed.ts) (`teste@dev.local` / senha de dev no seed) — não usar segredos reais em fixtures; ver regra-projeto.
-6. **Throttling:** [`test/e2e/helpers/create-e2e-app.ts`](../../test/e2e/helpers/create-e2e-app.ts) (e smoke em [`test/app.e2e-spec.ts`](../../test/app.e2e-spec.ts)) usa `overrideProvider(ThrottlerGuard)` para evitar 429 em E2E; o `APP_GUARD` com `useExisting: ThrottlerGuard` permite este override.
-7. **Mocks de IAs / Drive / cupom:** [`test/e2e/helpers/external-mocks.ts`](../../test/e2e/helpers/external-mocks.ts) — nomes dos provedores mockados devem coincidir com o que as factories resolvem (`DEFAULT_RECOGNITION_PROVIDER`, ex.: `gemini`, `gemini-text`, `gemini-audio`); caso contrário a API responde 404 (*provider not found*).
-8. **Recuperação manual:** se o processo Jest for encerrado de forma anormal e o `globalTeardown` não rodar, com `.env.test` carregado execute `npx typeorm schema:drop -d dist/db/data-source.js` (após `npm run build`) ou rode `npm run test:e2e` de novo (o setup reaplica migrações em schema vazio).
+3. **Fluxo ao rodar `npm run test:e2e` / `test:e2e:low-mem`:** `test/load-env-test.js` → `e2e-global-setup.js` (`npm run build`, `typeorm migration:run`, `run-all.dev.seed.js`) → testes → `e2e-global-teardown.js` (`typeorm schema:drop`). Seeds usam o mesmo bundle de dev e **não** rodam com `NODE_ENV=production`.
+4. **Pouca RAM:** use `npm run test:e2e:low-mem -- --testPathPattern=nome` (um spec por vez). Detalhes em [test/E2E-ESTRATEGIA.md](../../test/E2E-ESTRATEGIA.md#máquina-com-pouca-ram-prioridade-memória-não-velocidade).
+5. **Desenvolvimento local:** o `.env` habitual pode continuar com `API_DB_NAME=shop_smart`; só o E2E usa `shop_smart_test`.
+6. **Credenciais de seed (login):** o usuário criado em [`db/seeds/user.dev.seed.ts`](../../db/seeds/user.dev.seed.ts) (`teste@dev.local` / senha de dev no seed) — não usar segredos reais em fixtures; ver regra-projeto.
+7. **Throttling:** [`test/e2e/helpers/create-e2e-app.ts`](../../test/e2e/helpers/create-e2e-app.ts) (e smoke em [`test/app.e2e-spec.ts`](../../test/app.e2e-spec.ts)) usa `overrideProvider(ThrottlerGuard)` para evitar 429 em E2E; o `APP_GUARD` com `useExisting: ThrottlerGuard` permite este override.
+8. **Mocks de IAs / Drive / cupom:** [`test/e2e/helpers/external-mocks.ts`](../../test/e2e/helpers/external-mocks.ts) — nomes dos provedores mockados devem coincidir com o que as factories resolvem (`DEFAULT_RECOGNITION_PROVIDER`, ex.: `gemini`, `gemini-text`, `gemini-audio`); caso contrário a API responde 404 (*provider not found*).
+9. **Recuperação manual:** se o processo Jest for encerrado de forma anormal e o `globalTeardown` não rodar, com `.env.test` carregado execute `npx typeorm schema:drop -d dist/db/data-source.js` (após `npm run build`) ou rode `npm run test:e2e` de novo (o setup reaplica migrações em schema vazio).
 
 ### Helpers compartilhados (opcional)
 

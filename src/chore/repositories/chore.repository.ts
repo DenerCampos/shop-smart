@@ -182,15 +182,13 @@ export class ChoreRepository implements IChoreRepository {
         qb.andWhere('o.status = :bst', { bst });
       }
       if (!mode.statusParam || mode.statusParam === 'open') {
-        qb.andWhere(
-          '(o.scheduledDate IS NULL OR o.scheduledDate <= :now)',
-          { now: new Date() },
-        );
+        qb.andWhere('(o.scheduledDate IS NULL OR o.scheduledDate <= :now)', {
+          now: new Date(),
+        });
       }
       qb.orderBy('o.createdAt', 'DESC');
     } else if (mode.kind === 'mine') {
-      qb
-        .andWhere('o.assignedToUserId = :uid', { uid: mode.userId })
+      qb.andWhere('o.assignedToUserId = :uid', { uid: mode.userId })
         .andWhere('o.status IN (:...mine)', {
           mine: [
             CHORE_OCCURRENCE_STATUS.IN_PROGRESS,
@@ -199,11 +197,9 @@ export class ChoreRepository implements IChoreRepository {
         })
         .orderBy('o.updatedAt', 'DESC');
     } else if (mode.kind === 'pending_approval') {
-      qb
-        .andWhere('o.status = :wa', {
-          wa: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
-        })
-        .orderBy('o.submittedAt', 'ASC');
+      qb.andWhere('o.status = :wa', {
+        wa: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
+      }).orderBy('o.submittedAt', 'ASC');
     } else {
       qb.andWhere('o.status IN (:...hs)', {
         hs: [

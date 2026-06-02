@@ -30,23 +30,24 @@ export class ChoreOccurrence {
   @JoinColumn({ name: 'choreDefinitionId' })
   definition: ChoreDefinition;
 
-  @ManyToOne(() => FamilyGroup, { onDelete: 'NO ACTION', onUpdate: 'NO ACTION' })
+  @ManyToOne(() => FamilyGroup, {
+    onDelete: 'NO ACTION',
+    onUpdate: 'NO ACTION',
+  })
   @JoinColumn({ name: 'familyGroupId' })
   familyGroup: FamilyGroup;
 
   @Column({
     type: 'enum',
-    enum: [
-      'open',
-      'in_progress',
-      'waiting_approval',
-      'completed',
-      'rejected',
-    ],
+    enum: ['open', 'in_progress', 'waiting_approval', 'completed', 'rejected'],
   })
   status: ChoreOccurrenceStatus;
 
-  @ManyToOne(() => User, { nullable: true, onDelete: 'NO ACTION', onUpdate: 'NO ACTION' })
+  @ManyToOne(() => User, {
+    nullable: true,
+    onDelete: 'NO ACTION',
+    onUpdate: 'NO ACTION',
+  })
   @JoinColumn({ name: 'assignedToUserId' })
   assignedTo: User | null;
 
@@ -66,7 +67,11 @@ export class ChoreOccurrence {
   @Column({ type: 'text', nullable: true })
   rejectionReason: string | null;
 
-  @ManyToOne(() => User, { nullable: true, onDelete: 'NO ACTION', onUpdate: 'NO ACTION' })
+  @ManyToOne(() => User, {
+    nullable: true,
+    onDelete: 'NO ACTION',
+    onUpdate: 'NO ACTION',
+  })
   @JoinColumn({ name: 'approvedByUserId' })
   approvedBy: User | null;
 
@@ -83,7 +88,10 @@ export class ChoreOccurrence {
   @Column({ type: 'int', nullable: true })
   earnedPeriodYm: number | null;
 
-  @ManyToOne(() => ChorePayrollSettlement, { nullable: true, onDelete: 'NO ACTION' })
+  @ManyToOne(() => ChorePayrollSettlement, {
+    nullable: true,
+    onDelete: 'NO ACTION',
+  })
   @JoinColumn({ name: 'payrollSettlementId' })
   payrollSettlement: ChorePayrollSettlement | null;
 

@@ -6,9 +6,7 @@ import { IUserMissionProgressRepository } from '../interfaces/user-mission-progr
 import { MissionFrequency } from '../types/mission-frequency.enum';
 
 @Injectable()
-export class UserMissionProgressRepository
-  implements IUserMissionProgressRepository
-{
+export class UserMissionProgressRepository implements IUserMissionProgressRepository {
   constructor(
     @InjectRepository(UserMissionProgress)
     private readonly repo: Repository<UserMissionProgress>,

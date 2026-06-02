@@ -21,23 +21,19 @@ describe('RecipeService', () => {
   let service: RecipeService;
   let repository: jest.Mocked<IRecipeRepository>;
   let familyGroupService: jest.Mocked<
-    Pick<
-      FamilyGroupService,
-      'findGroupById' | 'findGroupsByUser'
-    >
+    Pick<FamilyGroupService, 'findGroupById' | 'findGroupsByUser'>
   >;
   let shoppingListService: jest.Mocked<
     Pick<
       ShoppingListService,
-      | 'create'
-      | 'addBulkItems'
-      | 'findOne'
-      | 'findByNameAndUser'
-      | 'deleteItem'
+      'create' | 'addBulkItems' | 'findOne' | 'findByNameAndUser' | 'deleteItem'
     >
   >;
   let fileStorage: jest.Mocked<
-    Pick<IFileStorageService, 'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'>
+    Pick<
+      IFileStorageService,
+      'uploadFile' | 'deleteFile' | 'extractFileIdFromUrl'
+    >
   >;
 
   const user = (id: string): User => {
@@ -159,12 +155,7 @@ describe('RecipeService', () => {
 
     await service.findAll({ page: 1, limit: 10 } as any, user('u1'));
 
-    expect(repository.findAllByUser).toHaveBeenCalledWith(
-      'u1',
-      ['g1'],
-      0,
-      10,
-    );
+    expect(repository.findAllByUser).toHaveBeenCalledWith('u1', ['g1'], 0, 10);
   });
 
   it('findOne lança NotExistException quando não existe', async () => {

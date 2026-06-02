@@ -11,6 +11,27 @@ O [`test/jest-e2e.json`](jest-e2e.json) inclui `moduleNameMapper` para imports `
 
 Não rode E2E apontando `API_DB_NAME` para produção ou para o banco de desenvolvimento que você não quer limpar.
 
+## Máquina com pouca RAM (prioridade: memória, não velocidade)
+
+O setup global faz `build` + migrations + seeds — **pico de RAM** no início. Depois, preferir rodar **um spec por vez**.
+
+```bash
+# Recomendado no dia a dia (limite ~1 GB heap; pode demorar mais)
+npm run test:e2e:low-mem -- --testPathPattern=mission
+
+# Evitar em máquina fraca (cobertura E2E usa muita RAM)
+# npm run test:e2e:cov
+```
+
+| Prática | Motivo |
+|---------|--------|
+| `test:e2e:low-mem` | `NODE_OPTIONS=--max-old-space-size=1024`, `--runInBand`, `--forceExit` |
+| `--testPathPattern=<nome>` | Não carregar a suíte inteira enquanto desenvolve |
+| `app.close()` no `afterAll` | Libera handles do Nest/MySQL entre arquivos |
+| Suíte completa | Só antes de merge em `homolog` ou no CI |
+
+Se ainda faltar memória, suba o heap gradualmente (`1536` ou `2048`) ou rode um único `.e2e-spec.ts` por invocação.
+
 ## AppModule e alternativas
 
 [`test/app.e2e-spec.ts`](app.e2e-spec.ts) importa o [`AppModule`](../src/app.module.ts) completo (TypeORM, Redis só se exigido no futuro, etc.). Exige MySQL acessível e `.env.test` válido.

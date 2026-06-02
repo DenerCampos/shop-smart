@@ -24,7 +24,10 @@ export class ChorePayrollSettlement {
   })
   id: string;
 
-  @ManyToOne(() => FamilyGroup, { onDelete: 'NO ACTION', onUpdate: 'NO ACTION' })
+  @ManyToOne(() => FamilyGroup, {
+    onDelete: 'NO ACTION',
+    onUpdate: 'NO ACTION',
+  })
   @JoinColumn({ name: 'familyGroupId' })
   familyGroup: FamilyGroup;
 

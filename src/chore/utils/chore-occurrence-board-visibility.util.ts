@@ -12,7 +12,5 @@ export function isChoreOccurrenceVisibleForParticipant(
   if (status !== CHORE_OCCURRENCE_STATUS.OPEN) {
     return true;
   }
-  return (
-    scheduledDate == null || scheduledDate.getTime() <= now.getTime()
-  );
+  return scheduledDate == null || scheduledDate.getTime() <= now.getTime();
 }

@@ -41,3 +41,7 @@ lerna-debug.log*
 
 #backups
 /db/backup/*
+
+#docs
+documento familyquest.txt
+.env producao

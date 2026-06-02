@@ -22,7 +22,9 @@ export function calcNextScheduledDate(
       break;
     default: {
       const exhaustive: never = recurrence;
-      throw new Error(`Recorrência inválida para agendamento: ${String(exhaustive)}`);
+      throw new Error(
+        `Recorrência inválida para agendamento: ${String(exhaustive)}`,
+      );
     }
   }
 

@@ -25,7 +25,9 @@ describe('LegacyAwareFileStorageService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    (SupabaseStorageService as jest.Mock).mockImplementation(() => supabaseMock);
+    (SupabaseStorageService as jest.Mock).mockImplementation(
+      () => supabaseMock,
+    );
     (GoogleDriveService as jest.Mock).mockImplementation(() => googleDriveMock);
 
     appConfig = {
@@ -84,7 +86,9 @@ describe('LegacyAwareFileStorageService', () => {
     await service.deleteFile('profile/new-photo.png');
 
     expect(SupabaseStorageService).toHaveBeenCalledTimes(1);
-    expect(supabaseMock.deleteFile).toHaveBeenCalledWith('profile/new-photo.png');
+    expect(supabaseMock.deleteFile).toHaveBeenCalledWith(
+      'profile/new-photo.png',
+    );
     expect(GoogleDriveService).not.toHaveBeenCalled();
   });
 

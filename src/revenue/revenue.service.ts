@@ -1,4 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter } from 'events';
+import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
 import {
@@ -39,6 +41,8 @@ export class RevenueService {
     private pagination: Pagination,
     private readonly coinService: CoinService,
     private readonly familyMemberResolver: FamilyMemberResolverService,
+    @Inject(EVENT_EMITTER)
+    private readonly eventEmitter: EventEmitter,
   ) {}
 
   async create(
@@ -57,6 +61,8 @@ export class RevenueService {
 
     //Log results promises
     logResultsPromises(results, ['addCoins']);
+
+    this.eventEmitter.emit('revenue.created', { userId: user.id });
 
     return revenue;
   }

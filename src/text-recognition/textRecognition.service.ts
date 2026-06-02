@@ -125,9 +125,7 @@ export class TextRecognitionService {
           .map((s) => s.trim())
           .filter(Boolean);
         if (segments.length === 0) {
-          throw new TextRecognitionException(
-            'Nenhum item para interpretar.',
-          );
+          throw new TextRecognitionException('Nenhum item para interpretar.');
         }
         aiResults = [];
         for (const seg of segments) {
