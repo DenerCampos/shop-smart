@@ -14,7 +14,48 @@ export class FamilyMemberResolverService {
   ) {}
 
   async resolve(userId: string): Promise<FamilyMemberResult> {
-    const membership = await this.memberEntity
+    const membership = await this.findAcceptedMembership(userId);
+
+    if (!membership) {
+      return { userIds: [userId], isAdmin: false, groupId: null };
+    }
+
+    const isAdmin = membership.role === FAMILY_GROUP_ROLES.ADMIN;
+    const userIds = isAdmin
+      ? await this.listAcceptedUserIds(membership.familyGroup.id, userId)
+      : [userId];
+
+    return {
+      userIds,
+      isAdmin,
+      groupId: membership.familyGroup.id,
+    };
+  }
+
+  async getAcceptedMemberUserIds(userId: string): Promise<string[]> {
+    const membership = await this.findAcceptedMembership(userId);
+
+    if (!membership) {
+      return [userId];
+    }
+
+    return this.listAcceptedUserIds(membership.familyGroup.id, userId);
+  }
+
+  async getAcceptedMemberUserIdsIfAdmin(userId: string): Promise<string[]> {
+    const membership = await this.findAcceptedMembership(userId);
+
+    if (!membership || membership.role !== FAMILY_GROUP_ROLES.ADMIN) {
+      return [userId];
+    }
+
+    return this.listAcceptedUserIds(membership.familyGroup.id, userId);
+  }
+
+  private async findAcceptedMembership(
+    userId: string,
+  ): Promise<FamilyGroupMember | null> {
+    return this.memberEntity
       .createQueryBuilder('member')
       .innerJoinAndSelect('member.familyGroup', 'familyGroup')
       .where('member.userId = :userId', { userId })
@@ -24,38 +65,25 @@ export class FamilyMemberResolverService {
       .andWhere('member.deletedAt IS NULL')
       .andWhere('familyGroup.deletedAt IS NULL')
       .getOne();
+  }
 
-    if (!membership) {
-      return { userIds: [userId], isAdmin: false, groupId: null };
-    }
-
-    if (membership.role !== FAMILY_GROUP_ROLES.ADMIN) {
-      return {
-        userIds: [userId],
-        isAdmin: false,
-        groupId: membership.familyGroup.id,
-      };
-    }
-
+  private async listAcceptedUserIds(
+    groupId: string,
+    fallbackUserId: string,
+  ): Promise<string[]> {
     const acceptedMembers = await this.memberEntity
       .createQueryBuilder('member')
       .select('member.userId', 'userId')
-      .where('member.familyGroupId = :groupId', {
-        groupId: membership.familyGroup.id,
-      })
+      .where('member.familyGroupId = :groupId', { groupId })
       .andWhere('member.status = :status', {
         status: FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
       })
       .andWhere('member.deletedAt IS NULL')
       .andWhere('member.userId IS NOT NULL')
-      .getRawMany();
+      .getRawMany<{ userId: string }>();
 
-    const userIds = acceptedMembers.map((m) => m.userId);
+    const userIds = acceptedMembers.map((member) => member.userId);
 
-    return {
-      userIds: userIds.length > 0 ? userIds : [userId],
-      isAdmin: true,
-      groupId: membership.familyGroup.id,
-    };
+    return userIds.length > 0 ? userIds : [fallbackUserId];
   }
 }

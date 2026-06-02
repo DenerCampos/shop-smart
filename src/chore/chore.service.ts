@@ -772,4 +772,31 @@ export class ChoreService {
     const lastDot = filename.lastIndexOf('.');
     return lastDot !== -1 ? filename.substring(lastDot) : '.jpg';
   }
+
+  async getPendingCoinRewards(
+    familyGroupId: string,
+    user: User,
+  ): Promise<number> {
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
+
+    return this.choreRepository.sumPendingCoinRewards(familyGroupId, user.id);
+  }
+
+  async celebratePendingCoinRewards(
+    familyGroupId: string,
+    user: User,
+  ): Promise<number> {
+    await this.familyGroupService.assertAcceptedMembership(
+      familyGroupId,
+      user.id,
+    );
+
+    return this.choreRepository.celebratePendingCoinRewards(
+      familyGroupId,
+      user.id,
+    );
+  }
 }

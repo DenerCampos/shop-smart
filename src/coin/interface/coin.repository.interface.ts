@@ -5,6 +5,24 @@ import { Coin } from '../entities/coin.entity';
 import { User } from 'src/user/entities/user.entity';
 import { EntityManager } from 'typeorm';
 import { CoinTransaction } from '../entities/coinTransaction.entity';
+import { TransactionType } from '../types/coinType';
+
+export type CoinStatementTotals = {
+  totalEarned: number;
+  totalSpent: number;
+};
+
+export type CoinStatementRow = {
+  id: string;
+  amount: number;
+  transactionType: TransactionType;
+  description: string | null;
+  balanceBefore: number;
+  balanceAfter: number;
+  createdAt: Date;
+  userId: string;
+  userName: string;
+};
 
 export interface ICoinRepository {
   create(
@@ -32,5 +50,17 @@ export interface ICoinRepository {
     createCoinTransactionDto: CreateCoinTransactionDto,
     manager?: EntityManager,
   ): Promise<CoinTransaction>;
+  findStatementPage(
+    userIds: string[],
+    startDate: string,
+    endDate: string,
+    offset: number,
+    limit: number,
+  ): Promise<[CoinStatementRow[], number]>;
+  getStatementTotals(
+    userIds: string[],
+    startDate: string,
+    endDate: string,
+  ): Promise<CoinStatementTotals>;
   countAll(): Promise<number>;
 }

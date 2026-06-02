@@ -21,16 +21,18 @@ import { CoinListDto } from './dto/coin-list.dto';
 import { CreateCoinTransactionDto } from './dto/create-coin-transaction.dto';
 import { EntityManager } from 'typeorm';
 import { QueryRunnerFactory } from 'src/common/query-runner/queryRunner.factory';
+import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
+import { CoinStatementQueryDto } from './dto/coin-statement-query.dto';
+import {
+  CoinStatementResponseDto,
+  CoinStatementTotalsDto,
+} from './dto/coin-statement-response.dto';
 
 @Injectable()
 export class CoinService {
   private readonly url = `${this.appConfig.getBaseUrl()}/coin`;
   private readonly addCoinsTypes = {
     coupon: 5,
-    group: 2,
-    payment: 2,
-    store: 2,
-    resource: 2,
     revenue: 10,
   };
   private readonly removeCoinsTypes = {
@@ -47,6 +49,7 @@ export class CoinService {
     private readonly queryRunnerFactory: QueryRunnerFactory,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
+    private readonly familyMemberResolver: FamilyMemberResolverService,
   ) {
     this.setupEventListeners();
   }
@@ -202,7 +205,7 @@ export class CoinService {
     };
   }
 
-  async addCoins(user: User, addCoinDto: AddCoinDto): Promise<Coin> {
+  async addCoins(user: User, addCoinDto: { type: coinType }): Promise<Coin> {
     const coins = this.getValueCoinsByType(addCoinDto.type);
     const createCoinDto = await this.getCreateCoinDto(user.id, coins);
     const createCoinTransactionDto = await this.getCreateCoinTransactionDto(
@@ -366,5 +369,85 @@ export class CoinService {
     const coin = await this.coinRepository.findByUserId(user.id);
 
     return coin?.balance || 0;
+  }
+
+  async getStatement(
+    user: User,
+    query: CoinStatementQueryDto,
+  ): Promise<CoinStatementResponseDto> {
+    const userIds = await this.resolveUserIds(user, query.userId);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = this.pagination.getOffset(page, limit);
+    const startDate = query.startDate!;
+    const endDate = query.endDate!;
+
+    const [rows, total] = await this.coinRepository.findStatementPage(
+      userIds,
+      startDate,
+      endDate,
+      offset,
+      limit,
+    );
+
+    const totalsRaw = await this.coinRepository.getStatementTotals(
+      userIds,
+      startDate,
+      endDate,
+    );
+
+    const paginated = this.pagination.paginateData(
+      rows,
+      page,
+      limit,
+      total,
+      `${this.url}/statement`,
+    );
+
+    const totals: CoinStatementTotalsDto = {
+      totalEarned: totalsRaw.totalEarned,
+      totalSpent: totalsRaw.totalSpent,
+    };
+
+    return {
+      totals,
+      data: paginated.data,
+      meta: paginated.meta,
+      links: paginated.links,
+    };
+  }
+
+  private async resolveUserIds(
+    currentUser: User,
+    userId?: string,
+  ): Promise<string[]> {
+    let userIds: string[];
+
+    if (!userId) {
+      userIds = await this.familyMemberResolver.getAcceptedMemberUserIdsIfAdmin(
+        currentUser.id,
+      );
+    } else if (userId === 'all') {
+      userIds = await this.familyMemberResolver.getAcceptedMemberUserIds(
+        currentUser.id,
+      );
+    } else {
+      const familyMemberIds =
+        await this.familyMemberResolver.getAcceptedMemberUserIds(currentUser.id);
+
+      if (!familyMemberIds.includes(userId)) {
+        throw new ForbiddenException(
+          'Você não tem permissão para ver os dados deste usuário.',
+        );
+      }
+
+      userIds = [userId];
+    }
+
+    if (userIds.length === 0) {
+      return [currentUser.id];
+    }
+
+    return userIds;
   }
 }
