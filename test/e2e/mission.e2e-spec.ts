@@ -216,7 +216,7 @@ describe('Missions (e2e)', () => {
     expect(dailyRevenue.mission.rewardCoins).toBe(20);
   });
 
-  it('POST /expense após receita — atualiza missão mensal monthly_spend_under_80', async () => {
+  it('POST /expense após receita — não conclui missão mensal monthly_spend_under_80 com dados do mês atual', async () => {
     const now = new Date().toISOString();
 
     await request(app.getHttpServer())
@@ -247,11 +247,7 @@ describe('Missions (e2e)', () => {
     );
 
     expect(monthly80).toBeDefined();
-    expect(monthly80.progress).toEqual(
-      expect.objectContaining({
-        isCompleted: true,
-        id: expect.any(String),
-      }),
-    );
+    expect(monthly80.mission.description).toContain('mês passado');
+    expect(monthly80.progress.isCompleted).toBe(false);
   });
 });

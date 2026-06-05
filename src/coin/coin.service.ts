@@ -433,7 +433,9 @@ export class CoinService {
       );
     } else {
       const familyMemberIds =
-        await this.familyMemberResolver.getAcceptedMemberUserIds(currentUser.id);
+        await this.familyMemberResolver.getAcceptedMemberUserIds(
+          currentUser.id,
+        );
 
       if (!familyMemberIds.includes(userId)) {
         throw new ForbiddenException(

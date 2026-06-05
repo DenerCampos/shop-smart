@@ -9,6 +9,7 @@ import {
   getCurrentMonth,
   getCurrentMonthDates,
   getPreviousMonth,
+  getPreviousMonthDates,
   setSpecificMonth,
 } from 'src/common/utils/dates.util';
 import { GetValueRevenueCurrentDto } from './dto/get-value-revenue-current.dto';
@@ -150,17 +151,29 @@ export class RevenueService {
     user: User,
   ): Promise<GetValueRevenueCurrentDto> {
     const { startDateString, endDateString } = getCurrentMonthDates();
+    return this.sumRevenuesByPeriod(user.id, startDateString, endDateString);
+  }
 
+  async getRevenueByPreviousMonth(
+    user: User,
+  ): Promise<GetValueRevenueCurrentDto> {
+    const { startDateString, endDateString } = getPreviousMonthDates();
+    return this.sumRevenuesByPeriod(user.id, startDateString, endDateString);
+  }
+
+  private async sumRevenuesByPeriod(
+    userId: string,
+    startDateString: string,
+    endDateString: string,
+  ): Promise<GetValueRevenueCurrentDto> {
     const revenues = await this.revenueRepository.findByPeriod(
-      user.id,
+      userId,
       startDateString,
       endDateString,
     );
 
     if (!revenues || !Array.isArray(revenues) || revenues.length === 0) {
-      return {
-        value: 0,
-      };
+      return { value: 0 };
     }
 
     let total = 0;

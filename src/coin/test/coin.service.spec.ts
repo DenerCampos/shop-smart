@@ -46,7 +46,9 @@ describe('CoinService', () => {
     queryRunnerFactory = createQueryRunnerFactoryMock();
     familyMemberResolver = {
       getAcceptedMemberUserIdsIfAdmin: jest.fn().mockResolvedValue(['user-1']),
-      getAcceptedMemberUserIds: jest.fn().mockResolvedValue(['user-1', 'user-2']),
+      getAcceptedMemberUserIds: jest
+        .fn()
+        .mockResolvedValue(['user-1', 'user-2']),
     };
 
     const module: TestingModule = await Test.createTestingModule({

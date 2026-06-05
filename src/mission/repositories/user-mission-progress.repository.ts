@@ -103,10 +103,6 @@ export class UserMissionProgressRepository implements IUserMissionProgressReposi
         `missionDefinitionId IN (SELECT id FROM mission_definition WHERE frequency = :frequency AND isActive = 1)`,
         { frequency },
       )
-      .andWhere('NOT (isCompleted = :completed AND isClaimed = :claimed)', {
-        completed: true,
-        claimed: false,
-      })
       .execute();
   }
 }
