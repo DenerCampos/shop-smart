@@ -69,11 +69,11 @@ describe('MissionService', () => {
   };
 
   const expenseService = {
-    getExpenseByCurrentMonth: jest.fn(),
+    getExpenseByPreviousMonth: jest.fn(),
   };
 
   const revenueService = {
-    getRevenueByCurrentMonth: jest.fn(),
+    getRevenueByPreviousMonth: jest.fn(),
   };
 
   const userService = {
@@ -134,6 +134,7 @@ describe('MissionService', () => {
       const progress = makeProgress({
         isCompleted: true,
         isClaimed: false,
+        lastUpdatedAt: new Date(),
         missionDefinition: makeMission({ rewardCoins: 5 }),
       });
       progressRepo.findByUserAndProgressId.mockResolvedValue(progress);
@@ -158,6 +159,7 @@ describe('MissionService', () => {
       const progress = makeProgress({
         isCompleted: true,
         isClaimed: false,
+        lastUpdatedAt: new Date(),
       });
       progressRepo.findByUserAndProgressId.mockResolvedValue(progress);
       progressRepo.claimIfEligible.mockResolvedValue(progress);
@@ -200,6 +202,43 @@ describe('MissionService', () => {
 
       await expect(service.claimReward(user, 'progress-1')).rejects.toThrow(
         ForbiddenException,
+      );
+    });
+
+    it('throws ForbiddenException when daily mission was completed on a previous day', async () => {
+      const user = makeUser();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const progress = makeProgress({
+        isCompleted: true,
+        isClaimed: false,
+        lastUpdatedAt: yesterday,
+        missionDefinition: makeMission({ frequency: MissionFrequency.DAILY }),
+      });
+      progressRepo.findByUserAndProgressId.mockResolvedValue(progress);
+
+      await expect(service.claimReward(user, 'progress-1')).rejects.toThrow(
+        'Esta missão diária só pode ser resgatada no mesmo dia em que foi concluída.',
+      );
+    });
+
+    it('throws ForbiddenException when monthly mission was completed in a previous month', async () => {
+      const user = makeUser();
+      const previousMonth = new Date();
+      previousMonth.setMonth(previousMonth.getMonth() - 1);
+      const progress = makeProgress({
+        isCompleted: true,
+        isClaimed: false,
+        lastUpdatedAt: previousMonth,
+        missionDefinition: makeMission({
+          frequency: MissionFrequency.MONTHLY,
+          key: 'monthly_shopping_list',
+        }),
+      });
+      progressRepo.findByUserAndProgressId.mockResolvedValue(progress);
+
+      await expect(service.claimReward(user, 'progress-1')).rejects.toThrow(
+        'Esta missão mensal só pode ser resgatada no mês em que foi concluída.',
       );
     });
   });
@@ -250,11 +289,15 @@ describe('MissionService', () => {
       expect(progressRepo.upsert).not.toHaveBeenCalled();
     });
 
-    it('does not increment a DAILY mission that is already completed', async () => {
+    it('does not increment a DAILY mission that is already completed today', async () => {
       const mission = makeMission({ targetValue: 1 });
       missionDefRepo.findByKey.mockResolvedValue(mission);
       progressRepo.findByUserAndMission.mockResolvedValue(
-        makeProgress({ currentValue: 1, isCompleted: true }),
+        makeProgress({
+          currentValue: 1,
+          isCompleted: true,
+          lastUpdatedAt: new Date(),
+        }),
       );
 
       await service.incrementProgress('user-1', 'daily_login');
@@ -262,11 +305,38 @@ describe('MissionService', () => {
       expect(progressRepo.upsert).not.toHaveBeenCalled();
     });
 
+    it('allows incrementing a DAILY mission completed on a previous day', async () => {
+      const mission = makeMission({ targetValue: 1 });
+      missionDefRepo.findByKey.mockResolvedValue(mission);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      progressRepo.findByUserAndMission.mockResolvedValue(
+        makeProgress({
+          currentValue: 1,
+          isCompleted: true,
+          lastUpdatedAt: yesterday,
+        }),
+      );
+      progressRepo.upsert.mockResolvedValue({});
+
+      await service.incrementProgress('user-1', 'daily_login');
+
+      expect(progressRepo.upsert).toHaveBeenCalledWith(
+        'user-1',
+        'def-1',
+        expect.objectContaining({ currentValue: 1, isCompleted: true }),
+      );
+    });
+
     it('caps currentValue at targetValue', async () => {
       const mission = makeMission({ targetValue: 2 });
       missionDefRepo.findByKey.mockResolvedValue(mission);
       progressRepo.findByUserAndMission.mockResolvedValue(
-        makeProgress({ currentValue: 1, isCompleted: false }),
+        makeProgress({
+          currentValue: 1,
+          isCompleted: false,
+          lastUpdatedAt: new Date(),
+        }),
       );
       progressRepo.upsert.mockResolvedValue({});
 
@@ -290,10 +360,12 @@ describe('MissionService', () => {
   });
 
   describe('setFinancialHealthProgress', () => {
-    it('sets isCompleted=true for under-80% mission when spending is below threshold', async () => {
+    it('sets isCompleted=true for under-80% mission when previous month spending is below threshold', async () => {
       userService.find.mockResolvedValue(makeUser());
-      expenseService.getExpenseByCurrentMonth.mockResolvedValue({ value: 700 });
-      revenueService.getRevenueByCurrentMonth.mockResolvedValue({
+      expenseService.getExpenseByPreviousMonth.mockResolvedValue({
+        value: 700,
+      });
+      revenueService.getRevenueByPreviousMonth.mockResolvedValue({
         value: 1000,
       });
 
@@ -321,10 +393,12 @@ describe('MissionService', () => {
       );
     });
 
-    it('sets isCompleted=false when spending exceeds threshold', async () => {
+    it('sets isCompleted=false when previous month spending exceeds threshold', async () => {
       userService.find.mockResolvedValue(makeUser());
-      expenseService.getExpenseByCurrentMonth.mockResolvedValue({ value: 900 });
-      revenueService.getRevenueByCurrentMonth.mockResolvedValue({
+      expenseService.getExpenseByPreviousMonth.mockResolvedValue({
+        value: 900,
+      });
+      revenueService.getRevenueByPreviousMonth.mockResolvedValue({
         value: 1000,
       });
 
@@ -347,8 +421,10 @@ describe('MissionService', () => {
 
     it('does not downgrade an already-claimed mission', async () => {
       userService.find.mockResolvedValue(makeUser());
-      expenseService.getExpenseByCurrentMonth.mockResolvedValue({ value: 900 });
-      revenueService.getRevenueByCurrentMonth.mockResolvedValue({
+      expenseService.getExpenseByPreviousMonth.mockResolvedValue({
+        value: 900,
+      });
+      revenueService.getRevenueByPreviousMonth.mockResolvedValue({
         value: 1000,
       });
 

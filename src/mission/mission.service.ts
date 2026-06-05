@@ -10,9 +10,14 @@ import { RevenueService } from 'src/revenue/revenue.service';
 import { UserService } from 'src/user/user.service';
 import { User } from 'src/user/entities/user.entity';
 import { MissionDefinition } from './entities/mission-definition.entity';
+import { UserMissionProgress } from './entities/user-mission-progress.entity';
 import { IMissionDefinitionRepository } from './interfaces/mission-definition.repository.interface';
 import { IUserMissionProgressRepository } from './interfaces/user-mission-progress.repository.interface';
 import { MissionFrequency } from './types/mission-frequency.enum';
+import {
+  isProgressInCurrentDailyPeriod,
+  isProgressInCurrentMonthlyPeriod,
+} from './utils/mission-period.util';
 
 const FINANCIAL_MISSION_KEYS = [
   'monthly_spend_under_80',
@@ -64,7 +69,66 @@ export class MissionService {
     return (totalExpense / totalRevenue) * 100;
   }
 
+  isProgressInCurrentPeriod(
+    frequency: MissionFrequency,
+    lastUpdatedAt: Date | null | undefined,
+  ): boolean {
+    if (frequency === MissionFrequency.DAILY) {
+      return isProgressInCurrentDailyPeriod(lastUpdatedAt);
+    }
+
+    if (frequency === MissionFrequency.MONTHLY) {
+      return isProgressInCurrentMonthlyPeriod(lastUpdatedAt);
+    }
+
+    return true;
+  }
+
+  normalizeProgressForDisplay(
+    mission: MissionDefinition,
+    progress: UserMissionProgress | undefined,
+  ): MissionWithProgress['progress'] {
+    if (!progress) {
+      return {
+        id: null,
+        currentValue: 0,
+        isCompleted: false,
+        isClaimed: false,
+        resetAt: null,
+      };
+    }
+
+    const inCurrentPeriod = this.isProgressInCurrentPeriod(
+      mission.frequency,
+      progress.lastUpdatedAt,
+    );
+
+    if (
+      mission.frequency !== MissionFrequency.ONCE &&
+      !inCurrentPeriod &&
+      !progress.isClaimed
+    ) {
+      return {
+        id: progress.id,
+        currentValue: 0,
+        isCompleted: false,
+        isClaimed: false,
+        resetAt: progress.resetAt ?? null,
+      };
+    }
+
+    return {
+      id: progress.id,
+      currentValue: progress.currentValue,
+      isCompleted: progress.isCompleted,
+      isClaimed: progress.isClaimed,
+      resetAt: progress.resetAt ?? null,
+    };
+  }
+
   async getMissionsWithProgress(user: User): Promise<MissionWithProgress[]> {
+    await this.setFinancialHealthProgress(user.id);
+
     const [definitions, existingProgresses] = await Promise.all([
       this.missionDefRepo.findAll(),
       this.progressRepo.findAllByUser(user.id),
@@ -74,20 +138,13 @@ export class MissionService {
       existingProgresses.map((p) => [p.missionDefinitionId, p]),
     );
 
-    return definitions.map((mission) => {
-      const progress = progressMap.get(mission.id);
-
-      return {
+    return definitions.map((mission) => ({
+      mission,
+      progress: this.normalizeProgressForDisplay(
         mission,
-        progress: {
-          id: progress?.id ?? null,
-          currentValue: progress?.currentValue ?? 0,
-          isCompleted: progress?.isCompleted ?? false,
-          isClaimed: progress?.isClaimed ?? false,
-          resetAt: progress?.resetAt ?? null,
-        },
-      };
-    });
+        progressMap.get(mission.id),
+      ),
+    }));
   }
 
   async incrementProgress(userId: string, missionKey: string): Promise<void> {
@@ -106,12 +163,21 @@ export class MissionService {
       return;
     }
 
-    if (existing?.isCompleted && mission.frequency !== MissionFrequency.ONCE) {
+    const inCurrentPeriod = this.isProgressInCurrentPeriod(
+      mission.frequency,
+      existing?.lastUpdatedAt,
+    );
+
+    if (
+      existing?.isCompleted &&
+      mission.frequency !== MissionFrequency.ONCE &&
+      inCurrentPeriod
+    ) {
       return;
     }
 
     const nextValue = Math.min(
-      (existing?.currentValue ?? 0) + 1,
+      (inCurrentPeriod ? (existing?.currentValue ?? 0) : 0) + 1,
       mission.targetValue,
     );
     const isCompleted = nextValue >= mission.targetValue;
@@ -119,17 +185,22 @@ export class MissionService {
     await this.progressRepo.upsert(userId, mission.id, {
       currentValue: nextValue,
       isCompleted,
+      isClaimed: inCurrentPeriod ? (existing?.isClaimed ?? false) : false,
       lastUpdatedAt: new Date(),
     });
   }
 
+  /**
+   * Evaluates financial health missions using the closed previous month's totals.
+   * Current-month transactions do not affect these missions until the next cycle.
+   */
   async setFinancialHealthProgress(userId: string): Promise<void> {
     const user = await this.userService.find(userId);
     if (!user) return;
 
     const [expenseResult, revenueResult] = await Promise.all([
-      this.expenseService.getExpenseByCurrentMonth(user),
-      this.revenueService.getRevenueByCurrentMonth(user),
+      this.expenseService.getExpenseByPreviousMonth(user),
+      this.revenueService.getRevenueByPreviousMonth(user),
     ]);
 
     const spendPercent = this.calculateSpendingPercentage(
@@ -149,12 +220,20 @@ export class MissionService {
 
         if (existing?.isClaimed) return;
 
+        const inCurrentPeriod = this.isProgressInCurrentPeriod(
+          MissionFrequency.MONTHLY,
+          existing?.lastUpdatedAt,
+        );
+
+        if (existing?.isCompleted && inCurrentPeriod) return;
+
         const threshold = FINANCIAL_THRESHOLDS[key];
         const isUnderThreshold = spendPercent < threshold;
 
         await this.progressRepo.upsert(userId, mission.id, {
           currentValue: isUnderThreshold ? 1 : 0,
           isCompleted: isUnderThreshold,
+          isClaimed: inCurrentPeriod ? (existing?.isClaimed ?? false) : false,
           lastUpdatedAt: new Date(),
         });
       }),
@@ -177,6 +256,19 @@ export class MissionService {
 
     if (progress.isClaimed) {
       throw new ForbiddenException('A recompensa já foi resgatada.');
+    }
+
+    const frequency = progress.missionDefinition.frequency;
+
+    if (
+      frequency !== MissionFrequency.ONCE &&
+      !this.isProgressInCurrentPeriod(frequency, progress.lastUpdatedAt)
+    ) {
+      throw new ForbiddenException(
+        frequency === MissionFrequency.DAILY
+          ? 'Esta missão diária só pode ser resgatada no mesmo dia em que foi concluída.'
+          : 'Esta missão mensal só pode ser resgatada no mês em que foi concluída.',
+      );
     }
 
     const claimed = await this.progressRepo.claimIfEligible(

@@ -7,6 +7,7 @@ import {
   getCurrentDay,
   getCurrentMonthDates,
   getPreviousMonth,
+  getPreviousMonthDates,
   setSpecificMonth,
 } from 'src/common/utils/dates.util';
 import { User } from 'src/user/entities/user.entity';
@@ -420,17 +421,29 @@ export class ExpenseService {
     user: User,
   ): Promise<ValueExpenseCurrentResponseDto> {
     const { startDateString, endDateString } = getCurrentMonthDates();
+    return this.sumExpensesByPeriod(user.id, startDateString, endDateString);
+  }
 
+  async getExpenseByPreviousMonth(
+    user: User,
+  ): Promise<ValueExpenseCurrentResponseDto> {
+    const { startDateString, endDateString } = getPreviousMonthDates();
+    return this.sumExpensesByPeriod(user.id, startDateString, endDateString);
+  }
+
+  private async sumExpensesByPeriod(
+    userId: string,
+    startDateString: string,
+    endDateString: string,
+  ): Promise<ValueExpenseCurrentResponseDto> {
     const expenses = await this.expenseRepository.findByPeriod(
-      user.id,
+      userId,
       startDateString,
       endDateString,
     );
 
     if (!expenses || !Array.isArray(expenses) || expenses.length === 0) {
-      return {
-        value: 0,
-      };
+      return { value: 0 };
     }
 
     let total = 0;
