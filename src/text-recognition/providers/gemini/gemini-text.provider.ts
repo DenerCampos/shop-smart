@@ -290,18 +290,22 @@ Regras:
     text: string,
     options?: CouponParseOptions,
   ): Promise<CouponTextResult> {
-    try {
-      await this.apiQuotaService.checkAndIncrementQuota(
-        this.name,
-        this.dailyLimit,
-      );
+    return this.aiCallTelemetry.measure(
+      'text_recognition',
+      this.name,
+      async () => {
+        try {
+          await this.apiQuotaService.checkAndIncrementQuota(
+            this.name,
+            this.dailyLimit,
+          );
 
-      const groups =
-        options?.groups?.filter(Boolean).join(', ') ||
-        'Alimentação, Bebida, Limpeza, Higiene, Outros';
-      const payment = options?.defaultPayment || 'Cartão de crédito';
+          const groups =
+            options?.groups?.filter(Boolean).join(', ') ||
+            'Alimentação, Bebida, Limpeza, Higiene, Outros';
+          const payment = options?.defaultPayment || 'Cartão de crédito';
 
-      const prompt = `Analise o texto abaixo de um cupom fiscal ou nota fiscal eletrônica e extraia as seguintes informações em formato JSON:
+          const prompt = `Analise o texto abaixo de um cupom fiscal ou nota fiscal eletrônica e extraia as seguintes informações em formato JSON:
 - name: nome do estabelecimento
 - value: valor total da nota (número)
 - date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
@@ -326,45 +330,47 @@ Retorne apenas o JSON, sem explicações adicionais.
 Texto do cupom:
 ${text}`;
 
-      const result = await this.model.generateContent(prompt);
-      const responseText = result.response.text();
-      const cleaned = this.cleanModelJson(responseText);
-      const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+          const result = await this.model.generateContent(prompt);
+          const responseText = result.response.text();
+          const cleaned = this.cleanModelJson(responseText);
+          const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-      if (typeof parsed.name !== 'string' || !parsed.name.trim()) {
-        throw new TextRecognitionException(
-          'Resposta da IA sem nome de estabelecimento válido.',
-        );
-      }
-      if (typeof parsed.value !== 'number') {
-        throw new TextRecognitionException(
-          'Resposta da IA com valor total inválido.',
-        );
-      }
-      if (!Array.isArray(parsed.items)) {
-        throw new TextRecognitionException(
-          'Resposta da IA sem lista de itens.',
-        );
-      }
+          if (typeof parsed.name !== 'string' || !parsed.name.trim()) {
+            throw new TextRecognitionException(
+              'Resposta da IA sem nome de estabelecimento válido.',
+            );
+          }
+          if (typeof parsed.value !== 'number') {
+            throw new TextRecognitionException(
+              'Resposta da IA com valor total inválido.',
+            );
+          }
+          if (!Array.isArray(parsed.items)) {
+            throw new TextRecognitionException(
+              'Resposta da IA sem lista de itens.',
+            );
+          }
 
-      return {
-        ...(parsed as unknown as CouponTextResult),
-        provider: this.name,
-        confidence: 0.9,
-      };
-    } catch (error) {
-      if (
-        error instanceof TextRecognitionException ||
-        error instanceof ApiQuotaException
-      ) {
-        throw error;
-      }
-      throw new TextRecognitionException(
-        `Erro ao analisar texto do cupom: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
+          return {
+            ...(parsed as unknown as CouponTextResult),
+            provider: this.name,
+            confidence: 0.9,
+          };
+        } catch (error) {
+          if (
+            error instanceof TextRecognitionException ||
+            error instanceof ApiQuotaException
+          ) {
+            throw error;
+          }
+          throw new TextRecognitionException(
+            `Erro ao analisar texto do cupom: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      },
+    );
   }
 
   async isAvailable(): Promise<boolean> {

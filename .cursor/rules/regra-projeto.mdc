@@ -166,7 +166,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
 | `/family-group` | family-group |
 | `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
-| `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97) |
+| `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113) |
 | `/recipes` | recipe |
 | `missions` | mission |
 | `alexa` | alexa |
@@ -233,6 +233,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `cupom-reader.md` — cupons
 - `missoes.md` — missões dinâmicas (SP-78 / SP-110)
 - `extrato-moedas.md` — extrato de moedas e celebração de tarefas (SP-97)
+- `mesada.md` — liquidação de mesada, financeiro e histórico (SP-113)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 
 ---

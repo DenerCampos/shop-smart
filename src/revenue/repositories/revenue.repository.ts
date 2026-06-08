@@ -18,13 +18,18 @@ export class RevenueRepository implements IRevenueRepository {
   async create(
     user: User,
     createRevenueDto: CreateRevenueDto,
+    manager?: EntityManager,
   ): Promise<Revenue> {
-    const newRevenue = this.revenueEntity.create({
+    const repository = manager
+      ? manager.getRepository(Revenue)
+      : this.revenueEntity;
+
+    const newRevenue = repository.create({
       ...createRevenueDto,
       user: user,
     });
 
-    return await this.revenueEntity.save(newRevenue);
+    return repository.save(newRevenue);
   }
 
   async findAll(

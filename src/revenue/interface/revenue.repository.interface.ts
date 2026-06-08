@@ -5,7 +5,11 @@ import { Revenue } from '../entities/revenue.entity';
 import { EntityManager } from 'typeorm';
 
 export interface IRevenueRepository {
-  create(user: User, createRevenueDto: CreateRevenueDto): Promise<Revenue>;
+  create(
+    user: User,
+    createRevenueDto: CreateRevenueDto,
+    manager?: EntityManager,
+  ): Promise<Revenue>;
   findAll(
     userIds: string[],
     page: number,

@@ -6,7 +6,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
@@ -15,6 +15,8 @@ import { UserService } from 'src/user/user.service';
 import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
 import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
 import { CoinService } from 'src/coin/coin.service';
+import { ExpenseService } from 'src/expense/expense.service';
+import { RevenueService } from 'src/revenue/revenue.service';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { Pagination, paginationData } from 'src/common/pagination/pagination';
@@ -36,15 +38,13 @@ import {
   calcNextScheduledDate,
   type RecurringChore,
 } from './utils/calc-next-scheduled-date.util';
-
-function toPeriodYm(d: Date): number {
-  return d.getFullYear() * 100 + (d.getMonth() + 1);
-}
-
-function previousPeriodYm(reference: Date): number {
-  const d = new Date(reference.getFullYear(), reference.getMonth() - 1, 1);
-  return d.getFullYear() * 100 + (d.getMonth() + 1);
-}
+import {
+  formatPeriodYmLabel,
+  lastDayOfPeriodYm,
+  nextPeriodYm,
+  previousPeriodYm,
+  toPeriodYm,
+} from './utils/period-ym.util';
 
 @Injectable()
 export class ChoreService {
@@ -60,6 +60,8 @@ export class ChoreService {
     @Inject(FILE_STORAGE)
     private readonly fileStorage: IFileStorageService,
     private readonly coinService: CoinService,
+    private readonly expenseService: ExpenseService,
+    private readonly revenueService: RevenueService,
     private readonly pagination: Pagination,
     private readonly appConfig: AppConfig,
     @Inject(EVENT_EMITTER)
@@ -464,12 +466,20 @@ export class ChoreService {
       }
 
       const now = new Date();
+      const approvalPeriodYm = toPeriodYm(now);
+      const periodAlreadySettled =
+        !!(await this.choreRepository.findPayrollSettlementByGroupAndPeriod(
+          familyGroupId,
+          approvalPeriodYm,
+        ));
 
       occ.status = CHORE_OCCURRENCE_STATUS.COMPLETED;
       occ.approvedBy = user;
       occ.approvedAt = now;
       occ.completedAt = now;
-      occ.earnedPeriodYm = toPeriodYm(now);
+      occ.earnedPeriodYm = periodAlreadySettled
+        ? nextPeriodYm(approvalPeriodYm)
+        : approvalPeriodYm;
       snapshotCoins =
         occ.snapshotCoinReward != null ? Number(occ.snapshotCoinReward) : 0;
       snapshotMoney =
@@ -681,8 +691,107 @@ export class ChoreService {
         manager,
       );
 
+      await this.createPayrollFinancialEntries(pending, periodYm, manager);
+
       return settlement;
     });
+  }
+
+  async getPayrollSettlement(
+    familyGroupId: string,
+    user: User,
+    periodYm: number,
+  ): Promise<ChorePayrollSettlement | null> {
+    await this.familyGroupService.assertFamilyAdmin(familyGroupId, user.id);
+
+    return this.choreRepository.findPayrollSettlementDetail(
+      familyGroupId,
+      periodYm,
+    );
+  }
+
+  private formatPayrollMoney(value: number): string {
+    return Number(value).toFixed(2).replace('.', ',');
+  }
+
+  private async createPayrollFinancialEntries(
+    pending: ChoreOccurrence[],
+    periodYm: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const settlementDate = lastDayOfPeriodYm(periodYm);
+    const periodLabel = formatPeriodYmLabel(periodYm);
+
+    const byApprover = new Map<string, ChoreOccurrence[]>();
+    for (const occurrence of pending) {
+      const approverId = occurrence.approvedBy?.id;
+      if (!approverId) {
+        continue;
+      }
+      const list = byApprover.get(approverId) ?? [];
+      list.push(occurrence);
+      byApprover.set(approverId, list);
+    }
+
+    for (const [approverId, occurrences] of byApprover) {
+      const approver = await this.userService.find(approverId);
+      if (!approver) {
+        continue;
+      }
+
+      await this.expenseService.createPayrollExpense(
+        approver,
+        {
+          name: `Mesada ${periodLabel}`,
+          date: settlementDate,
+          items: occurrences.map((occurrence) => ({
+            name: occurrence.definition?.title ?? 'Tarefa',
+            value: Number(occurrence.snapshotRewardMoney ?? 0),
+          })),
+        },
+        manager,
+      );
+    }
+
+    const byAssignee = new Map<string, ChoreOccurrence[]>();
+    for (const occurrence of pending) {
+      const assigneeId = occurrence.assignedTo?.id;
+      if (!assigneeId) {
+        continue;
+      }
+      const list = byAssignee.get(assigneeId) ?? [];
+      list.push(occurrence);
+      byAssignee.set(assigneeId, list);
+    }
+
+    for (const [assigneeId, occurrences] of byAssignee) {
+      const assignee = await this.userService.find(assigneeId);
+      if (!assignee) {
+        continue;
+      }
+
+      const total = occurrences.reduce(
+        (sum, occurrence) => sum + Number(occurrence.snapshotRewardMoney ?? 0),
+        0,
+      );
+
+      const taskSummary = occurrences
+        .map(
+          (occurrence) =>
+            `${occurrence.definition?.title ?? 'Tarefa'} (R$ ${this.formatPayrollMoney(Number(occurrence.snapshotRewardMoney ?? 0))})`,
+        )
+        .join('; ');
+
+      await this.revenueService.createPayrollRevenue(
+        assignee,
+        {
+          name: `Mesada ${periodLabel} — ${taskSummary}`,
+          value: total,
+          date: settlementDate,
+        },
+        manager,
+      );
+    }
   }
 
   private async spawnOpenOccurrence(

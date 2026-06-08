@@ -68,6 +68,24 @@ export class RevenueService {
     return revenue;
   }
 
+  /** Liquidação de mesada — sem moedas nem eventos de missão. */
+  async createPayrollRevenue(
+    user: User,
+    params: { name: string; value: number; date: Date },
+    manager?: EntityManager,
+  ): Promise<Revenue> {
+    return this.revenueRepository.create(
+      user,
+      {
+        name: params.name,
+        value: params.value,
+        repeat: false,
+        date: params.date,
+      },
+      manager,
+    );
+  }
+
   private async addCoins(user: User, typeCoins: coinType): Promise<void> {
     await this.coinService.addCoins(user, { type: typeCoins });
   }
