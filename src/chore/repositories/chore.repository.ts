@@ -348,6 +348,19 @@ export class ChoreRepository implements IChoreRepository {
     });
   }
 
+  async findPayrollSettlementDetail(
+    familyGroupId: string,
+    periodYm: number,
+  ): Promise<ChorePayrollSettlement | null> {
+    return this.payrollEntity.findOne({
+      where: {
+        familyGroup: { id: familyGroupId },
+        periodYm,
+      },
+      relations: ['lines', 'lines.member', 'settledBy'],
+    });
+  }
+
   async findPendingPayrollOccurrencesLocked(
     familyGroupId: string,
     periodYm: number,
@@ -357,6 +370,8 @@ export class ChoreRepository implements IChoreRepository {
     return occRepo
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.assignedTo', 'assignee')
+      .leftJoinAndSelect('o.approvedBy', 'approver')
+      .leftJoinAndSelect('o.definition', 'definition')
       .setLock('pessimistic_write')
       .where('o.familyGroupId = :fg', { fg: familyGroupId })
       .andWhere('o.deletedAt IS NULL')

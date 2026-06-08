@@ -110,6 +110,11 @@ export interface IChoreRepository {
     periodYm: number,
   ): Promise<ChorePayrollSettlement | null>;
 
+  findPayrollSettlementDetail(
+    familyGroupId: string,
+    periodYm: number,
+  ): Promise<ChorePayrollSettlement | null>;
+
   findPendingPayrollOccurrencesLocked(
     familyGroupId: string,
     periodYm: number,

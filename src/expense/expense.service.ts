@@ -36,6 +36,7 @@ import { Payment } from 'src/payment/entities/payment.entity';
 import { Group } from 'src/group/entities/group.entity';
 import { ExpenseRecurringConfirmDto } from './dto/expense-recurring-confirm.dto';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class ExpenseService {
@@ -135,6 +136,68 @@ export class ExpenseService {
       await this.queryRunnerFactory.rollbackTransaction();
       throw new Error(error.message);
     }
+  }
+
+  /** Liquidação de mesada — sem moedas nem eventos de missão. */
+  async createPayrollExpense(
+    user: User,
+    params: {
+      name: string;
+      date: Date;
+      items: Array<{ name: string; value: number }>;
+    },
+    manager: EntityManager,
+  ): Promise<Expense> {
+    const items: itemType[] = params.items.map((item, index) => ({
+      code: `mesada-${index + 1}`,
+      name: item.name,
+      quantity: 1,
+      unit: 'un',
+      value: item.value,
+      total: item.value,
+      group: { name: 'Mesada' },
+    }));
+
+    const value = items.reduce((sum, item) => sum + item.total, 0);
+
+    const savedStore = await this.storeService.create(
+      { name: 'Mesada' },
+      user,
+      manager,
+    );
+
+    const savedPayment = await this.paymentService.create(
+      { name: 'Dinheiro' },
+      user,
+      manager,
+    );
+
+    const expense = await this.expenseRepository.create(
+      user,
+      savedStore,
+      savedPayment,
+      {
+        name: params.name,
+        value,
+        repeat: false,
+        uri: '',
+        date: params.date,
+      },
+      manager,
+    );
+
+    for (const item of items) {
+      const { group, ...itemData } = item;
+      const savedGroup = await this.groupService.create(group, user, manager);
+      await this.expenseRepository.createItem(
+        expense,
+        savedGroup,
+        itemData,
+        manager,
+      );
+    }
+
+    return expense;
   }
 
   private async addCoins(user: User, typeCoins: coinType): Promise<void> {
