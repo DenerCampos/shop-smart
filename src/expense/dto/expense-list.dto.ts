@@ -30,4 +30,9 @@ export class ExpenseListDto {
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
   isRecurring?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  isInstallment?: boolean;
 }

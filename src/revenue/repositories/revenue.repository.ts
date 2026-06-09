@@ -38,6 +38,7 @@ export class RevenueRepository implements IRevenueRepository {
     limit: number,
     search?: string,
     isRecurring?: boolean,
+    isInstallment?: boolean,
   ): Promise<[Revenue[], number]> {
     const queryBuilder = this.revenueEntity
       .createQueryBuilder('revenue')
@@ -60,6 +61,12 @@ export class RevenueRepository implements IRevenueRepository {
       queryBuilder.andWhere('revenue.repeat = :isRecurring', { isRecurring });
     }
 
+    if (isInstallment !== undefined) {
+      queryBuilder.andWhere('revenue.isInstallment = :isInstallment', {
+        isInstallment,
+      });
+    }
+
     if (page !== undefined && limit !== undefined) {
       queryBuilder.skip(page).take(limit);
     }
@@ -70,7 +77,10 @@ export class RevenueRepository implements IRevenueRepository {
   }
 
   async find(id: string): Promise<Revenue | null> {
-    return await this.revenueEntity.findOneBy({ id });
+    return await this.revenueEntity.findOne({
+      where: { id },
+      relations: ['user'],
+    });
   }
 
   async update(
@@ -86,6 +96,13 @@ export class RevenueRepository implements IRevenueRepository {
       ...revenue,
       ...updateRevenueDto,
     });
+  }
+
+  async save(revenue: Revenue, manager?: EntityManager): Promise<Revenue> {
+    const repository = manager
+      ? manager.getRepository(Revenue)
+      : this.revenueEntity;
+    return repository.save(revenue);
   }
 
   async remove(id: string): Promise<Revenue> {
@@ -150,16 +167,47 @@ export class RevenueRepository implements IRevenueRepository {
   async getLatest(userIds: string[], limit: number): Promise<Revenue[] | []> {
     if (!userIds || userIds.length === 0) return [];
 
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
     const query = this.revenueEntity
       .createQueryBuilder('revenue')
       .leftJoin('revenue.user', 'user')
       .addSelect(['user.id', 'user.name', 'user.profileImage'])
       .where('revenue.userId IN (:...userIds)', { userIds })
       .andWhere('revenue.deletedAt IS NULL')
+      .andWhere(
+        `(
+          revenue.isInstallment = false
+          OR revenue.totalInstallments IS NULL
+          OR (
+            revenue.isInstallment = true
+            AND revenue.totalInstallments IS NOT NULL
+            AND EXTRACT(YEAR FROM revenue.date) = :currentYear
+            AND EXTRACT(MONTH FROM revenue.date) = :currentMonth
+          )
+        )`,
+        { currentYear, currentMonth },
+      )
       .take(limit)
       .orderBy('revenue.createdAt', 'DESC');
 
     return await query.getMany();
+  }
+
+  async findInstallmentRoot(groupId: string): Promise<Revenue | null> {
+    return this.revenueEntity.findOne({
+      where: { installmentGroupId: groupId, installmentNumber: 1 },
+      relations: ['user'],
+    });
+  }
+
+  async findByInstallmentGroup(groupId: string): Promise<Revenue[]> {
+    return this.revenueEntity.find({
+      where: { installmentGroupId: groupId },
+      order: { installmentNumber: 'ASC' },
+    });
   }
 
   async countAll(): Promise<number> {

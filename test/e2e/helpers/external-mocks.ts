@@ -124,16 +124,16 @@ export function mockFileStorageService(): jest.Mocked<
   >
 > {
   return {
-    uploadFile: jest.fn(async () => ({
+    uploadFile: jest.fn().mockResolvedValue({
       fileId: 'profile/e2e-photo.png',
       fileName: 'e2e-photo.png',
       webViewLink:
         'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/e2e-photo.png',
       webContentLink:
         'https://test.supabase.co/storage/v1/object/public/shop-smart/profile/e2e-photo.png',
-    })),
-    deleteFile: jest.fn(async () => undefined),
-    extractFileIdFromUrl: jest.fn(() => 'profile/e2e-photo.png'),
+    }),
+    deleteFile: jest.fn().mockResolvedValue(undefined),
+    extractFileIdFromUrl: jest.fn().mockReturnValue('profile/e2e-photo.png'),
   };
 }
 

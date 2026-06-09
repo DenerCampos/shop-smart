@@ -16,6 +16,7 @@ export interface IRevenueRepository {
     limit: number,
     search?: string,
     isRecurring?: boolean,
+    isInstallment?: boolean,
   ): Promise<[Revenue[], number]>;
   find(id: string): Promise<Revenue | null>;
   update(
@@ -40,4 +41,7 @@ export interface IRevenueRepository {
     month: number,
     day: number,
   ): Promise<Revenue[] | []>;
+  findInstallmentRoot(groupId: string): Promise<Revenue | null>;
+  findByInstallmentGroup(groupId: string): Promise<Revenue[]>;
+  save(revenue: Revenue, manager?: EntityManager): Promise<Revenue>;
 }

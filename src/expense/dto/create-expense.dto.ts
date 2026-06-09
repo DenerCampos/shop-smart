@@ -4,10 +4,13 @@ import {
   IsBoolean,
   IsDateString,
   IsNotEmpty,
-  IsNumber,
+  IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
+import {
+  FinancialRecurrenceBlockDto
+} from 'src/common/dto/financial-recurrence.dto';
 import { CreatePaymentDto } from 'src/payment/dto/create-payment.dto';
 import { paymentType } from 'src/payment/types/paymentType';
 import { CreateStoreDto } from 'src/store/dto/create-store.dto';
@@ -16,19 +19,15 @@ import { CreateItemDto } from './create-item.dto';
 import { itemType } from '../types/itemType';
 import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';
 
-export class CreateExpenseDto {
+export class CreateExpenseDto extends FinancialRecurrenceBlockDto {
   @IsNotEmpty()
   @IsString()
   @Transform(({ value }) => capitalizeFirstLetter(value))
   name: string;
 
-  @IsNotEmpty()
-  @IsNumber()
-  value: number;
-
-  @IsNotEmpty()
+  @IsOptional()
   @IsBoolean()
-  repeat: boolean;
+  repeat?: boolean;
 
   @ValidateNested()
   @Type(() => CreateStoreDto)

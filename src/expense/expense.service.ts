@@ -1,5 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { EventEmitter } from 'events';
+import { randomUUID } from 'node:crypto';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -37,6 +43,20 @@ import { Group } from 'src/group/entities/group.entity';
 import { ExpenseRecurringConfirmDto } from './dto/expense-recurring-confirm.dto';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 import { EntityManager } from 'typeorm';
+import { InstallmentPlannerService } from 'src/common/installment/installment-planner.service';
+import {
+  buildInstallmentLabel,
+  buildRecurrenceResponseFromExpense,
+  computeReceiptAmounts,
+  MAX_PHOTOS_PER_FINANCIAL,
+  toInstallmentCalendarDate,
+} from 'src/common/installment/installment.util';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
+import { NotExistException } from 'src/exception/notExistException';
+import { ExpenseReceiptDto } from 'src/common/dto/financial-receipt.dto';
+import type { ResolvedInstallmentMeta } from 'src/common/installment/installment-planner.service';
+import type { RecurrenceConfigDto } from 'src/common/installment/installment.types';
 
 @Injectable()
 export class ExpenseService {
@@ -44,6 +64,7 @@ export class ExpenseService {
   private url = `${this.appConfig.getBaseUrl()}/expense`;
   private defaultPayment = 'Cartão de crédito';
   private defaultGroup = 'Alimentação';
+  private readonly imageMimeRegex = /^image\/(jpg|jpeg|png|gif|webp)$/;
 
   constructor(
     @Inject('IExpenseRepository')
@@ -56,6 +77,9 @@ export class ExpenseService {
     private coinService: CoinService,
     private queryRunnerFactory: QueryRunnerFactory,
     private readonly familyMemberResolver: FamilyMemberResolverService,
+    private readonly installmentPlanner: InstallmentPlannerService,
+    @Inject(FILE_STORAGE)
+    private readonly fileStorage: IFileStorageService,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {}
@@ -64,77 +88,167 @@ export class ExpenseService {
     user: User,
     createExpenseDto: CreateExpenseDto,
   ): Promise<Expense> {
+    if (
+      this.installmentPlanner.isFiniteInstallment(createExpenseDto.recurrence)
+    ) {
+      return this.createFiniteInstallmentExpenses(user, createExpenseDto);
+    }
+    return this.createSingleExpenseRecord(user, createExpenseDto, 1);
+  }
+
+  private async createFiniteInstallmentExpenses(
+    user: User,
+    dto: CreateExpenseDto,
+  ): Promise<Expense> {
+    const totalValue = this.calculateTotalValue(dto.items);
+    const schedule = this.installmentPlanner.buildFiniteSchedule(
+      toInstallmentCalendarDate(new Date(dto.date)),
+      totalValue,
+      dto.recurrence!,
+    );
+    const groupId = randomUUID();
+    let firstExpense: Expense | null = null;
+
     await this.queryRunnerFactory.startTransaction();
-
     try {
-      createExpenseDto.value = this.calculateTotalValue(createExpenseDto.items);
+      for (const slice of schedule) {
+        const meta: ResolvedInstallmentMeta = {
+          installmentGroupId: groupId,
+          installmentNumber: slice.installmentNumber,
+          totalInstallments: dto.recurrence!.count ?? schedule.length,
+          isInstallment: true,
+          repeat: false,
+        };
+        const expense = await this.persistExpense(
+          user,
+          {
+            ...dto,
+            value: slice.value,
+            date: slice.date,
+            items: slice.installmentNumber === 1 ? dto.items : [],
+          },
+          meta,
+          slice.installmentNumber === 1,
+        );
+        if (slice.installmentNumber === 1) firstExpense = expense;
+      }
+      await this.queryRunnerFactory.commitTransaction();
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw error;
+    }
 
-      const { items, store, payment, ...expenseData } = createExpenseDto;
-      const itens = [] as Item[];
+    if (!firstExpense) throw new Error('Falha ao criar parcelas');
+    await this.afterExpenseCreated(user, firstExpense, dto.uri);
+    return firstExpense;
+  }
 
-      const savedStore = await this.storeService.create(
-        store,
-        user,
-        this.queryRunnerFactory.manager,
-      );
+  private async createSingleExpenseRecord(
+    user: User,
+    dto: CreateExpenseDto,
+    installmentNumber: number,
+  ): Promise<Expense> {
+    const meta = this.installmentPlanner.resolveMeta(
+      dto.recurrence,
+      dto.repeat,
+      installmentNumber,
+    );
+    const value = this.calculateTotalValue(dto.items);
 
-      const savedPayment = await this.paymentService.create(
-        payment,
-        user,
-        this.queryRunnerFactory.manager,
-      );
+    await this.queryRunnerFactory.startTransaction();
+    let expense: Expense;
+    try {
+      expense = await this.persistExpense(user, { ...dto, value }, meta, true);
+      await this.queryRunnerFactory.commitTransaction();
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw error;
+    }
 
-      const expense = await this.expenseRepository.create(
-        user,
-        savedStore,
-        savedPayment,
-        {
-          ...expenseData,
-        },
-        this.queryRunnerFactory.manager,
-      );
+    await this.afterExpenseCreated(user, expense, dto.uri);
+    return expense;
+  }
 
-      for (const item of items) {
+  private async persistExpense(
+    user: User,
+    dto: CreateExpenseDto & { value?: number; date?: Date },
+    meta: ResolvedInstallmentMeta,
+    withItems: boolean,
+  ): Promise<Expense> {
+    const { items, store, payment, recurrence, ...rest } = dto;
+    const normalizedItems = (items ?? []).map((item) =>
+      this.normalizeItemLine(item),
+    );
+    const resolvedValue =
+      dto.value ?? this.calculateTotalValue(normalizedItems);
+    const savedStore = await this.storeService.create(
+      store,
+      user,
+      this.queryRunnerFactory.manager,
+    );
+    const savedPayment = await this.paymentService.create(
+      payment,
+      user,
+      this.queryRunnerFactory.manager,
+    );
+
+    const expensePayload = this.installmentPlanner.mergeInstallmentFields(
+      {
+        ...rest,
+        name: dto.name,
+        value: resolvedValue,
+        uri: dto.uri ?? '',
+        date: dto.date ?? new Date(),
+      },
+      meta,
+      [],
+    );
+
+    const expense = await this.expenseRepository.create(
+      user,
+      savedStore,
+      savedPayment,
+      expensePayload as never,
+      this.queryRunnerFactory.manager,
+    );
+
+    if (withItems && normalizedItems.length) {
+      const baseDate = new Date(dto.date ?? new Date());
+      for (const item of normalizedItems) {
         const { group, ...itemData } = item;
-
         const savedGroup = await this.groupService.create(
           group,
           user,
           this.queryRunnerFactory.manager,
         );
-        const savedItem = await this.expenseRepository.createItem(
+        const itemEntity = {
+          ...itemData,
+          ...this.installmentPlanner.normalizeItemWarranty(itemData, baseDate),
+        } as Item;
+        await this.expenseRepository.createItem(
           expense,
           savedGroup,
-          {
-            ...itemData,
-          },
+          itemEntity as never,
           this.queryRunnerFactory.manager,
         );
-
-        itens.push(savedItem);
       }
+    }
 
-      await this.queryRunnerFactory.commitTransaction();
+    return expense;
+  }
 
-      expense.items = itens;
-
-      const results = await Promise.allSettled([
-        withTimeout(this.addCoins(user, 'coupon')),
-      ]);
-
-      //Log results promises
-      logResultsPromises(results, ['addCoins']);
-
-      this.eventEmitter.emit('expense.created', { userId: user.id });
-
-      if (createExpenseDto.uri?.trim()) {
-        this.eventEmitter.emit('coupon.processed', { userId: user.id });
-      }
-
-      return expense;
-    } catch (error) {
-      await this.queryRunnerFactory.rollbackTransaction();
-      throw new Error(error.message);
+  private async afterExpenseCreated(
+    user: User,
+    expense: Expense,
+    uri?: string,
+  ): Promise<void> {
+    const results = await Promise.allSettled([
+      withTimeout(this.addCoins(user, 'coupon')),
+    ]);
+    logResultsPromises(results, ['addCoins']);
+    this.eventEmitter.emit('expense.created', { userId: user.id });
+    if (uri?.trim()) {
+      this.eventEmitter.emit('coupon.processed', { userId: user.id });
     }
   }
 
@@ -221,6 +335,7 @@ export class ExpenseService {
       expenseList.limit,
       expenseList.search,
       expenseList.isRecurring,
+      expenseList.isInstallment,
     );
 
     const paginateData = this.pagination.paginateData<Expense>(
@@ -236,6 +351,62 @@ export class ExpenseService {
 
   async find(expenseId: string): Promise<Expense | null> {
     return this.expenseRepository.find(expenseId);
+  }
+
+  async findForEdit(expenseId: string): Promise<Expense | null> {
+    const expense = await this.expenseRepository.find(expenseId);
+    if (!expense) return null;
+
+    if (
+      expense.installmentGroupId &&
+      expense.installmentNumber !== 1 &&
+      expense.isInstallment
+    ) {
+      const root = await this.expenseRepository.findInstallmentRoot(
+        expense.installmentGroupId,
+      );
+      if (root) {
+        expense.items = root.items ?? [];
+        expense.photos = root.photos ?? [];
+      }
+    }
+
+    return expense;
+  }
+
+  async mapForResponse(expense: Expense): Promise<
+    Expense & {
+      installmentLabel: string | null;
+      recurrence: ReturnType<typeof buildRecurrenceResponseFromExpense>;
+    }
+  > {
+    let groupMembers: Expense[] = [];
+    if (expense.installmentGroupId) {
+      groupMembers = await this.expenseRepository.findByInstallmentGroup(
+        expense.installmentGroupId,
+      );
+    }
+
+    return {
+      ...expense,
+      installmentLabel: buildInstallmentLabel(
+        expense.installmentNumber,
+        expense.totalInstallments,
+      ),
+      recurrence: buildRecurrenceResponseFromExpense(expense, groupMembers),
+    };
+  }
+
+  mapSummaryForResponse(expense: Expense): Expense & {
+    installmentLabel: string | null;
+  } {
+    return {
+      ...expense,
+      installmentLabel: buildInstallmentLabel(
+        expense.installmentNumber,
+        expense.totalInstallments,
+      ),
+    };
   }
 
   async findOrCreateStore(storeName: string, user: User): Promise<Store> {
@@ -302,106 +473,355 @@ export class ExpenseService {
   ): Promise<Expense> {
     try {
       await this.queryRunnerFactory.startTransaction();
+      const manager = this.queryRunnerFactory.manager;
 
       const expense = await this.expenseRepository.find(expenseId);
-
       if (!expense) {
         throw new UpdateException();
       }
 
+      const root = await this.resolveInstallmentRoot(expense);
+
       if (updateExpenseDto.store) {
-        const updateStore = await this.findOrCreateStore(
+        updateExpenseDto.store = await this.findOrCreateStore(
           updateExpenseDto.store.name,
           user,
         );
-        updateExpenseDto.store = updateStore;
       }
 
       if (updateExpenseDto.payment) {
-        const updatePayment = await this.findOrCreatePayment(
+        updateExpenseDto.payment = await this.findOrCreatePayment(
           updateExpenseDto.payment.name,
           user,
         );
-        updateExpenseDto.payment = updatePayment;
       }
 
-      // Remover os items do DTO antes de atualizar a expense
       const {
         items: itemsToUpdate,
         removedItemIds,
-        ...expenseData
+        recurrence,
+        id: _dtoId,
+        ...rawExpenseFields
       } = updateExpenseDto;
 
-      // Atualizar apenas os dados da expense, sem mexer nos items
-      const expenseToUpdate = {
-        ...expenseData,
-        items: expense.items, // Mantém os items existentes
-      };
+      const totalValue = itemsToUpdate?.length
+        ? this.calculateTotalValue(itemsToUpdate)
+        : await this.resolveGroupTotalValue(root);
 
-      await this.expenseRepository.update(
-        expense,
-        expenseToUpdate,
-        this.queryRunnerFactory.manager,
+      const meta = this.installmentPlanner.resolveMetaForUpdate(
+        recurrence,
+        rawExpenseFields.repeat ?? root.repeat,
+        root,
+        root.installmentNumber ?? 1,
       );
 
-      // Remover itens que foram marcados para remoção
-      if (removedItemIds && removedItemIds.length > 0) {
-        await this.removeItems(removedItemIds);
-      }
+      const editingInstallmentNumber = expense.installmentNumber ?? 1;
 
-      // Atualizar ou criar novos itens
-      if (itemsToUpdate && itemsToUpdate.length > 0) {
-        for (const item of itemsToUpdate) {
-          if (item.group) {
-            let updateGroup = await this.groupService.findByName(
-              item.group.name,
-              user,
-            );
+      const sharedFields = {
+        name: rawExpenseFields.name ?? root.name,
+        uri: rawExpenseFields.uri ?? root.uri,
+        date: rawExpenseFields.date ?? root.date,
+        store: (updateExpenseDto.store ?? root.store) as Store,
+        payment: (updateExpenseDto.payment ?? root.payment) as Payment,
+      };
 
-            if (!updateGroup) {
-              const savedGroup = await this.groupService.create(
-                item.group,
-                user,
-                this.queryRunnerFactory.manager,
-              );
-              updateGroup = savedGroup;
-            }
-            item.group = updateGroup;
-          }
+      if (this.installmentPlanner.isFiniteInstallment(recurrence)) {
+        await this.syncFiniteInstallmentGroupOnUpdate(
+          root,
+          editingInstallmentNumber,
+          user,
+          sharedFields,
+          totalValue,
+          recurrence!,
+          manager,
+        );
+      } else {
+        const installmentPayload =
+          this.installmentPlanner.mergeInstallmentFields(
+            {},
+            meta,
+            root.photos ?? [],
+          );
 
-          if (!item.id || item.id === '') {
-            const { id, ...itemWithoutId } = item;
-            const savedItem = await this.expenseRepository.createItem(
-              expense,
-              item.group as Group,
-              itemWithoutId,
-              this.queryRunnerFactory.manager,
-            );
-          } else {
-            const updateItem = await this.expenseRepository.findItemById(
-              item.id,
-            );
+        await this.expenseRepository.update(
+          root,
+          {
+            ...root,
+            ...rawExpenseFields,
+            ...sharedFields,
+            ...installmentPayload,
+            value: itemsToUpdate?.length ? totalValue : root.value,
+          },
+          manager,
+        );
 
-            if (!updateItem) {
-              throw new UpdateException();
-            }
+        if (
+          root.installmentGroupId &&
+          recurrence?.enabled &&
+          recurrence.mode === 'installment_infinite'
+        ) {
+          await this.syncInstallmentMetaOnGroup(
+            root.installmentGroupId,
+            meta,
+            manager,
+          );
+        }
 
-            // Extrair apenas as propriedades que queremos atualizar
-            const { code, name, quantity, unit, value, total } = item;
-            await this.expenseRepository.UpdateItem(
-              updateItem,
-              { code, name, quantity, unit, value, total },
-              this.queryRunnerFactory.manager,
-            );
-          }
+        if (
+          root.installmentGroupId &&
+          (!recurrence?.enabled || recurrence.mode === 'none') &&
+          !rawExpenseFields.repeat
+        ) {
+          await this.removeExtraInstallmentMembers(root, manager);
         }
       }
 
+      if (removedItemIds?.length) {
+        await this.removeItems(removedItemIds);
+      }
+
+      if (itemsToUpdate?.length) {
+        await this.upsertExpenseItems(
+          root,
+          itemsToUpdate,
+          new Date(sharedFields.date),
+          user,
+          manager,
+        );
+      }
+
       await this.queryRunnerFactory.commitTransaction();
-      return await this.expenseRepository.find(expenseId);
+      const updated = await this.findForEdit(expenseId);
+      if (!updated) throw new UpdateException();
+      return updated;
     } catch (error) {
       await this.queryRunnerFactory.rollbackTransaction();
-      throw new Error(error.message);
+      throw error;
+    }
+  }
+
+  private async resolveGroupTotalValue(root: Expense): Promise<number> {
+    const items = root.items ?? [];
+    if (items.length > 0) {
+      return this.calculateTotalValue(items as itemType[]);
+    }
+
+    if (root.installmentGroupId && root.isInstallment) {
+      const members = await this.expenseRepository.findByInstallmentGroup(
+        root.installmentGroupId,
+      );
+      if (members.length > 0) {
+        return Number(
+          members
+            .reduce((sum, member) => sum + Number(member.value), 0)
+            .toFixed(2),
+        );
+      }
+    }
+
+    return Number(root.value);
+  }
+
+  private async resolveInstallmentRoot(expense: Expense): Promise<Expense> {
+    if (expense.installmentGroupId && expense.installmentNumber !== 1) {
+      const root = await this.expenseRepository.findInstallmentRoot(
+        expense.installmentGroupId,
+      );
+      return root ?? expense;
+    }
+    return expense;
+  }
+
+  private async syncFiniteInstallmentGroupOnUpdate(
+    root: Expense,
+    preserveDatesUpToInstallment: number,
+    user: User,
+    fields: {
+      name: string;
+      uri?: string;
+      date: Date;
+      store: Store;
+      payment: Payment;
+    },
+    totalValue: number,
+    recurrence: RecurrenceConfigDto,
+    manager: EntityManager,
+  ): Promise<void> {
+    const groupId = root.installmentGroupId ?? randomUUID();
+    const schedule = this.installmentPlanner.buildFiniteSchedule(
+      toInstallmentCalendarDate(root.date),
+      totalValue,
+      recurrence,
+    );
+    const totalCount = recurrence.count ?? schedule.length;
+    const existing = root.installmentGroupId
+      ? await this.expenseRepository.findByInstallmentGroup(groupId)
+      : [root];
+
+    for (const slice of schedule) {
+      const sliceMeta: ResolvedInstallmentMeta = {
+        installmentGroupId: groupId,
+        installmentNumber: slice.installmentNumber,
+        totalInstallments: totalCount,
+        isInstallment: true,
+        repeat: false,
+      };
+      const member = existing.find(
+        (entry) => entry.installmentNumber === slice.installmentNumber,
+      );
+      const installmentPayload = this.installmentPlanner.mergeInstallmentFields(
+        {},
+        sliceMeta,
+        slice.installmentNumber === 1 ? (root.photos ?? []) : [],
+      );
+      const shouldPreserveDate =
+        !!member && slice.installmentNumber <= preserveDatesUpToInstallment;
+      const patch = {
+        ...fields,
+        value: slice.value,
+        date: shouldPreserveDate
+          ? member.date
+          : toInstallmentCalendarDate(slice.date),
+        ...installmentPayload,
+      };
+
+      if (member) {
+        await this.expenseRepository.update(
+          member,
+          { ...member, ...patch },
+          manager,
+        );
+      } else {
+        await this.expenseRepository.create(
+          user,
+          fields.store,
+          fields.payment,
+          patch as never,
+          manager,
+        );
+      }
+    }
+
+    for (const member of existing) {
+      if ((member.installmentNumber ?? 0) > schedule.length) {
+        await this.expenseRepository.delete(member.id);
+      }
+    }
+  }
+
+  private async syncInstallmentMetaOnGroup(
+    groupId: string,
+    meta: ResolvedInstallmentMeta,
+    manager: EntityManager,
+  ): Promise<void> {
+    const members =
+      await this.expenseRepository.findByInstallmentGroup(groupId);
+    for (const member of members) {
+      await this.expenseRepository.update(
+        member,
+        {
+          ...member,
+          repeat: meta.repeat,
+          totalInstallments: meta.totalInstallments,
+          isInstallment: meta.isInstallment,
+          installmentGroupId: meta.installmentGroupId,
+        } as Partial<Expense>,
+        manager,
+      );
+    }
+  }
+
+  private async removeExtraInstallmentMembers(
+    root: Expense,
+    manager: EntityManager,
+  ): Promise<void> {
+    if (!root.installmentGroupId) return;
+
+    const members = await this.expenseRepository.findByInstallmentGroup(
+      root.installmentGroupId,
+    );
+
+    for (const member of members) {
+      if (member.id === root.id) {
+        await this.expenseRepository.update(
+          member,
+          {
+            ...member,
+            installmentGroupId: null,
+            installmentNumber: null,
+            totalInstallments: null,
+            isInstallment: false,
+            repeat: false,
+          } as Partial<Expense>,
+          manager,
+        );
+      } else {
+        await this.expenseRepository.delete(member.id);
+      }
+    }
+  }
+
+  private async upsertExpenseItems(
+    root: Expense,
+    itemsToUpdate: itemType[],
+    baseDate: Date,
+    user: User,
+    manager: EntityManager,
+  ): Promise<void> {
+    for (let index = 0; index < itemsToUpdate.length; index++) {
+      const item = itemsToUpdate[index];
+      if (item.group) {
+        let updateGroup = await this.groupService.findByName(
+          item.group.name,
+          user,
+        );
+
+        if (!updateGroup) {
+          updateGroup = await this.groupService.create(
+            item.group,
+            user,
+            manager,
+          );
+        }
+        item.group = updateGroup;
+      }
+
+      const itemPayload = this.normalizeItemLine({
+        code: item.code,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        value: item.value,
+        total: item.total,
+        group: item.group,
+        warrantyDuration: item.warrantyDuration,
+        warrantyUnit: item.warrantyUnit,
+      });
+      const itemPayloadWithWarranty = {
+        ...itemPayload,
+        ...this.installmentPlanner.normalizeItemWarranty(item, baseDate),
+      };
+
+      if (!item.id || item.id === '') {
+        const { id: _id, ...itemWithoutId } = item;
+        await this.expenseRepository.createItem(
+          root,
+          item.group as Group,
+          { ...itemWithoutId, ...itemPayloadWithWarranty },
+          manager,
+        );
+      } else {
+        const updateItem = await this.expenseRepository.findItemById(item.id);
+        if (!updateItem) {
+          throw new UpdateException();
+        }
+
+        await this.expenseRepository.UpdateItem(
+          updateItem,
+          itemPayloadWithWarranty,
+          manager,
+        );
+      }
     }
   }
 
@@ -450,7 +870,7 @@ export class ExpenseService {
       return updatedItem;
     } catch (error) {
       await this.queryRunnerFactory.rollbackTransaction();
-      throw new Error(error.message);
+      throw error;
     }
   }
 
@@ -458,8 +878,169 @@ export class ExpenseService {
     return this.expenseRepository.remove(expenseId);
   }
 
-  async delete(expenseId: string): Promise<boolean> {
+  async delete(expenseId: string, deleteGroup = false): Promise<boolean> {
+    const expense = await this.expenseRepository.find(expenseId);
+    if (!expense) return false;
+
+    if (deleteGroup && expense.installmentGroupId) {
+      const group = await this.expenseRepository.findByInstallmentGroup(
+        expense.installmentGroupId,
+      );
+      for (const member of group) {
+        await this.expenseRepository.delete(member.id);
+      }
+      return true;
+    }
+
     return this.expenseRepository.delete(expenseId);
+  }
+
+  async getReceipt(
+    expenseId: string,
+    userId: string,
+  ): Promise<ExpenseReceiptDto> {
+    const expense = await this.expenseRepository.find(expenseId);
+    if (!expense) throw new NotExistException();
+    if (expense.user?.id !== userId) throw new ForbiddenException();
+
+    let items = expense.items ?? [];
+    let photos = expense.photos ?? [];
+    const isRoot = !expense.isInstallment || expense.installmentNumber === 1;
+    let groupMembers: Expense[] = [];
+
+    if (expense.installmentGroupId) {
+      groupMembers = await this.expenseRepository.findByInstallmentGroup(
+        expense.installmentGroupId,
+      );
+    }
+
+    if (expense.installmentGroupId && !isRoot) {
+      const root = await this.expenseRepository.findInstallmentRoot(
+        expense.installmentGroupId,
+      );
+      if (root) {
+        items = root.items ?? [];
+        photos = root.photos ?? [];
+      }
+    }
+
+    const itemsTotal = items.length
+      ? this.calculateTotalValue(items as itemType[])
+      : undefined;
+    const { installmentValue, totalValue } = computeReceiptAmounts(
+      expense,
+      groupMembers,
+      itemsTotal,
+    );
+
+    return {
+      id: expense.id,
+      type: 'expense',
+      name: expense.name,
+      value: installmentValue,
+      installmentValue,
+      totalValue,
+      date: expense.date,
+      uri: expense.uri ?? '',
+      photos,
+      isInstallmentRoot: isRoot,
+      installment: {
+        installmentNumber: expense.installmentNumber,
+        totalInstallments: expense.totalInstallments,
+        installmentGroupId: expense.installmentGroupId,
+        isInstallment: expense.isInstallment,
+        installmentLabel: buildInstallmentLabel(
+          expense.installmentNumber,
+          expense.totalInstallments,
+        ),
+      },
+      store: expense.store,
+      payment: expense.payment,
+      items,
+      user: expense.user,
+    };
+  }
+
+  private async getPhotoTargetExpense(
+    expenseId: string,
+    userId: string,
+  ): Promise<Expense> {
+    const expense = await this.expenseRepository.find(expenseId);
+    if (!expense) throw new NotExistException();
+    if (expense.user?.id !== userId) throw new ForbiddenException();
+
+    if (expense.installmentGroupId && expense.installmentNumber !== 1) {
+      const root = await this.expenseRepository.findInstallmentRoot(
+        expense.installmentGroupId,
+      );
+      if (root) return root;
+    }
+    return expense;
+  }
+
+  async uploadPhoto(
+    expenseId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<Expense> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Arquivo de imagem é obrigatório');
+    }
+    if (!this.imageMimeRegex.test(file.mimetype)) {
+      throw new BadRequestException(
+        'Apenas imagens (jpg, jpeg, png, gif, webp) são permitidas',
+      );
+    }
+
+    const expense = await this.getPhotoTargetExpense(expenseId, userId);
+    const photos = expense.photos ?? [];
+    if (photos.length >= MAX_PHOTOS_PER_FINANCIAL) {
+      throw new BadRequestException(
+        `Limite de ${MAX_PHOTOS_PER_FINANCIAL} fotos por despesa.`,
+      );
+    }
+
+    const ext =
+      file.originalname
+        ?.split('.')
+        .pop()
+        ?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+    const fileName = `expense-${randomUUID()}.${ext.length > 8 ? 'jpg' : ext}`;
+    const uploaded = await this.fileStorage.uploadFile(
+      file.buffer,
+      fileName,
+      file.mimetype,
+      'expense',
+    );
+
+    return this.expenseRepository.save({
+      ...expense,
+      photos: [...photos, uploaded.webContentLink],
+    });
+  }
+
+  async removePhoto(
+    expenseId: string,
+    photoUrl: string,
+    userId: string,
+  ): Promise<Expense> {
+    const expense = await this.getPhotoTargetExpense(expenseId, userId);
+    const photos = expense.photos ?? [];
+    if (!photos.includes(photoUrl)) {
+      throw new BadRequestException('Foto não encontrada nesta despesa');
+    }
+
+    try {
+      const fileId = this.fileStorage.extractFileIdFromUrl(photoUrl);
+      if (fileId) await this.fileStorage.deleteFile(fileId);
+    } catch {
+      /* ignore storage cleanup errors */
+    }
+
+    return this.expenseRepository.save({
+      ...expense,
+      photos: photos.filter((u) => u !== photoUrl),
+    });
   }
 
   async getByPeriod(
@@ -531,15 +1112,30 @@ export class ExpenseService {
     return this.expenseRepository.countByUser(userIds);
   }
 
+  private normalizeItemLine(item: itemType): itemType {
+    const value = Number(item.value);
+    const quantity = Number(item.quantity);
+    const total =
+      item.total != null && !Number.isNaN(Number(item.total))
+        ? Number(Number(item.total).toFixed(2))
+        : Number((value * quantity).toFixed(2));
+
+    return {
+      ...item,
+      value,
+      quantity,
+      total,
+    };
+  }
+
   private calculateTotalValue = (items: itemType[]): number => {
     if (!items || items.length === 0) return 0;
 
-    const total = items.reduce((total, item) => {
-      const itemTotal = !isNaN(item.total) ? Number(item.total) : 0;
-      return total + itemTotal;
+    const total = items.reduce((sum, item) => {
+      return sum + this.normalizeItemLine(item).total;
     }, 0);
 
-    return Number((Math.ceil(total * 100) / 100).toFixed(2));
+    return Number((Math.round(total * 100) / 100).toFixed(2));
   };
 
   async getMostUsedPaymentName(): Promise<string> {
@@ -578,23 +1174,77 @@ export class ExpenseService {
     });
   }
 
+  private normalizeExpenseDtoItems(dto: CreateExpenseDto): CreateExpenseDto {
+    return {
+      ...dto,
+      items: (dto.items ?? []).map((item) => this.normalizeItemLine(item)),
+    };
+  }
+
   async recurringConfirm(
     user: User,
     expenseRecurringConfirmDto: ExpenseRecurringConfirmDto,
   ): Promise<void> {
-    const { expenses } = expenseRecurringConfirmDto;
-    const { expenseIds } = expenseRecurringConfirmDto;
+    const { expenses, expenseIds } = expenseRecurringConfirmDto;
 
-    // trocar para false a repetição de cada despesa do array expenseIds
-    expenseIds.forEach(async (expenseId: string) => {
+    for (const expenseId of expenseIds) {
       await this.updateRecurringExpenseToFalse(expenseId);
-    });
+    }
 
-    // criar as novas despesas, executado assim para não usar muitas conexões com o banco de dados (limit de 2)
-    for (const expense of expenses) {
+    for (let i = 0; i < expenses.length; i++) {
+      const expenseDto = this.normalizeExpenseDtoItems(expenses[i]);
+      const sourceId = expenseIds[i];
+      const source = sourceId
+        ? await this.expenseRepository.find(sourceId)
+        : null;
+
       const currentMonth = new Date().getMonth() + 1;
-      expense.date = setSpecificMonth(expense.date, currentMonth);
-      await this.create(user, expense);
+      expenseDto.date = setSpecificMonth(expenseDto.date, currentMonth);
+
+      if (
+        source?.isInstallment &&
+        source.totalInstallments == null &&
+        source.installmentGroupId
+      ) {
+        const nextNumber =
+          this.installmentPlanner.nextInfiniteInstallmentNumber(
+            source.installmentNumber,
+          );
+        await this.persistRecurringInfiniteInstallment(
+          user,
+          expenseDto,
+          source,
+          nextNumber,
+        );
+      } else {
+        expenseDto.repeat = source?.repeat ?? false;
+        await this.create(user, expenseDto);
+      }
+    }
+  }
+
+  private async persistRecurringInfiniteInstallment(
+    user: User,
+    dto: CreateExpenseDto,
+    source: Expense,
+    installmentNumber: number,
+  ): Promise<void> {
+    const meta: ResolvedInstallmentMeta = {
+      installmentGroupId: source.installmentGroupId,
+      installmentNumber,
+      totalInstallments: null,
+      isInstallment: true,
+      repeat: true,
+    };
+
+    await this.queryRunnerFactory.startTransaction();
+    try {
+      const expense = await this.persistExpense(user, dto, meta, true);
+      await this.queryRunnerFactory.commitTransaction();
+      await this.afterExpenseCreated(user, expense, dto.uri);
+    } catch (error) {
+      await this.queryRunnerFactory.rollbackTransaction();
+      throw error;
     }
   }
 

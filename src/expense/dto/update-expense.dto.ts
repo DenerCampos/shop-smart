@@ -29,10 +29,6 @@ export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {
   name: string;
 
   @IsOptional()
-  @IsNumber()
-  value: number;
-
-  @IsOptional()
   @IsBoolean()
   repeat: boolean;
 

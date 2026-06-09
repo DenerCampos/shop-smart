@@ -68,6 +68,17 @@ function calendarDateAtUtcNoon(year: number, month: number, day: number): Date {
   return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
 }
 
+/** Normaliza entrada de data de formulário (YYYY-MM-DD) ou timestamp para meio-dia UTC no calendário APP_TIMEZONE. */
+export function parseCalendarDateInput(date: Date | string): Date {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    return calendarDateAtUtcNoon(year, month, day);
+  }
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const { year, month, day } = getZonedDateParts(d);
+  return calendarDateAtUtcNoon(year, month, day);
+}
+
 function buildMonthDateRange(
   year: number,
   month: number,

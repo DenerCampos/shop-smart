@@ -84,7 +84,7 @@ export class ThemeRepository implements IThemeRepository {
   }
 
   async delete(theme: Theme): Promise<Theme> {
-    await this.themeEntity.softDelete(theme);
+    await this.themeEntity.softDelete({ id: theme.id });
 
     return theme;
   }
