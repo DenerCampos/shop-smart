@@ -1,4 +1,4 @@
-import { Exclude, Expose, Type } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
 import { ItemResponseDto } from 'src/expense/dto/item-response.dto';
 import { PaymentResponseDto } from 'src/payment/dto/payment-response.dto';

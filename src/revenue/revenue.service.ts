@@ -87,10 +87,11 @@ export class RevenueService {
     user: User,
     dto: CreateRevenueDto,
   ): Promise<Revenue> {
+    const recurrence = dto.recurrence as RecurrenceConfigDto;
     const schedule = this.installmentPlanner.buildFiniteSchedule(
       toInstallmentCalendarDate(new Date(dto.date ?? new Date())),
       dto.value,
-      dto.recurrence!,
+      recurrence,
     );
     const groupId = randomUUID();
     let first: Revenue | null = null;
@@ -101,7 +102,7 @@ export class RevenueService {
         const meta: ResolvedInstallmentMeta = {
           installmentGroupId: groupId,
           installmentNumber: slice.installmentNumber,
-          totalInstallments: dto.recurrence!.count ?? schedule.length,
+          totalInstallments: recurrence.count ?? schedule.length,
           isInstallment: true,
           repeat: false,
         };
@@ -339,7 +340,7 @@ export class RevenueService {
         revenue.user,
         sharedFields,
         totalValue,
-        recurrence!,
+        recurrence as RecurrenceConfigDto,
         manager,
       );
     } else {

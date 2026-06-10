@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -7,7 +7,6 @@ import {
   IsOptional,
   IsString,
   Min,
-  ValidateNested,
 } from 'class-validator';
 import { FinancialRecurrenceBlockDto } from 'src/common/dto/financial-recurrence.dto';
 import { capitalizeFirstLetter } from 'src/common/utils/transformString.util';

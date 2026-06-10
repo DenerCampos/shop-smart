@@ -99,7 +99,12 @@ export class GoogleDriveService implements IFileStorageService {
       fields: 'id',
     });
 
-    const id = createRes.data.id!;
+    const id = createRes.data.id;
+    if (!id) {
+      throw new Error(
+        `Google Drive: id não retornado ao criar subpasta "${name}"`,
+      );
+    }
     this.subfolderCache.set(name, id);
     this.logger.log(`Subpasta "${name}" criada no Google Drive (id: ${id})`);
     return id;

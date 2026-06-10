@@ -3,7 +3,6 @@ import { StoreService } from '../store.service';
 import { IStoreRepository } from '../interface/store.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
 import { Pagination } from '../../common/pagination/pagination';
-import { User } from '../../user/entities/user.entity';
 import { UpdateException } from '../../exception/updateException';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
 
@@ -12,17 +11,6 @@ describe('StoreService', () => {
   let storeRepository: jest.Mocked<
     Pick<IStoreRepository, 'findAll' | 'find' | 'getAllNames' | 'create'>
   >;
-
-  const user = (): User => {
-    const u = new User();
-    u.id = 'u1';
-    u.email = 'e@t.l';
-    u.name = 'n';
-    u.family = 'f';
-    u.coatOfArms = '/c';
-    u.password = 'p';
-    return u;
-  };
 
   beforeEach(async () => {
     storeRepository = {

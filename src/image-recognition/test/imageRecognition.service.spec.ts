@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ImageRecognitionService } from '../imageRecognition.service';
-import { IImageRecognitionRepository } from '../interfaces/imageRecognition.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
 import { GroupService } from '../../group/group.service';
 import { PaymentService } from '../../payment/payment.service';

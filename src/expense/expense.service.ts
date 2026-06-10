@@ -100,11 +100,12 @@ export class ExpenseService {
     user: User,
     dto: CreateExpenseDto,
   ): Promise<Expense> {
+    const recurrence = dto.recurrence as RecurrenceConfigDto;
     const totalValue = this.calculateTotalValue(dto.items);
     const schedule = this.installmentPlanner.buildFiniteSchedule(
       toInstallmentCalendarDate(new Date(dto.date)),
       totalValue,
-      dto.recurrence!,
+      recurrence,
     );
     const groupId = randomUUID();
     let firstExpense: Expense | null = null;
@@ -115,7 +116,7 @@ export class ExpenseService {
         const meta: ResolvedInstallmentMeta = {
           installmentGroupId: groupId,
           installmentNumber: slice.installmentNumber,
-          totalInstallments: dto.recurrence!.count ?? schedule.length,
+          totalInstallments: recurrence.count ?? schedule.length,
           isInstallment: true,
           repeat: false,
         };
@@ -175,7 +176,7 @@ export class ExpenseService {
     meta: ResolvedInstallmentMeta,
     withItems: boolean,
   ): Promise<Expense> {
-    const { items, store, payment, recurrence, ...rest } = dto;
+    const { items, store, payment, recurrence: _recurrence, ...rest } = dto;
     const normalizedItems = (items ?? []).map((item) =>
       this.normalizeItemLine(item),
     );
@@ -532,7 +533,7 @@ export class ExpenseService {
           user,
           sharedFields,
           totalValue,
-          recurrence!,
+          recurrence as RecurrenceConfigDto,
           manager,
         );
       } else {

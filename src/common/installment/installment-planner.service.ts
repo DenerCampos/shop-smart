@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
 import {
   buildInstallmentSchedule,
   normalizeItemWarranty,

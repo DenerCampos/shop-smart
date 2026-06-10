@@ -1,6 +1,5 @@
 import { CouponReaderService } from 'src/coupon-reader/couponReader.service';
 import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
-import { User } from 'src/user/entities/user.entity';
 import {
   CouponTextResult,
   ShoppingListItemTextAiResult,
@@ -113,7 +112,7 @@ export function mockCouponReaderService(): Pick<CouponReaderService, 'read'> {
     uri: 'https://example.com/nfe',
   };
   return {
-    read: jest.fn(async (_url: string, _user: User) => ({ ...result })),
+    read: jest.fn().mockImplementation(async () => ({ ...result })),
   };
 }
 

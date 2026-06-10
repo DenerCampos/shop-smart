@@ -2,7 +2,6 @@ import { CreateThemeDto } from '../dto/create-theme.dto';
 import { UpdateThemeDto } from '../dto/update-theme.dto';
 import { Theme } from '../entities/theme.entity';
 import { EntityManager } from 'typeorm';
-import { User } from 'src/user/entities/user.entity';
 
 export interface IThemeRepository {
   create(newTheme: CreateThemeDto, manager?: EntityManager): Promise<Theme>;

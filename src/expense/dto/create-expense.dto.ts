@@ -8,9 +8,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import {
-  FinancialRecurrenceBlockDto
-} from 'src/common/dto/financial-recurrence.dto';
+import { FinancialRecurrenceBlockDto } from 'src/common/dto/financial-recurrence.dto';
 import { CreatePaymentDto } from 'src/payment/dto/create-payment.dto';
 import { paymentType } from 'src/payment/types/paymentType';
 import { CreateStoreDto } from 'src/store/dto/create-store.dto';

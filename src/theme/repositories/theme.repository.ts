@@ -5,7 +5,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Theme } from '../entities/theme.entity';
 import { CreateThemeDto } from '../dto/create-theme.dto';
 import { UpdateThemeDto } from '../dto/update-theme.dto';
-import { User } from 'src/user/entities/user.entity';
 import { UserTheme } from '../entities/user-theme.entity';
 
 @Injectable()
