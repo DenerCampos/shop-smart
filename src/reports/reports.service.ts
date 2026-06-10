@@ -22,6 +22,10 @@ import { MostPurchasedItemsModel } from './models/MostPurchasedItems.models';
 import { ExpensesIncomeComparisonDto } from './dto/expenses-income-comparison.dto';
 import { ExpensesIncomeComparisonModel } from './models/ExpensesIncomeComparison.models';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
+import { WarrantyItemsQueryDto } from './dto/warranty-items-query.dto';
+import { WarrantyItemModel } from './models/WarrantyItems.models';
+import { WarrantyItemsResult } from './types/reportsType';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Injectable()
 export class ReportsService {
@@ -140,6 +144,59 @@ export class ReportsService {
           totalRevenues: rev ? rev.totalRevenues : 0,
         });
       });
+  }
+
+  async warrantyItems(
+    user: User,
+    query: WarrantyItemsQueryDto,
+  ): Promise<paginationData<WarrantyItemModel>> {
+    const userIds = await this.resolveUserIds(user, query.userId);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const offset = this.pagination.getOffset(page, limit);
+    const year = query.year ?? new Date().getFullYear().toString();
+    const search = query.search ?? '';
+    const includeExpired = query.includeExpired ?? false;
+
+    const [rows, totalItems] = await Promise.all([
+      this.reportsRepository.warrantyItems(
+        userIds,
+        year,
+        search,
+        includeExpired,
+        limit,
+        offset,
+      ),
+      this.reportsRepository.warrantyItemsCount(
+        userIds,
+        year,
+        search,
+        includeExpired,
+      ),
+    ]);
+
+    const data = rows.map((item: WarrantyItemsResult) => {
+      const expiresAt = new Date(item.warrantyExpiresAt);
+      const now = new Date();
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const daysRemaining = Math.ceil(
+        (expiresAt.getTime() - now.getTime()) / msPerDay,
+      );
+
+      return new WarrantyItemModel({
+        ...item,
+        daysRemaining,
+        isExpired: daysRemaining < 0,
+      });
+    });
+
+    return this.pagination.paginateData(
+      data,
+      page,
+      limit,
+      totalItems,
+      `${this.url}/warranty-items`,
+    );
   }
 
   private async resolveUserIds(

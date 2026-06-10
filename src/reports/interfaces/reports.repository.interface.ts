@@ -5,6 +5,7 @@ import {
   ExpenseByStoreResult,
   MostPurchasedItemsResult,
   RevenueByGroupedMonthResult,
+  WarrantyItemsResult,
 } from '../types/reportsType';
 
 export interface IReportsRepository {
@@ -38,4 +39,18 @@ export interface IReportsRepository {
     startDate: string,
     endDate: string,
   ): Promise<RevenueByGroupedMonthResult[] | []>;
+  warrantyItems(
+    userIds: string[],
+    year: string,
+    search: string,
+    includeExpired: boolean,
+    limit: number,
+    offset: number,
+  ): Promise<WarrantyItemsResult[]>;
+  warrantyItemsCount(
+    userIds: string[],
+    year: string,
+    search: string,
+    includeExpired: boolean,
+  ): Promise<number>;
 }
