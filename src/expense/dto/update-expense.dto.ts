@@ -3,7 +3,6 @@ import {
   IsBoolean,
   IsDateString,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
 } from 'class-validator';
@@ -27,10 +26,6 @@ export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {
   @IsString()
   @Transform(({ value }) => capitalizeFirstLetter(value))
   name: string;
-
-  @IsOptional()
-  @IsNumber()
-  value: number;
 
   @IsOptional()
   @IsBoolean()

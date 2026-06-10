@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TextRecognitionService } from '../textRecognition.service';
-import { ITextRecognitionRepository } from '../interfaces/textRecognition.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
 import { GroupService } from '../../group/group.service';
 import { TextRecognitionProviderFactory } from '../providers/factory/text-recognition-provider.factory';

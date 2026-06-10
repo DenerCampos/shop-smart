@@ -1,5 +1,5 @@
 export class ExpensesIncomeComparisonModel {
-  month: Date;
+  month: string;
   totalExpenses: number;
   totalRevenues: number;
 

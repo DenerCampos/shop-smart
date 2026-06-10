@@ -4,7 +4,6 @@ import { RemoveException } from 'src/exception/removeException';
 import { IExpenseRepository } from '../interface/expense.repository.interface';
 import { Expense } from '../entities/expense.entity';
 import { User } from 'src/user/entities/user.entity';
-import { UpdateExpenseDto } from '../dto/update-expense.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Item } from '../entities/item.entity';
 import { Group } from 'src/group/entities/group.entity';
@@ -67,6 +66,7 @@ export class ExpenseRepository implements IExpenseRepository {
     limit: number,
     search?: string,
     isRecurring?: boolean,
+    isInstallment?: boolean,
   ): Promise<[Expense[], number]> {
     const queryBuilder = this.expenseEntity
       .createQueryBuilder('expense')
@@ -92,6 +92,12 @@ export class ExpenseRepository implements IExpenseRepository {
 
     if (isRecurring !== undefined) {
       queryBuilder.andWhere('expense.repeat = :isRecurring', { isRecurring });
+    }
+
+    if (isInstallment !== undefined) {
+      queryBuilder.andWhere('expense.isInstallment = :isInstallment', {
+        isInstallment,
+      });
     }
 
     if (page !== undefined && limit !== undefined) {
@@ -120,10 +126,16 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async find(id: string): Promise<Expense | null> {
-    return await this.expenseEntity.findOne({
-      where: { id },
-      relations: ['items', 'items.group', 'payment', 'store'],
-    });
+    return await this.expenseEntity
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.items', 'item', 'item.deletedAt IS NULL')
+      .leftJoinAndSelect('item.group', 'group')
+      .leftJoinAndSelect('expense.payment', 'payment')
+      .leftJoinAndSelect('expense.store', 'store')
+      .leftJoinAndSelect('expense.user', 'user')
+      .where('expense.id = :id', { id })
+      .orderBy('item.createdAt', 'ASC')
+      .getOne();
   }
 
   async findItemById(id: string): Promise<Item | null> {
@@ -137,12 +149,13 @@ export class ExpenseRepository implements IExpenseRepository {
     return await this.itemEntity.find({
       where: { expense: { id: expenseId } },
       relations: ['group'],
+      order: { createdAt: 'ASC' },
     });
   }
 
   async update(
     expense: Expense,
-    updateExpenseDto: UpdateExpenseDto,
+    patch: Partial<Expense>,
     manager?: EntityManager,
   ): Promise<Expense> {
     const repository = manager
@@ -151,7 +164,7 @@ export class ExpenseRepository implements IExpenseRepository {
 
     return await repository.save({
       ...expense,
-      ...updateExpenseDto,
+      ...patch,
     });
   }
 
@@ -163,7 +176,17 @@ export class ExpenseRepository implements IExpenseRepository {
     const repository = manager ? manager.getRepository(Item) : this.itemEntity;
 
     // Extrair apenas as propriedades que queremos atualizar
-    const { code, name, quantity, unit, value, total } = updateItemDto;
+    const {
+      code,
+      name,
+      quantity,
+      unit,
+      value,
+      total,
+      warrantyDuration,
+      warrantyUnit,
+      warrantyExpiresAt,
+    } = updateItemDto;
 
     return await repository.save({
       ...item,
@@ -173,6 +196,9 @@ export class ExpenseRepository implements IExpenseRepository {
       unit,
       value,
       total,
+      warrantyDuration,
+      warrantyUnit: warrantyUnit as Item['warrantyUnit'],
+      warrantyExpiresAt,
     });
   }
 
@@ -277,16 +303,54 @@ export class ExpenseRepository implements IExpenseRepository {
   async getLatest(userIds: string[], limit: number): Promise<Expense[] | []> {
     if (!userIds || userIds.length === 0) return [];
 
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
     const query = this.expenseEntity
       .createQueryBuilder('expense')
       .leftJoin('expense.user', 'user')
       .addSelect(['user.id', 'user.name', 'user.profileImage'])
       .where('expense.userId IN (:...userIds)', { userIds })
       .andWhere('expense.deletedAt IS NULL')
+      .andWhere(
+        `(
+          expense.isInstallment = false
+          OR expense.totalInstallments IS NULL
+          OR (
+            expense.isInstallment = true
+            AND expense.totalInstallments IS NOT NULL
+            AND EXTRACT(YEAR FROM expense.date) = :currentYear
+            AND EXTRACT(MONTH FROM expense.date) = :currentMonth
+          )
+        )`,
+        { currentYear, currentMonth },
+      )
       .take(limit)
       .orderBy('expense.createdAt', 'DESC');
 
     return await query.getMany();
+  }
+
+  async findInstallmentRoot(groupId: string): Promise<Expense | null> {
+    return await this.expenseEntity
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.items', 'item', 'item.deletedAt IS NULL')
+      .leftJoinAndSelect('item.group', 'group')
+      .leftJoinAndSelect('expense.payment', 'payment')
+      .leftJoinAndSelect('expense.store', 'store')
+      .leftJoinAndSelect('expense.user', 'user')
+      .where('expense.installmentGroupId = :groupId', { groupId })
+      .andWhere('expense.installmentNumber = :num', { num: 1 })
+      .orderBy('item.createdAt', 'ASC')
+      .getOne();
+  }
+
+  async findByInstallmentGroup(groupId: string): Promise<Expense[]> {
+    return this.expenseEntity.find({
+      where: { installmentGroupId: groupId },
+      order: { installmentNumber: 'ASC' },
+    });
   }
 
   async getMostUsedPaymentName(): Promise<string | null> {
@@ -336,5 +400,12 @@ export class ExpenseRepository implements IExpenseRepository {
     const repository = manager ? manager.getRepository(Item) : this.itemEntity;
 
     await repository.softDelete({ id: In(itemIds) });
+  }
+
+  async save(expense: Expense, manager?: EntityManager): Promise<Expense> {
+    const repository = manager
+      ? manager.getRepository(Expense)
+      : this.expenseEntity;
+    return repository.save(expense);
   }
 }

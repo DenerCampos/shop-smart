@@ -23,6 +23,7 @@ import { GetValueRevenueCurrentDto } from './dto/get-value-revenue-current.dto';
 import { ResponseService } from 'src/common/response/response';
 import { User } from 'src/user/entities/user.entity';
 import { RevenueResponseDto } from './dto/revenue-response.dto';
+import { RevenueSummaryResponseDto } from './dto/revenue-summary-response.dto';
 import { RevenueListDto } from './dto/revenue-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
 import { RevenueRecurringConfirmDto } from './dto/revenue-recurring-confirm.dto';
@@ -31,6 +32,8 @@ import { AudioRecognitionService } from 'src/audio-recognition/audioRecognition.
 import { ImageRecognitionService } from 'src/image-recognition/imageRecognition.service';
 import { AnalyzeRevenueAudioResponseDto } from './dto/analyze-revenue-audio-response.dto';
 import { AnalyzeRevenueImageResponseDto } from './dto/analyze-revenue-image-response.dto';
+import { RevenueReceiptDto } from 'src/common/dto/financial-receipt.dto';
+import { RemoveFinancialPhotoDto } from 'src/common/dto/remove-financial-photo.dto';
 
 @Controller('/revenue')
 export class RevenueController {
@@ -51,8 +54,12 @@ export class RevenueController {
       user,
       createStoreDto,
     );
+    const full = await this.revenueService.findForEdit(createRevenue.id);
 
-    return this.responseService.mapToDto(RevenueResponseDto, createRevenue);
+    return this.responseService.mapToDto(
+      RevenueResponseDto,
+      full ? await this.revenueService.mapForResponse(full) : full,
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -60,10 +67,18 @@ export class RevenueController {
   async findAll(
     @Query() listDto: RevenueListDto,
     @CurrentUser() user: User,
-  ): Promise<paginationData<RevenueResponseDto>> {
+  ): Promise<paginationData<RevenueSummaryResponseDto>> {
     const revenues = await this.revenueService.findAll(listDto, user);
 
-    return this.responseService.mapPaginatedToDto(RevenueResponseDto, revenues);
+    return {
+      ...revenues,
+      data: this.responseService.mapArrayToDto(
+        RevenueSummaryResponseDto,
+        revenues.data.map((revenue) =>
+          this.revenueService.mapSummaryForResponse(revenue),
+        ),
+      ),
+    };
   }
 
   @UseGuards(AuthGuard)
@@ -93,10 +108,15 @@ export class RevenueController {
   @Get('/current-month')
   async getAllByCurrentMonth(
     @CurrentUser() user: User,
-  ): Promise<RevenueResponseDto[] | []> {
+  ): Promise<RevenueSummaryResponseDto[] | []> {
     const revenues = await this.revenueService.getAllByCurrentMonth(user);
 
-    return this.responseService.mapArrayToDto(RevenueResponseDto, revenues);
+    return this.responseService.mapArrayToDto(
+      RevenueSummaryResponseDto,
+      revenues.map((revenue) =>
+        this.revenueService.mapSummaryForResponse(revenue),
+      ),
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -108,11 +128,55 @@ export class RevenueController {
   }
 
   @UseGuards(AuthGuard)
+  @Get(':id/receipt')
+  async getReceipt(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<RevenueReceiptDto> {
+    return this.revenueService.getReceipt(id, user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/photos')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 1.5 * 1024 * 1024, files: 1 },
+    }),
+  )
+  async uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() image: Express.Multer.File,
+    @CurrentUser() user: User,
+  ): Promise<RevenueResponseDto> {
+    const revenue = await this.revenueService.uploadPhoto(id, image, user.id);
+    return this.responseService.mapToDto(RevenueResponseDto, revenue);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id/photos')
+  async removePhoto(
+    @Param('id') id: string,
+    @Body() body: RemoveFinancialPhotoDto,
+    @CurrentUser() user: User,
+  ): Promise<RevenueResponseDto> {
+    const revenue = await this.revenueService.removePhoto(
+      id,
+      body.photoUrl,
+      user.id,
+    );
+    return this.responseService.mapToDto(RevenueResponseDto, revenue);
+  }
+
+  @UseGuards(AuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<RevenueResponseDto> {
-    const revenue = await this.revenueService.find(id);
+    const revenue = await this.revenueService.findForEdit(id);
 
-    return this.responseService.mapToDto(RevenueResponseDto, revenue);
+    return this.responseService.mapToDto(
+      RevenueResponseDto,
+      revenue ? await this.revenueService.mapForResponse(revenue) : revenue,
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -123,13 +187,22 @@ export class RevenueController {
   ): Promise<RevenueResponseDto> {
     const revenue = await this.revenueService.update(id, updateStoreDto);
 
-    return this.responseService.mapToDto(RevenueResponseDto, revenue);
+    return this.responseService.mapToDto(
+      RevenueResponseDto,
+      await this.revenueService.mapForResponse(revenue),
+    );
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<object> {
-    const deleted = await this.revenueService.delete(id);
+  async remove(
+    @Param('id') id: string,
+    @Query('deleteGroup') deleteGroup?: string,
+  ): Promise<object> {
+    const deleted = await this.revenueService.delete(
+      id,
+      deleteGroup === 'true',
+    );
 
     return { deleted };
   }

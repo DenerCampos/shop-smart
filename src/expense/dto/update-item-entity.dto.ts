@@ -24,4 +24,15 @@ export class UpdateItemEntityDto {
   @IsOptional()
   @IsNumber()
   total: number;
+
+  @IsOptional()
+  @IsNumber()
+  warrantyDuration?: number | null;
+
+  @IsOptional()
+  @IsString()
+  warrantyUnit?: string | null;
+
+  @IsOptional()
+  warrantyExpiresAt?: Date | null;
 }

@@ -2,7 +2,7 @@ import { Expose } from 'class-transformer';
 
 export class ExpensesIncomeComparisonResponseDto {
   @Expose()
-  month: Date;
+  month: string;
 
   @Expose()
   totalExpenses: number;

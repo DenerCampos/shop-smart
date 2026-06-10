@@ -8,7 +8,6 @@ import {
   coinType,
   TransactionType,
 } from './types/coinType';
-import { AddCoinDto } from './dto/add-coin.dto';
 import { RemoveCoinDto } from './dto/remove-coin.dto';
 import { NotExistException } from 'src/exception/notExistException';
 import { InsufficientResourceException } from 'src/exception/insufficientResourceException';
@@ -57,7 +56,7 @@ export class CoinService {
   private setupEventListeners() {
     this.eventEmitter.on(
       'coin.remove',
-      async (user: User, type: coinType, metadata?: Record<string, any>) => {
+      async (user: User, type: coinType, _metadata?: Record<string, any>) => {
         try {
           await this.removeCoins(user, { type });
           this.eventEmitter.emit('coin.success');
@@ -70,7 +69,7 @@ export class CoinService {
 
     this.eventEmitter.on(
       'coin.add',
-      async (user: User, type: coinType, metadata?: Record<string, any>) => {
+      async (user: User, type: coinType, _metadata?: Record<string, any>) => {
         try {
           await this.addCoins(user, { type });
           this.eventEmitter.emit('coin.success');
@@ -379,8 +378,8 @@ export class CoinService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const offset = this.pagination.getOffset(page, limit);
-    const startDate = query.startDate!;
-    const endDate = query.endDate!;
+    const startDate = query.startDate ?? '';
+    const endDate = query.endDate ?? '';
 
     const [rows, total] = await this.coinRepository.findStatementPage(
       userIds,

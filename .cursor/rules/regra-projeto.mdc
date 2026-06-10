@@ -160,7 +160,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |
 | `/theme` | theme |
 | `/profile` | profile |
-| `/reports` | reports |
+| `/reports` | reports — incl. `GET /warranty-items` (itens em garantia, SP-86) |
 | `/group`, `/payment`, `/store` | resources |
 | `/coupon-reader` | coupon-reader |
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
@@ -234,6 +234,9 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `missoes.md` — missões dinâmicas (SP-78 / SP-110)
 - `extrato-moedas.md` — extrato de moedas e celebração de tarefas (SP-97)
 - `mesada.md` — liquidação de mesada, financeiro e histórico (SP-113)
+- `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86)
+- `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
+- `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 
 ---

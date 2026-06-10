@@ -10,7 +10,10 @@ import { createAppConfigMock } from '../../common/test/app-config.mock';
 describe('ReportsService', () => {
   let service: ReportsService;
   let reportsRepository: jest.Mocked<
-    Pick<IReportsRepository, 'expenseByGroup'>
+    Pick<
+      IReportsRepository,
+      'expenseByGroup' | 'expenseByGroupedMonth' | 'revenueByGroupedMonth'
+    >
   >;
   let familyGroupService: jest.Mocked<
     Pick<
@@ -33,6 +36,12 @@ describe('ReportsService', () => {
   beforeEach(async () => {
     reportsRepository = {
       expenseByGroup: jest.fn().mockResolvedValue([]),
+      expenseByGroupedMonth: jest.fn().mockResolvedValue([
+        { month: '2026-06', totalExpenses: 100 },
+      ]),
+      revenueByGroupedMonth: jest.fn().mockResolvedValue([
+        { month: '2026-06', totalRevenues: 200 },
+      ]),
     };
     familyGroupService = {
       getAcceptedMemberUserIdsIfAdmin: jest.fn().mockResolvedValue(['u1']),
@@ -68,5 +77,19 @@ describe('ReportsService', () => {
       dto.startDate,
       dto.endDate,
     );
+  });
+
+  it('expensesIncomeComparison retorna 12 meses do ano com zeros', async () => {
+    const result = await service.expensesIncomeComparison(user(), {
+      year: '2026',
+    } as never);
+
+    expect(result).toHaveLength(12);
+    expect(result[0].month).toBe('2026-01');
+    expect(result[0].totalExpenses).toBe(0);
+    expect(result[5].month).toBe('2026-06');
+    expect(result[5].totalExpenses).toBe(100);
+    expect(result[5].totalRevenues).toBe(200);
+    expect(result[11].month).toBe('2026-12');
   });
 });

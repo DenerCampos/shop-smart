@@ -3,9 +3,9 @@ import { ItemResponseDto } from './item-response.dto';
 import { PaymentResponseDto } from 'src/payment/dto/payment-response.dto';
 import { StoreResponseDto } from 'src/store/dto/store-response.dto';
 import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
-import { RecurrenceResponseDto } from 'src/common/dto/financial-recurrence-response.dto';
 
-export class ExpenseResponseDto {
+/** Listagem e endpoints agregados — sem bloco `recurrence` (só no detalhe/edit). */
+export class ExpenseSummaryResponseDto {
   @Expose()
   id: string;
 
@@ -62,10 +62,6 @@ export class ExpenseResponseDto {
   @Expose()
   @Type(() => ItemResponseDto)
   items: ItemResponseDto[];
-
-  @Expose()
-  @Type(() => RecurrenceResponseDto)
-  recurrence: RecurrenceResponseDto;
 
   @Expose()
   @Type(() => OwnerResponseDto)

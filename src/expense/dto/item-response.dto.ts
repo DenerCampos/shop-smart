@@ -24,6 +24,15 @@ export class ItemResponseDto {
   total: number;
 
   @Expose()
+  warrantyDuration: number | null;
+
+  @Expose()
+  warrantyUnit: string | null;
+
+  @Expose()
+  warrantyExpiresAt: Date | null;
+
+  @Expose()
   createdAt?: Date;
 
   @Expose()

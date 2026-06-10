@@ -8,6 +8,9 @@ export type itemType = {
   unit: string;
   value: number;
   total: number;
+  warrantyDuration?: number | null;
+  warrantyUnit?: 'days' | 'months' | 'years' | null;
+  warrantyExpiresAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
   deletedAt?: Date;

@@ -14,6 +14,8 @@ import { MostPurchasedItemsResponseDto } from './dto/most-purchased-items-respon
 import { MostPurchasedItemsDto } from './dto/most-purchased-items.dto';
 import { ExpensesIncomeComparisonDto } from './dto/expenses-income-comparison.dto';
 import { ExpensesIncomeComparisonResponseDto } from './dto/expenses-income-comparison-response.dto';
+import { WarrantyItemsQueryDto } from './dto/warranty-items-query.dto';
+import { WarrantyItemsResponseDto } from './dto/warranty-items-response.dto';
 
 @Controller('/reports')
 export class ReportsController {
@@ -97,5 +99,16 @@ export class ReportsController {
       ExpensesIncomeComparisonResponseDto,
       reports,
     );
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('warranty-items')
+  async warrantyItems(
+    @CurrentUser() user: User,
+    @Query() query: WarrantyItemsQueryDto,
+  ): Promise<WarrantyItemsResponseDto> {
+    const reports = await this.reportsService.warrantyItems(user, query);
+
+    return this.responseService.mapToDto(WarrantyItemsResponseDto, reports);
   }
 }

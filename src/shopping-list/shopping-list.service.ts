@@ -28,10 +28,7 @@ import {
   SHOPPING_LIST_ITEM_STATUS,
   ShoppingListItemStatus,
 } from './types/shopping-list-item-status.type';
-import {
-  SHOPPING_LIST_STATUS,
-  ShoppingListStatus,
-} from './types/shopping-list-status.type';
+import { SHOPPING_LIST_STATUS } from './types/shopping-list-status.type';
 import { ShoppingListGateway } from './shopping-list.gateway';
 import { ResponseService } from 'src/common/response/response';
 import { TextRecognitionService } from 'src/text-recognition/textRecognition.service';

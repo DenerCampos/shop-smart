@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IReportsRepository } from '../interfaces/reports.repository.interface';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Item } from 'src/expense/entities/item.entity';
 import {
@@ -10,6 +10,7 @@ import {
   ExpenseByStoreResult,
   MostPurchasedItemsResult,
   RevenueByGroupedMonthResult,
+  WarrantyItemsResult,
 } from '../types/reportsType';
 import { Expense } from 'src/expense/entities/expense.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
@@ -65,6 +66,7 @@ export class ReportsRepository implements IReportsRepository {
       .andWhere('expense.userId IN (:...userIds)', { userIds })
       .groupBy('store.id')
       .orderBy('value', 'DESC')
+      .limit(10)
       .getRawMany();
 
     return result;
@@ -143,16 +145,109 @@ export class ReportsRepository implements IReportsRepository {
   ): Promise<RevenueByGroupedMonthResult[] | []> {
     const result = await this.revenueEntity
       .createQueryBuilder('revenue')
-      .select("DATE_FORMAT(revenue.createdAt, '%Y-%m')", 'month')
+      .select("DATE_FORMAT(revenue.date, '%Y-%m')", 'month')
       .addSelect('SUM(revenue.value)', 'totalRevenues')
       .where('revenue.userId IN (:...userIds)', { userIds })
-      .andWhere('revenue.createdAt BETWEEN :start AND :end', {
+      .andWhere('revenue.date BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
       })
       .groupBy('month')
+      .orderBy('month', 'ASC')
       .getRawMany();
 
     return result;
+  }
+
+  private applyWarrantyItemsFilters(
+    qb: SelectQueryBuilder<Item>,
+    userIds: string[],
+    year: string,
+    search: string,
+    includeExpired: boolean,
+  ) {
+    qb.innerJoin('item.expense', 'expense')
+      .leftJoin('expense.store', 'store')
+      .innerJoin('expense.user', 'user')
+      .where('expense.userId IN (:...userIds)', { userIds })
+      .andWhere('expense.deletedAt IS NULL')
+      .andWhere('item.warrantyExpiresAt IS NOT NULL')
+      .andWhere('item.warrantyDuration IS NOT NULL')
+      .andWhere('YEAR(expense.date) = :year', { year: parseInt(year, 10) })
+      .andWhere(
+        '(expense.isInstallment = false OR expense.installmentNumber = 1 OR expense.installmentNumber IS NULL)',
+      );
+
+    if (!includeExpired) {
+      qb.andWhere('item.warrantyExpiresAt >= :now', { now: new Date() });
+    }
+
+    if (search) {
+      qb.andWhere('LOWER(item.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    return qb;
+  }
+
+  async warrantyItems(
+    userIds: string[],
+    year: string,
+    search: string,
+    includeExpired: boolean,
+    limit: number,
+    offset: number,
+  ): Promise<WarrantyItemsResult[]> {
+    const qb = this.itemEntity.createQueryBuilder('item');
+    this.applyWarrantyItemsFilters(qb, userIds, year, search, includeExpired);
+
+    const rows = await qb
+      .select('item.id', 'id')
+      .addSelect('item.name', 'name')
+      .addSelect('item.quantity', 'quantity')
+      .addSelect('item.warrantyDuration', 'warrantyDuration')
+      .addSelect('item.warrantyUnit', 'warrantyUnit')
+      .addSelect('item.warrantyExpiresAt', 'warrantyExpiresAt')
+      .addSelect('expense.date', 'purchaseDate')
+      .addSelect('expense.id', 'expenseId')
+      .addSelect('expense.name', 'expenseName')
+      .addSelect('store.name', 'storeName')
+      .addSelect('user.id', 'userId')
+      .addSelect('user.name', 'userName')
+      .orderBy('item.warrantyExpiresAt', 'ASC')
+      .offset(offset)
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      quantity: Number(row.quantity),
+      warrantyDuration: Number(row.warrantyDuration),
+      warrantyUnit: row.warrantyUnit,
+      warrantyExpiresAt: row.warrantyExpiresAt,
+      purchaseDate: row.purchaseDate,
+      expenseId: row.expenseId,
+      expenseName: row.expenseName,
+      storeName: row.storeName ?? null,
+      userId: row.userId,
+      userName: row.userName,
+    }));
+  }
+
+  async warrantyItemsCount(
+    userIds: string[],
+    year: string,
+    search: string,
+    includeExpired: boolean,
+  ): Promise<number> {
+    const qb = this.itemEntity.createQueryBuilder('item');
+    this.applyWarrantyItemsFilters(qb, userIds, year, search, includeExpired);
+
+    const result = await qb
+      .select('COUNT(DISTINCT item.id)', 'total')
+      .getRawOne();
+    return Number(result?.total ?? 0);
   }
 }

@@ -19,6 +19,7 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/user/entities/user.entity';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
+import { ExpenseSummaryResponseDto } from './dto/expense-summary-response.dto';
 import { ResponseService } from 'src/common/response/response';
 import { ExpenseListDto } from './dto/expense-list.dto';
 import { paginationData } from 'src/common/pagination/pagination';
@@ -32,6 +33,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AudioRecognitionService } from 'src/audio-recognition/audioRecognition.service';
 import { ImageRecognitionService } from 'src/image-recognition/imageRecognition.service';
+import { ExpenseReceiptDto } from 'src/common/dto/financial-receipt.dto';
+import { RemoveFinancialPhotoDto } from 'src/common/dto/remove-financial-photo.dto';
 
 @Controller('/expense')
 export class ExpenseController {
@@ -52,8 +55,12 @@ export class ExpenseController {
       user,
       createExpenseDto,
     );
+    const full = await this.expenseService.findForEdit(createExpense.id);
 
-    return this.responseService.mapToDto(ExpenseResponseDto, createExpense);
+    return this.responseService.mapToDto(
+      ExpenseResponseDto,
+      full ? await this.expenseService.mapForResponse(full) : full,
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -61,20 +68,33 @@ export class ExpenseController {
   async findAll(
     @Query() listDto: ExpenseListDto,
     @CurrentUser() user: User,
-  ): Promise<paginationData<ExpenseResponseDto>> {
+  ): Promise<paginationData<ExpenseSummaryResponseDto>> {
     const expenses = await this.expenseService.findAll(listDto, user);
 
-    return this.responseService.mapPaginatedToDto(ExpenseResponseDto, expenses);
+    return {
+      ...expenses,
+      data: this.responseService.mapArrayToDto(
+        ExpenseSummaryResponseDto,
+        expenses.data.map((expense) =>
+          this.expenseService.mapSummaryForResponse(expense),
+        ),
+      ),
+    };
   }
 
   @UseGuards(AuthGuard)
   @Get('/current-month')
   async getAllByCurrentMonth(
     @CurrentUser() user: User,
-  ): Promise<ExpenseResponseDto[] | []> {
+  ): Promise<ExpenseSummaryResponseDto[] | []> {
     const expenses = await this.expenseService.getAllByCurrentMonth(user);
 
-    return this.responseService.mapArrayToDto(ExpenseResponseDto, expenses);
+    return this.responseService.mapArrayToDto(
+      ExpenseSummaryResponseDto,
+      expenses.map((expense) =>
+        this.expenseService.mapSummaryForResponse(expense),
+      ),
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -89,11 +109,16 @@ export class ExpenseController {
   @Get('/recurring/current-month')
   async getRecurringExpenseByCurrentMonth(
     @CurrentUser() user: User,
-  ): Promise<ExpenseResponseDto[] | []> {
+  ): Promise<ExpenseSummaryResponseDto[] | []> {
     const expenses =
       await this.expenseService.getRecurringExpenseByCurrentMonth(user);
 
-    return this.responseService.mapArrayToDto(ExpenseResponseDto, expenses);
+    return this.responseService.mapArrayToDto(
+      ExpenseSummaryResponseDto,
+      expenses.map((expense) =>
+        this.expenseService.mapSummaryForResponse(expense),
+      ),
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -109,11 +134,55 @@ export class ExpenseController {
   }
 
   @UseGuards(AuthGuard)
+  @Get(':id/receipt')
+  async getReceipt(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<ExpenseReceiptDto> {
+    return this.expenseService.getReceipt(id, user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post(':id/photos')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 1.5 * 1024 * 1024, files: 1 },
+    }),
+  )
+  async uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() image: Express.Multer.File,
+    @CurrentUser() user: User,
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseService.uploadPhoto(id, image, user.id);
+    return this.responseService.mapToDto(ExpenseResponseDto, expense);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id/photos')
+  async removePhoto(
+    @Param('id') id: string,
+    @Body() body: RemoveFinancialPhotoDto,
+    @CurrentUser() user: User,
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseService.removePhoto(
+      id,
+      body.photoUrl,
+      user.id,
+    );
+    return this.responseService.mapToDto(ExpenseResponseDto, expense);
+  }
+
+  @UseGuards(AuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<ExpenseResponseDto> {
-    const expense = await this.expenseService.find(id);
+    const expense = await this.expenseService.findForEdit(id);
 
-    return this.responseService.mapToDto(ExpenseResponseDto, expense);
+    return this.responseService.mapToDto(
+      ExpenseResponseDto,
+      expense ? await this.expenseService.mapForResponse(expense) : expense,
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -129,7 +198,10 @@ export class ExpenseController {
       user,
     );
 
-    return this.responseService.mapToDto(ExpenseResponseDto, expense);
+    return this.responseService.mapToDto(
+      ExpenseResponseDto,
+      await this.expenseService.mapForResponse(expense),
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -146,8 +218,14 @@ export class ExpenseController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<object> {
-    const deleted = await this.expenseService.delete(id);
+  async remove(
+    @Param('id') id: string,
+    @Query('deleteGroup') deleteGroup?: string,
+  ): Promise<object> {
+    const deleted = await this.expenseService.delete(
+      id,
+      deleteGroup === 'true',
+    );
 
     return { deleted };
   }

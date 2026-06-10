@@ -21,6 +21,18 @@ export class LatestRegistrationsDto {
   date: Date;
 
   @Expose()
+  isInstallment: boolean;
+
+  @Expose()
+  installmentNumber: number | null;
+
+  @Expose()
+  totalInstallments: number | null;
+
+  @Expose()
+  installmentLabel: string | null;
+
+  @Expose()
   @Type(() => OwnerResponseDto)
   user: OwnerResponseDto;
 }
