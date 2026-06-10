@@ -30,12 +30,12 @@ export interface MostPurchasedItemsResult {
 }
 
 export interface ExpenseByGroupedMonthResult {
-  month: Date;
+  month: string;
   totalExpenses: number;
 }
 
 export interface RevenueByGroupedMonthResult {
-  month: Date;
+  month: string;
   totalRevenues: number;
 }
 

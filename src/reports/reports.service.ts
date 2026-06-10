@@ -116,34 +116,34 @@ export class ReportsService {
       expensesIncomeComparison.userId,
     );
 
-    const start = `${expensesIncomeComparison.year}-01-01 00:00:00`;
-    const end = `${expensesIncomeComparison.year}-12-31 23:59:59`;
+    const year = expensesIncomeComparison.year ?? new Date().getFullYear().toString();
+
+    const start = `${year}-01-01 00:00:00`;
+    const end = `${year}-12-31 23:59:59`;
 
     const [expenses, revenues] = await Promise.all([
       this.reportsRepository.expenseByGroupedMonth(userIds, start, end),
       this.reportsRepository.revenueByGroupedMonth(userIds, start, end),
     ]);
 
-    const monthSet = new Set([
-      ...expenses.map((e) => e.month),
-      ...revenues.map((r) => r.month),
-    ]);
+    const months = Array.from({ length: 12 }, (_, index) => {
+      const month = String(index + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    });
 
-    return Array.from(monthSet)
-      .sort((a, b) => a.localeCompare(b))
-      .map((month) => {
-        const exp = expenses.find(
-          (e: ExpenseByGroupedMonthResult) => e.month === month,
-        );
-        const rev = revenues.find(
-          (r: RevenueByGroupedMonthResult) => r.month === month,
-        );
-        return new ExpensesIncomeComparisonModel({
-          month,
-          totalExpenses: exp ? exp.totalExpenses : 0,
-          totalRevenues: rev ? rev.totalRevenues : 0,
-        });
+    return months.map((month) => {
+      const exp = expenses.find(
+        (e: ExpenseByGroupedMonthResult) => e.month === month,
+      );
+      const rev = revenues.find(
+        (r: RevenueByGroupedMonthResult) => r.month === month,
+      );
+      return new ExpensesIncomeComparisonModel({
+        month,
+        totalExpenses: exp ? Number(exp.totalExpenses) : 0,
+        totalRevenues: rev ? Number(rev.totalRevenues) : 0,
       });
+    });
   }
 
   async warrantyItems(

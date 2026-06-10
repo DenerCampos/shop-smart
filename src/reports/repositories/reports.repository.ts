@@ -66,6 +66,7 @@ export class ReportsRepository implements IReportsRepository {
       .andWhere('expense.userId IN (:...userIds)', { userIds })
       .groupBy('store.id')
       .orderBy('value', 'DESC')
+      .limit(10)
       .getRawMany();
 
     return result;
@@ -144,14 +145,15 @@ export class ReportsRepository implements IReportsRepository {
   ): Promise<RevenueByGroupedMonthResult[] | []> {
     const result = await this.revenueEntity
       .createQueryBuilder('revenue')
-      .select("DATE_FORMAT(revenue.createdAt, '%Y-%m')", 'month')
+      .select("DATE_FORMAT(revenue.date, '%Y-%m')", 'month')
       .addSelect('SUM(revenue.value)', 'totalRevenues')
       .where('revenue.userId IN (:...userIds)', { userIds })
-      .andWhere('revenue.createdAt BETWEEN :start AND :end', {
+      .andWhere('revenue.date BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
       })
       .groupBy('month')
+      .orderBy('month', 'ASC')
       .getRawMany();
 
     return result;

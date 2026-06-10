@@ -236,6 +236,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `mesada.md` — liquidação de mesada, financeiro e histórico (SP-113)
 - `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86)
 - `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
+- `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 
 ---
