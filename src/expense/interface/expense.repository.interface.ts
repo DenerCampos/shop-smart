@@ -1,5 +1,4 @@
 import { EntityManager } from 'typeorm';
-import { UpdateExpenseDto } from '../dto/update-expense.dto';
 import { Expense } from '../entities/expense.entity';
 import { User } from 'src/user/entities/user.entity';
 import { Item } from '../entities/item.entity';
@@ -30,11 +29,12 @@ export interface IExpenseRepository {
     limit: number,
     search?: string,
     isRecurring?: boolean,
+    isInstallment?: boolean,
   ): Promise<[Expense[], number]>;
   find(id: string): Promise<Expense | null>;
   update(
     expense: Expense,
-    updateExpense: UpdateExpenseDto,
+    patch: Partial<Expense>,
     manager?: EntityManager,
   ): Promise<Expense>;
   UpdateItem(
@@ -64,6 +64,9 @@ export interface IExpenseRepository {
     month: number,
     day: number,
   ): Promise<Expense[] | []>;
+  findInstallmentRoot(groupId: string): Promise<Expense | null>;
+  findByInstallmentGroup(groupId: string): Promise<Expense[]>;
   removeItem(id: string): Promise<void>;
   removeItems(itemIds: string[], manager?: EntityManager): Promise<void>;
+  save(expense: Expense, manager?: EntityManager): Promise<Expense>;
 }

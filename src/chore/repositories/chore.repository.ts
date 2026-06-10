@@ -348,6 +348,19 @@ export class ChoreRepository implements IChoreRepository {
     });
   }
 
+  async findPayrollSettlementDetail(
+    familyGroupId: string,
+    periodYm: number,
+  ): Promise<ChorePayrollSettlement | null> {
+    return this.payrollEntity.findOne({
+      where: {
+        familyGroup: { id: familyGroupId },
+        periodYm,
+      },
+      relations: ['lines', 'lines.member', 'settledBy'],
+    });
+  }
+
   async findPendingPayrollOccurrencesLocked(
     familyGroupId: string,
     periodYm: number,
@@ -357,6 +370,8 @@ export class ChoreRepository implements IChoreRepository {
     return occRepo
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.assignedTo', 'assignee')
+      .leftJoinAndSelect('o.approvedBy', 'approver')
+      .leftJoinAndSelect('o.definition', 'definition')
       .setLock('pessimistic_write')
       .where('o.familyGroupId = :fg', { fg: familyGroupId })
       .andWhere('o.deletedAt IS NULL')
@@ -426,5 +441,47 @@ export class ChoreRepository implements IChoreRepository {
       where: { id },
       relations: ['familyGroup', 'createdBy'],
     });
+  }
+
+  async sumPendingCoinRewards(
+    familyGroupId: string,
+    userId: string,
+  ): Promise<number> {
+    const raw = await this.occurrenceEntity
+      .createQueryBuilder('o')
+      .select('COALESCE(SUM(o.snapshotCoinReward), 0)', 'total')
+      .where('o.familyGroupId = :fg', { fg: familyGroupId })
+      .andWhere('o.deletedAt IS NULL')
+      .andWhere('o.status = :st', { st: CHORE_OCCURRENCE_STATUS.COMPLETED })
+      .andWhere('o.assignedToUserId = :userId', { userId })
+      .andWhere('o.snapshotCoinReward > 0')
+      .andWhere('o.coinRewardCelebratedAt IS NULL')
+      .getRawOne<{ total: string | null }>();
+
+    return Number(raw?.total ?? 0);
+  }
+
+  async celebratePendingCoinRewards(
+    familyGroupId: string,
+    userId: string,
+  ): Promise<number> {
+    const total = await this.sumPendingCoinRewards(familyGroupId, userId);
+    if (total <= 0) {
+      return 0;
+    }
+
+    await this.occurrenceEntity
+      .createQueryBuilder()
+      .update(ChoreOccurrence)
+      .set({ coinRewardCelebratedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('familyGroupId = :fg', { fg: familyGroupId })
+      .andWhere('deletedAt IS NULL')
+      .andWhere('status = :st', { st: CHORE_OCCURRENCE_STATUS.COMPLETED })
+      .andWhere('assignedToUserId = :userId', { userId })
+      .andWhere('snapshotCoinReward > 0')
+      .andWhere('coinRewardCelebratedAt IS NULL')
+      .execute();
+
+    return total;
   }
 }

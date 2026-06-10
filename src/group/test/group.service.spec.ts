@@ -4,7 +4,6 @@ import { IGroupRepository } from '../interfaces/group.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
 import { Pagination } from '../../common/pagination/pagination';
 import { User } from '../../user/entities/user.entity';
-import { Group } from '../entities/group.entity';
 import { UpdateException } from '../../exception/updateException';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
 

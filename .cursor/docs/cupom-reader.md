@@ -36,7 +36,7 @@ CouponReaderService.read(url, user)
          ├── TextRecognitionService.parseCoupon(text, user)
          │       ├── groupService.findAllNames(user) → grupos do usuário
          │       ├── GeminiTextProvider.parseCoupon(text, { groups })
-         │       │       └── Prompt + texto → JSON estruturado (CouponTextResult)
+         │       │       └── AiCallTelemetryService.measure → Gemini; falhas: Loki `event=ai_provider_call`, `ok=false`, nível `warn`
          │       └── Persiste em TextRecognition (sourceText truncado em 500 chars)
          │
          ├── StoreService.getAllNames() + findSimilarString()

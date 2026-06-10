@@ -17,6 +17,7 @@ import { LoggerModule } from './logger/logger.module';
 import { AppLoggerService } from './logger/logger.service';
 import { SecurityAuditLogService } from './logging/security-audit-log.service';
 import { AiCallTelemetryService } from './logging/ai-call-telemetry.service';
+import { InstallmentPlannerService } from './installment/installment-planner.service';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AiCallTelemetryService } from './logging/ai-call-telemetry.service';
     AppLoggerService,
     SecurityAuditLogService,
     AiCallTelemetryService,
+    InstallmentPlannerService,
     {
       provide: 'IApiUsageRepository',
       useClass: ApiUsageRepository,
@@ -51,6 +53,7 @@ import { AiCallTelemetryService } from './logging/ai-call-telemetry.service';
     AppLoggerService,
     SecurityAuditLogService,
     AiCallTelemetryService,
+    InstallmentPlannerService,
     LoggerModule,
     'IApiUsageRepository',
   ],

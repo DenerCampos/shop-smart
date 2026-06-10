@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AudioRecognitionService } from '../audioRecognition.service';
-import { IAudioRecognitionRepository } from '../interfaces/audioRecognition.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
 import { GroupService } from '../../group/group.service';
 import { PaymentService } from '../../payment/payment.service';

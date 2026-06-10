@@ -13,11 +13,17 @@ import { createQueryRunnerFactoryMock } from '../../common/test/query-runner-fac
 import { createTestUser } from '../../common/test/user.fixture';
 import { NotExistException } from 'src/exception/notExistException';
 import { InsufficientResourceException } from 'src/exception/insufficientResourceException';
+import { FamilyMemberResolverService } from '../../common/family-member-resolver/family-member-resolver.service';
+import { TransactionType } from '../types/coinType';
 
 describe('CoinService', () => {
   let service: CoinService;
   let coinRepository: jest.Mocked<ICoinRepository>;
   let queryRunnerFactory: ReturnType<typeof createQueryRunnerFactoryMock>;
+  let familyMemberResolver: {
+    getAcceptedMemberUserIdsIfAdmin: jest.Mock;
+    getAcceptedMemberUserIds: jest.Mock;
+  };
 
   beforeEach(async () => {
     coinRepository = {
@@ -30,9 +36,20 @@ describe('CoinService', () => {
       remove: jest.fn(),
       delete: jest.fn(),
       createTransaction: jest.fn(),
+      findStatementPage: jest.fn().mockResolvedValue([[], 0]),
+      getStatementTotals: jest.fn().mockResolvedValue({
+        totalEarned: 0,
+        totalSpent: 0,
+      }),
       countAll: jest.fn(),
     };
     queryRunnerFactory = createQueryRunnerFactoryMock();
+    familyMemberResolver = {
+      getAcceptedMemberUserIdsIfAdmin: jest.fn().mockResolvedValue(['user-1']),
+      getAcceptedMemberUserIds: jest
+        .fn()
+        .mockResolvedValue(['user-1', 'user-2']),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +59,10 @@ describe('CoinService', () => {
         Pagination,
         { provide: QueryRunnerFactory, useValue: queryRunnerFactory },
         { provide: EVENT_EMITTER, useValue: new EventEmitter() },
+        {
+          provide: FamilyMemberResolverService,
+          useValue: familyMemberResolver,
+        },
       ],
     }).compile();
 
@@ -177,5 +198,100 @@ describe('CoinService', () => {
     await service.removeCoins(user, { type: 'color' });
 
     expect(queryRunnerFactory.commitTransaction).toHaveBeenCalled();
+  });
+
+  it('getStatement — resolve userIds via admin e monta resposta paginada', async () => {
+    const user = createTestUser({ id: 'user-1' });
+    const row = {
+      id: 'tx-1',
+      amount: 5,
+      transactionType: TransactionType.EARN,
+      description: 'Cupom',
+      balanceBefore: 0,
+      balanceAfter: 5,
+      createdAt: new Date('2024-06-01T12:00:00.000Z'),
+      userId: 'user-1',
+      userName: 'Test',
+    };
+
+    coinRepository.findStatementPage.mockResolvedValue([[row], 1]);
+    coinRepository.getStatementTotals.mockResolvedValue({
+      totalEarned: 5,
+      totalSpent: 0,
+    });
+
+    const result = await service.getStatement(user, {
+      startDate: '2024-06-01 00:00:00',
+      endDate: '2024-06-30 23:59:59',
+      page: 1,
+      limit: 20,
+    });
+
+    expect(
+      familyMemberResolver.getAcceptedMemberUserIdsIfAdmin,
+    ).toHaveBeenCalledWith('user-1');
+    expect(coinRepository.findStatementPage).toHaveBeenCalledWith(
+      ['user-1'],
+      '2024-06-01 00:00:00',
+      '2024-06-30 23:59:59',
+      0,
+      20,
+    );
+    expect(result.totals).toEqual({ totalEarned: 5, totalSpent: 0 });
+    expect(result.data).toEqual([row]);
+    expect(result.meta.totalItems).toBe(1);
+  });
+
+  it('getStatement — userId=all usa todos os membros aceitos', async () => {
+    const user = createTestUser({ id: 'user-1' });
+
+    await service.getStatement(user, {
+      startDate: '2024-06-01 00:00:00',
+      endDate: '2024-06-30 23:59:59',
+      userId: 'all',
+    });
+
+    expect(familyMemberResolver.getAcceptedMemberUserIds).toHaveBeenCalledWith(
+      'user-1',
+    );
+    expect(coinRepository.findStatementPage).toHaveBeenCalledWith(
+      ['user-1', 'user-2'],
+      expect.any(String),
+      expect.any(String),
+      0,
+      20,
+    );
+  });
+
+  it('getStatement — userId específico permitido quando membro da família', async () => {
+    const user = createTestUser({ id: 'user-1' });
+
+    await service.getStatement(user, {
+      startDate: '2024-06-01 00:00:00',
+      endDate: '2024-06-30 23:59:59',
+      userId: 'user-2',
+    });
+
+    expect(coinRepository.findStatementPage).toHaveBeenCalledWith(
+      ['user-2'],
+      expect.any(String),
+      expect.any(String),
+      0,
+      20,
+    );
+  });
+
+  it('getStatement — ForbiddenException para userId fora da família', async () => {
+    const user = createTestUser({ id: 'user-1' });
+
+    await expect(
+      service.getStatement(user, {
+        startDate: '2024-06-01 00:00:00',
+        endDate: '2024-06-30 23:59:59',
+        userId: '00000000-0000-4000-8000-000000000099',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(coinRepository.findStatementPage).not.toHaveBeenCalled();
   });
 });

@@ -110,6 +110,11 @@ export interface IChoreRepository {
     periodYm: number,
   ): Promise<ChorePayrollSettlement | null>;
 
+  findPayrollSettlementDetail(
+    familyGroupId: string,
+    periodYm: number,
+  ): Promise<ChorePayrollSettlement | null>;
+
   findPendingPayrollOccurrencesLocked(
     familyGroupId: string,
     periodYm: number,
@@ -137,4 +142,11 @@ export interface IChoreRepository {
   ): Promise<void>;
 
   loadDefinitionByIdWithRelations(id: string): Promise<ChoreDefinition | null>;
+
+  sumPendingCoinRewards(familyGroupId: string, userId: string): Promise<number>;
+
+  celebratePendingCoinRewards(
+    familyGroupId: string,
+    userId: string,
+  ): Promise<number>;
 }

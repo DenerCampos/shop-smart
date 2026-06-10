@@ -6,15 +6,12 @@ import { MissionService } from '../mission.service';
 
 describe('MissionEventsListener', () => {
   let eventEmitter: EventEmitter;
-  let missionService: jest.Mocked<
-    Pick<MissionService, 'incrementProgress' | 'setFinancialHealthProgress'>
-  >;
+  let missionService: jest.Mocked<Pick<MissionService, 'incrementProgress'>>;
 
   beforeEach(async () => {
     eventEmitter = new EventEmitter();
     missionService = {
       incrementProgress: jest.fn().mockResolvedValue(undefined),
-      setFinancialHealthProgress: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -31,7 +28,7 @@ describe('MissionEventsListener', () => {
   const emit = (event: string, userId = 'user-1') =>
     eventEmitter.emit(event, { userId });
 
-  it('expense.created incrementa daily_coupon e atualiza saúde financeira', async () => {
+  it('expense.created incrementa daily_coupon', async () => {
     emit('expense.created');
 
     await new Promise((resolve) => setImmediate(resolve));
@@ -40,12 +37,10 @@ describe('MissionEventsListener', () => {
       'user-1',
       'daily_coupon',
     );
-    expect(missionService.setFinancialHealthProgress).toHaveBeenCalledWith(
-      'user-1',
-    );
+    expect(missionService.incrementProgress).toHaveBeenCalledTimes(1);
   });
 
-  it('revenue.created incrementa daily_revenue e atualiza saúde financeira', async () => {
+  it('revenue.created incrementa daily_revenue', async () => {
     emit('revenue.created');
 
     await new Promise((resolve) => setImmediate(resolve));
@@ -54,9 +49,7 @@ describe('MissionEventsListener', () => {
       'user-1',
       'daily_revenue',
     );
-    expect(missionService.setFinancialHealthProgress).toHaveBeenCalledWith(
-      'user-1',
-    );
+    expect(missionService.incrementProgress).toHaveBeenCalledTimes(1);
   });
 
   it('coupon.processed não incrementa daily_coupon', async () => {

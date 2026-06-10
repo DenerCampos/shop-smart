@@ -38,6 +38,15 @@ export class Item {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
+  @Column({ type: 'int', nullable: true })
+  warrantyDuration: number | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  warrantyUnit: 'days' | 'months' | 'years' | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  warrantyExpiresAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

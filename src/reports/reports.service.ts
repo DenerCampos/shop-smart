@@ -22,6 +22,10 @@ import { MostPurchasedItemsModel } from './models/MostPurchasedItems.models';
 import { ExpensesIncomeComparisonDto } from './dto/expenses-income-comparison.dto';
 import { ExpensesIncomeComparisonModel } from './models/ExpensesIncomeComparison.models';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
+import { WarrantyItemsQueryDto } from './dto/warranty-items-query.dto';
+import { WarrantyItemModel } from './models/WarrantyItems.models';
+import { WarrantyItemsResult } from './types/reportsType';
+import { paginationData } from 'src/common/pagination/pagination';
 
 @Injectable()
 export class ReportsService {
@@ -112,34 +116,87 @@ export class ReportsService {
       expensesIncomeComparison.userId,
     );
 
-    const start = `${expensesIncomeComparison.year}-01-01 00:00:00`;
-    const end = `${expensesIncomeComparison.year}-12-31 23:59:59`;
+    const year = expensesIncomeComparison.year ?? new Date().getFullYear().toString();
+
+    const start = `${year}-01-01 00:00:00`;
+    const end = `${year}-12-31 23:59:59`;
 
     const [expenses, revenues] = await Promise.all([
       this.reportsRepository.expenseByGroupedMonth(userIds, start, end),
       this.reportsRepository.revenueByGroupedMonth(userIds, start, end),
     ]);
 
-    const monthSet = new Set([
-      ...expenses.map((e) => e.month),
-      ...revenues.map((r) => r.month),
+    const months = Array.from({ length: 12 }, (_, index) => {
+      const month = String(index + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    });
+
+    return months.map((month) => {
+      const exp = expenses.find(
+        (e: ExpenseByGroupedMonthResult) => e.month === month,
+      );
+      const rev = revenues.find(
+        (r: RevenueByGroupedMonthResult) => r.month === month,
+      );
+      return new ExpensesIncomeComparisonModel({
+        month,
+        totalExpenses: exp ? Number(exp.totalExpenses) : 0,
+        totalRevenues: rev ? Number(rev.totalRevenues) : 0,
+      });
+    });
+  }
+
+  async warrantyItems(
+    user: User,
+    query: WarrantyItemsQueryDto,
+  ): Promise<paginationData<WarrantyItemModel>> {
+    const userIds = await this.resolveUserIds(user, query.userId);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const offset = this.pagination.getOffset(page, limit);
+    const year = query.year ?? new Date().getFullYear().toString();
+    const search = query.search ?? '';
+    const includeExpired = query.includeExpired ?? false;
+
+    const [rows, totalItems] = await Promise.all([
+      this.reportsRepository.warrantyItems(
+        userIds,
+        year,
+        search,
+        includeExpired,
+        limit,
+        offset,
+      ),
+      this.reportsRepository.warrantyItemsCount(
+        userIds,
+        year,
+        search,
+        includeExpired,
+      ),
     ]);
 
-    return Array.from(monthSet)
-      .sort((a, b) => a.localeCompare(b))
-      .map((month) => {
-        const exp = expenses.find(
-          (e: ExpenseByGroupedMonthResult) => e.month === month,
-        );
-        const rev = revenues.find(
-          (r: RevenueByGroupedMonthResult) => r.month === month,
-        );
-        return new ExpensesIncomeComparisonModel({
-          month,
-          totalExpenses: exp ? exp.totalExpenses : 0,
-          totalRevenues: rev ? rev.totalRevenues : 0,
-        });
+    const data = rows.map((item: WarrantyItemsResult) => {
+      const expiresAt = new Date(item.warrantyExpiresAt);
+      const now = new Date();
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const daysRemaining = Math.ceil(
+        (expiresAt.getTime() - now.getTime()) / msPerDay,
+      );
+
+      return new WarrantyItemModel({
+        ...item,
+        daysRemaining,
+        isExpired: daysRemaining < 0,
       });
+    });
+
+    return this.pagination.paginateData(
+      data,
+      page,
+      limit,
+      totalItems,
+      `${this.url}/warranty-items`,
+    );
   }
 
   private async resolveUserIds(

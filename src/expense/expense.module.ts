@@ -14,6 +14,8 @@ import { CoinModule } from 'src/coin/coin.module';
 import { AudioRecognitionModule } from 'src/audio-recognition/audioRecognition.module';
 import { ImageRecognitionModule } from 'src/image-recognition/imageRecognition.module';
 
+import { FileStorageModule } from 'src/file-storage/file-storage.module';
+
 @Module({
   imports: [
     CommonModule,
@@ -24,6 +26,7 @@ import { ImageRecognitionModule } from 'src/image-recognition/imageRecognition.m
     CoinModule,
     AudioRecognitionModule,
     ImageRecognitionModule,
+    FileStorageModule,
     TypeOrmModule.forFeature([Expense, Item]),
   ],
   controllers: [ExpenseController],

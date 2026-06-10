@@ -1,8 +1,12 @@
 import { Type } from 'class-transformer';
 import {
+  IsIn,
+  IsInt,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { CreateGroupDto } from 'src/group/dto/create-group.dto';
@@ -29,9 +33,18 @@ export class CreateItemDto {
   @IsNumber()
   value: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
-  total: number;
+  total?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  warrantyDuration?: number | null;
+
+  @IsOptional()
+  @IsIn(['days', 'months', 'years'])
+  warrantyUnit?: 'days' | 'months' | 'years' | null;
 
   @ValidateNested()
   @Type(() => CreateGroupDto)

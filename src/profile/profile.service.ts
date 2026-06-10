@@ -13,6 +13,7 @@ import { CoinService } from 'src/coin/coin.service';
 import { RegistrationModel } from './models/registration.models';
 import { Expense } from 'src/expense/entities/expense.entity';
 import { Revenue } from 'src/revenue/entities/revenue.entity';
+import { buildInstallmentLabel } from 'src/common/installment/installment.util';
 import { registrarionsType } from './types/profileType';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 import { AuthService, IntegrationStatus } from 'src/auth/auth.service';
@@ -158,6 +159,9 @@ export class ProfileService {
     const pageRegistrations = allRegistrations.slice(offset, offset + limit);
 
     const registrations = pageRegistrations.map((registration) => {
+      const isInstallment = registration.isInstallment ?? false;
+      const installmentNumber = registration.installmentNumber ?? null;
+      const totalInstallments = registration.totalInstallments ?? null;
       return new RegistrationModel({
         id: registration.id as string,
         name: registration.name,
@@ -166,6 +170,13 @@ export class ProfileService {
         type: registration.type,
         date: registration.createdAt,
         user: registration.user,
+        isInstallment,
+        installmentNumber,
+        totalInstallments,
+        installmentLabel: buildInstallmentLabel(
+          installmentNumber,
+          totalInstallments,
+        ),
       });
     });
 

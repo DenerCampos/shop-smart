@@ -35,6 +35,21 @@ export class Expense {
   @Column({ type: 'boolean', default: false })
   repeat: boolean;
 
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  installmentGroupId: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  installmentNumber: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  totalInstallments: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  isInstallment: boolean;
+
+  @Column({ type: 'json', default: () => "'[]'" })
+  photos: string[];
+
   @Column({
     type: 'datetime',
     default: () => 'CURRENT_TIMESTAMP',

@@ -1,3 +1,5 @@
+export const APP_TIMEZONE = 'America/Sao_Paulo';
+
 export type DateRange = {
   startDate: Date;
   endDate: Date;
@@ -34,6 +36,110 @@ export const getPreviousMonth = (): number => {
 export const getCurrentDay = (): number => {
   const now = new Date();
   return now.getDate(); // getDate() retorna o dia do mês (1-31)
+};
+
+export function getZonedDateParts(
+  date: Date,
+  timeZone = APP_TIMEZONE,
+): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  return {
+    year: Number(parts.find((p) => p.type === 'year')?.value),
+    month: Number(parts.find((p) => p.type === 'month')?.value),
+    day: Number(parts.find((p) => p.type === 'day')?.value),
+  };
+}
+
+function toDateString(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+function calendarDateAtUtcNoon(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+}
+
+/** Normaliza entrada de data de formulário (YYYY-MM-DD) ou timestamp para meio-dia UTC no calendário APP_TIMEZONE. */
+export function parseCalendarDateInput(date: Date | string): Date {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    return calendarDateAtUtcNoon(year, month, day);
+  }
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const { year, month, day } = getZonedDateParts(d);
+  return calendarDateAtUtcNoon(year, month, day);
+}
+
+function buildMonthDateRange(
+  year: number,
+  month: number,
+  periodDescription: string,
+  timeZone = APP_TIMEZONE,
+): DateRange {
+  const totalDays = getDaysInMonth(year, month);
+  const startDateString = toDateString(year, month, 1);
+  const endDateString = toDateString(year, month, totalDays);
+  const startDate = calendarDateAtUtcNoon(year, month, 1);
+  const endDate = calendarDateAtUtcNoon(year, month, totalDays);
+
+  const dateFormatterBR = new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const monthNameFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    month: 'long',
+  });
+
+  return {
+    startDate,
+    endDate,
+    startDateString,
+    endDateString,
+    startDateBR: dateFormatterBR.format(startDate),
+    endDateBR: dateFormatterBR.format(endDate),
+    monthName: monthNameFormatter.format(startDate),
+    periodDescription,
+    startMonthName: monthNameFormatter.format(startDate),
+    endMonthName: monthNameFormatter.format(endDate),
+    year,
+    month,
+    startYear: year,
+    endYear: year,
+    totalDays,
+  };
+}
+
+/**
+ * Returns the closed previous calendar month in APP_TIMEZONE (America/Sao_Paulo).
+ * Date strings are safe for SQL DATE comparisons (YYYY-MM-DD).
+ */
+export const getPreviousMonthDates = (
+  now = new Date(),
+  timeZone = APP_TIMEZONE,
+): DateRange => {
+  const { year, month } = getZonedDateParts(now, timeZone);
+
+  let prevYear = year;
+  let prevMonth = month - 1;
+
+  if (prevMonth < 1) {
+    prevMonth = 12;
+    prevYear -= 1;
+  }
+
+  return buildMonthDateRange(prevYear, prevMonth, 'Mês anterior', timeZone);
 };
 
 export const getCurrentMonthDates = (): DateRange => {

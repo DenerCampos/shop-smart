@@ -33,10 +33,15 @@ import {
   ChorePayrollPendingResponseDto,
 } from './dto/chore-payroll-line-response.dto';
 import { ChorePayrollSuggestionResponseDto } from './dto/chore-payroll-suggestion-response.dto';
+import {
+  ChorePayrollSettlementDetailDto,
+  ChorePayrollSettlementLineDto,
+} from './dto/chore-payroll-settlement-response.dto';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
 import { UserService } from 'src/user/user.service';
 import { paginationData } from 'src/common/pagination/pagination';
 import { OwnerResponseDto } from 'src/common/dto/owner-response.dto';
+import { ChorePendingCoinRewardDto } from './dto/chore-pending-coin-reward.dto';
 
 @Controller('family-groups/:familyGroupId/chores')
 export class ChoreController {
@@ -334,6 +339,61 @@ export class ChoreController {
     });
   }
 
+  @Get('payroll/settlements')
+  @UseGuards(AuthGuard)
+  async payrollSettlementDetail(
+    @Param('familyGroupId') familyGroupId: string,
+    @Query() query: ChorePayrollPendingQueryDto,
+    @CurrentUser() user: User,
+  ): Promise<ChorePayrollSettlementDetailDto | null> {
+    const ref = new Date();
+    const periodYm =
+      query.year != null && query.month != null
+        ? query.year * 100 + query.month
+        : ref.getFullYear() * 100 + (ref.getMonth() + 1);
+
+    const settlement = await this.choreService.getPayrollSettlement(
+      familyGroupId,
+      user,
+      periodYm,
+    );
+
+    if (!settlement) {
+      return null;
+    }
+
+    const memberLines: ChorePayrollSettlementLineDto[] = [];
+
+    for (const line of settlement.lines ?? []) {
+      if (!line.member) {
+        continue;
+      }
+      memberLines.push(
+        this.responseService.mapToDto(ChorePayrollSettlementLineDto, {
+          totalAmount: Number(line.amountMoney ?? 0),
+          member: this.responseService.mapToDto(OwnerResponseDto, line.member),
+        }),
+      );
+    }
+
+    const totalSettled = memberLines.reduce(
+      (sum, row) => sum + row.totalAmount,
+      0,
+    );
+
+    return this.responseService.mapToDto(ChorePayrollSettlementDetailDto, {
+      id: settlement.id,
+      periodYm: settlement.periodYm,
+      settledAt: settlement.settledAt,
+      settledBy: this.responseService.mapToDto(
+        OwnerResponseDto,
+        settlement.settledBy,
+      ),
+      members: memberLines,
+      totalSettled,
+    });
+  }
+
   @Post('payroll/settle')
   @UseGuards(AuthGuard)
   async payrollSettle(
@@ -352,5 +412,37 @@ export class ChoreController {
       periodYm: settled.periodYm,
       settledAt: settled.settledAt,
     };
+  }
+
+  @Get('coin-rewards/pending')
+  @UseGuards(AuthGuard)
+  async pendingCoinRewards(
+    @Param('familyGroupId') familyGroupId: string,
+    @CurrentUser() user: User,
+  ): Promise<ChorePendingCoinRewardDto> {
+    const totalCoins = await this.choreService.getPendingCoinRewards(
+      familyGroupId,
+      user,
+    );
+
+    return this.responseService.mapToDto(ChorePendingCoinRewardDto, {
+      totalCoins,
+    });
+  }
+
+  @Post('coin-rewards/celebrate')
+  @UseGuards(AuthGuard)
+  async celebrateCoinRewards(
+    @Param('familyGroupId') familyGroupId: string,
+    @CurrentUser() user: User,
+  ): Promise<ChorePendingCoinRewardDto> {
+    const totalCoins = await this.choreService.celebratePendingCoinRewards(
+      familyGroupId,
+      user,
+    );
+
+    return this.responseService.mapToDto(ChorePendingCoinRewardDto, {
+      totalCoins,
+    });
   }
 }

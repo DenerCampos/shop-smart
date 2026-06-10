@@ -14,6 +14,7 @@ Use como lista de verificação em toda entrega. Marque cada item antes de consi
 - [ ] **Domínio**: módulo em `src/<dominio>/` (controller → service → repository; DTOs request/response; entidades em `entities/`).
 - [ ] **Contrato HTTP**: DTO de entrada (quando houver body/query) e DTO de saída; controller usa `responseService.mapToDto()` / `mapPaginatedToDto()` — nunca retorna entidade crua.
 - [ ] **Multi-tenant**: filtrar por `userId` (e `familyGroupId` quando o domínio for familiar); validar propriedade antes de update/delete.
+- [ ] **Dependências entre módulos**: evitar import circular entre módulos NestJS; para escopo familiar (membros aceitos, admin, `userIds` de relatório/extrato), usar `FamilyMemberResolverService` do `CommonModule` — **não** importar `FamilyGroupModule` só para isso (ver [Dependências circulares](#dependências-circulares-módulos-nestjs)).
 - [ ] **Banco**: migration em `db/migrations/` se entidade/coluna mudou (`npm run migration:generate db/migrations/NomeDescritivo`). Nunca `synchronize: true` em produção.
 - [ ] **Testes unitários**: `src/**/test/*.spec.ts` ou `*.spec.ts` no módulo para service/regras novas ou alteradas.
 - [ ] **Testes E2E**: `test/**/*.e2e-spec.ts` para rota HTTP nova ou contrato alterado. Rodar com **pouca RAM** (pode demorar): `npm run test:e2e:low-mem -- --testPathPattern=<arquivo>` — ver `.cursor/docs/testes.md` e `test/E2E-ESTRATEGIA.md`.
@@ -78,7 +79,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
 | Módulo | Pasta | Uso |
 |--------|-------|-----|
-| common | `common/` | Config, logger, logging, filters, middleware, pagination, response |
+| common | `common/` | Config, logger, logging, filters, middleware, pagination, response, **`FamilyMemberResolverService`** (escopo familiar sem importar `FamilyGroupModule`) |
 | file-storage | `file-storage/` | Abstração de armazenamento de arquivos |
 | supabase-storage | `supabase-storage/` | Provider Supabase |
 | google-drive | `google-drive/` | Google Drive (tokens, upload) |
@@ -112,6 +113,40 @@ nome-modulo/
 
 ---
 
+## Dependências circulares (módulos NestJS)
+
+**Evitar** ciclos do tipo `A → B → C → A`. Preferir **quebrar o ciclo na arquitetura** em vez de contornar com `forwardRef()` (último recurso).
+
+### Escopo familiar — usar `CommonModule`
+
+Quando o service precisar apenas de **dados de membership** (quem está no grupo, se é admin, lista de `userIds` aceitos para filtro multi-usuário), injete **`FamilyMemberResolverService`** (`src/common/family-member-resolver/`):
+
+| Necessidade | Método |
+|-------------|--------|
+| Admin vê todos os membros; demais só a si | `getAcceptedMemberUserIdsIfAdmin(userId)` |
+| Todos os membros aceitos do grupo (ou `[userId]` se sem grupo) | `getAcceptedMemberUserIds(userId)` |
+| Escopo + flag admin + `groupId` | `resolve(userId)` |
+
+**Importar** `CommonModule` no módulo do domínio; **não** importar `FamilyGroupModule` só para resolver membros.
+
+**Reservar** `FamilyGroupModule` / `FamilyGroupService` para regras de domínio do grupo (CRUD, convites, aprovações, resumo financeiro agregado, etc.).
+
+### Exemplo de ciclo evitado (SP-97 / extrato de moedas)
+
+```
+❌ CoinModule → FamilyGroupModule → ExpenseModule → CoinModule
+✅ CoinModule → CommonModule (FamilyMemberResolverService)
+   FamilyGroupModule → ExpenseModule → CoinModule   (unidirecional, OK)
+```
+
+### Checklist rápido
+
+- [ ] Novo import de módulo cria ciclo? (`grep` nos `*.module.ts` ou erro `UndefinedModuleException` no boot)
+- [ ] Precisa só de `userIds` / admin / grupo? → `FamilyMemberResolverService`
+- [ ] Precisa de regra de negócio do clã? → `FamilyGroupService` (e avaliar se o módulo consumidor pode depender de `FamilyGroupModule`)
+
+---
+
 ## API REST
 
 Prefixos atuais (atualizar ao criar controller):
@@ -122,16 +157,16 @@ Prefixos atuais (atualizar ao criar controller):
 | `/user` | user |
 | `/expense` | expense |
 | `/revenue` | revenue |
-| `/coin` | coin |
+| `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |
 | `/theme` | theme |
 | `/profile` | profile |
-| `/reports` | reports |
+| `/reports` | reports — incl. `GET /warranty-items` (itens em garantia, SP-86) |
 | `/group`, `/payment`, `/store` | resources |
 | `/coupon-reader` | coupon-reader |
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
 | `/family-group` | family-group |
 | `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
-| `family-groups/:familyGroupId/chores` | chore |
+| `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113) |
 | `/recipes` | recipe |
 | `missions` | mission |
 | `alexa` | alexa |
@@ -197,12 +232,17 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `grupo-familiar.md`, `recurring-family-group-feature.md` — family group
 - `cupom-reader.md` — cupons
 - `missoes.md` — missões dinâmicas (SP-78 / SP-110)
+- `extrato-moedas.md` — extrato de moedas e celebração de tarefas (SP-97)
+- `mesada.md` — liquidação de mesada, financeiro e histórico (SP-113)
+- `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86)
+- `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
+- `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 
 ---
 
 ## Regras críticas
 
-**Nunca:** commitar secrets; `synchronize` em produção; expor entidade/senha na response; SQL manual fora de migration; listagem sem paginação; deploy sem testes locais.
+**Nunca:** commitar secrets; `synchronize` em produção; expor entidade/senha na response; SQL manual fora de migration; listagem sem paginação; deploy sem testes locais; import circular entre módulos quando `FamilyMemberResolverService` (ou outro serviço de infra em `CommonModule`) resolve o caso.
 
-**Sempre:** DTO entrada/saída; validar entrada; migration para schema; testes (unit + E2E se HTTP); doc em `.cursor/docs/` alinhada ao código; atualizar **este** `regra-projeto.mdc` no checklist de nova funcionalidade.
+**Sempre:** DTO entrada/saída; validar entrada; migration para schema; testes (unit + E2E se HTTP); doc em `.cursor/docs/` alinhada ao código; atualizar **este** `regra-projeto.mdc` no checklist de nova funcionalidade; escopo familiar via `CommonModule` quando não houver regra de domínio do `family-group`.

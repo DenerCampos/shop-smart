@@ -13,6 +13,8 @@ import { ChoreOccurrence } from '../entities/chore-occurrence.entity';
 import { ChorePayrollSettlement } from '../entities/chore-payroll-settlement.entity';
 import { CHORE_OCCURRENCE_STATUS } from '../types/chore-occurrence-status.type';
 import { User } from 'src/user/entities/user.entity';
+import { ExpenseService } from 'src/expense/expense.service';
+import { RevenueService } from 'src/revenue/revenue.service';
 import { IChoreRepository } from '../interface/chore.repository.interface';
 import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
 
@@ -34,9 +36,13 @@ describe('ChoreService', () => {
       | 'findPayrollSettlementByGroupAndPeriod'
       | 'findOneOccurrenceVisible'
       | 'insertOpenOccurrence'
+      | 'sumPendingCoinRewards'
+      | 'celebratePendingCoinRewards'
     >
   >;
   let coinService: { addEarnedCoinsByAmount: jest.Mock };
+  let expenseService: { createPayrollExpense: jest.Mock };
+  let revenueService: { createPayrollRevenue: jest.Mock };
   let userService: { find: jest.Mock };
 
   const memberUser = { id: 'u-member', name: 'Filho' } as User;
@@ -63,10 +69,20 @@ describe('ChoreService', () => {
       findPayrollSettlementByGroupAndPeriod: jest.fn(),
       findOneOccurrenceVisible: jest.fn(),
       insertOpenOccurrence: jest.fn(),
+      sumPendingCoinRewards: jest.fn(),
+      celebratePendingCoinRewards: jest.fn(),
     };
 
     coinService = {
       addEarnedCoinsByAmount: jest.fn().mockResolvedValue({}),
+    };
+
+    expenseService = {
+      createPayrollExpense: jest.fn().mockResolvedValue({}),
+    };
+
+    revenueService = {
+      createPayrollRevenue: jest.fn().mockResolvedValue({}),
     };
 
     userService = {
@@ -82,6 +98,8 @@ describe('ChoreService', () => {
         { provide: UserService, useValue: userService },
         { provide: FILE_STORAGE, useValue: { uploadFile: jest.fn() } },
         { provide: CoinService, useValue: coinService },
+        { provide: ExpenseService, useValue: expenseService },
+        { provide: RevenueService, useValue: revenueService },
         {
           provide: AppConfig,
           useValue: { getBaseUrl: () => 'http://localhost:3000' },
@@ -116,7 +134,58 @@ describe('ChoreService', () => {
     expect(choreRepository.saveOccurrence).not.toHaveBeenCalled();
   });
 
+  it('approveOccurrence — envia tarefa para o mês seguinte se o período já foi liquidado', async () => {
+    const now = new Date();
+    const approvalPeriodYm = now.getFullYear() * 100 + (now.getMonth() + 1);
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const expectedNextPeriodYm =
+      nextMonth.getFullYear() * 100 + (nextMonth.getMonth() + 1);
+
+    const waiting = {
+      id: 'occ1',
+      deletedAt: null,
+      status: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
+      assignedTo: memberUser,
+      snapshotCoinReward: 7,
+      snapshotRewardMoney: 3.5,
+      definition: { id: 'def1' },
+    } as ChoreOccurrence;
+
+    choreRepository.findOccurrenceForApproveLocked.mockResolvedValue(waiting);
+    choreRepository.findPayrollSettlementByGroupAndPeriod.mockResolvedValue({
+      id: 'set1',
+      periodYm: approvalPeriodYm,
+    } as ChorePayrollSettlement);
+    choreRepository.saveOccurrence.mockImplementation(async (o) => o);
+    choreRepository.findDefinitionById.mockResolvedValue({
+      id: 'def1',
+      deletedAt: null,
+      isActive: true,
+      recurrence: 'once',
+    } as ChoreDefinition);
+
+    const afterApprove = {
+      id: 'occ1',
+      status: CHORE_OCCURRENCE_STATUS.COMPLETED,
+      assignedTo: memberUser,
+      earnedPeriodYm: expectedNextPeriodYm,
+      definition: { id: 'def1' },
+    } as ChoreOccurrence;
+
+    jest.spyOn(service, 'loadOccurrence').mockResolvedValue(afterApprove);
+
+    await service.approveOccurrence('g1', adminUser, 'occ1');
+
+    expect(choreRepository.saveOccurrence).toHaveBeenCalledWith(
+      expect.objectContaining({ earnedPeriodYm: expectedNextPeriodYm }),
+      expect.anything(),
+    );
+  });
+
   it('approveOccurrence — registra moedas para o executor', async () => {
+    choreRepository.findPayrollSettlementByGroupAndPeriod.mockResolvedValue(
+      null,
+    );
     const waiting = {
       id: 'occ1',
       deletedAt: null,
@@ -252,5 +321,45 @@ describe('ChoreService', () => {
     await expect(
       service.submitOccurrence('g1', memberUser, 'occ1'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('getPendingCoinRewards — valida membership e delega ao repositório', async () => {
+    choreRepository.sumPendingCoinRewards.mockResolvedValue(12);
+
+    const total = await service.getPendingCoinRewards('g1', memberUser);
+
+    expect(familyGroupService.assertAcceptedMembership).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(choreRepository.sumPendingCoinRewards).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(total).toBe(12);
+  });
+
+  it('celebratePendingCoinRewards — valida membership e retorna total celebrado', async () => {
+    choreRepository.celebratePendingCoinRewards.mockResolvedValue(7);
+
+    const total = await service.celebratePendingCoinRewards('g1', memberUser);
+
+    expect(familyGroupService.assertAcceptedMembership).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(choreRepository.celebratePendingCoinRewards).toHaveBeenCalledWith(
+      'g1',
+      memberUser.id,
+    );
+    expect(total).toBe(7);
+  });
+
+  it('celebratePendingCoinRewards — retorna zero quando não há pendentes', async () => {
+    choreRepository.celebratePendingCoinRewards.mockResolvedValue(0);
+
+    const total = await service.celebratePendingCoinRewards('g1', memberUser);
+
+    expect(total).toBe(0);
   });
 });

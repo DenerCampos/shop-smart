@@ -30,7 +30,6 @@ export class MissionEventsListener implements OnModuleInit {
       'expense.created',
       async (payload: DomainEventPayload) => {
         await this.safeIncrement(payload.userId, 'daily_coupon');
-        await this.safeFinancialUpdate(payload.userId);
       },
     );
 
@@ -38,7 +37,6 @@ export class MissionEventsListener implements OnModuleInit {
       'revenue.created',
       async (payload: DomainEventPayload) => {
         await this.safeIncrement(payload.userId, 'daily_revenue');
-        await this.safeFinancialUpdate(payload.userId);
       },
     );
 
@@ -76,21 +74,6 @@ export class MissionEventsListener implements OnModuleInit {
           err instanceof Error
             ? err.message
             : 'Unknown mission increment error',
-      });
-    }
-  }
-
-  private async safeFinancialUpdate(userId: string): Promise<void> {
-    try {
-      await this.missionService.setFinancialHealthProgress(userId);
-    } catch (err) {
-      logJson(this.logger, {
-        event: 'mission_financial_update_failed',
-        userId,
-        error_message:
-          err instanceof Error
-            ? err.message
-            : 'Unknown financial mission update error',
       });
     }
   }
