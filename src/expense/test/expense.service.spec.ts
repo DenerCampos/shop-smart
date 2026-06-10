@@ -9,11 +9,13 @@ import { GroupService } from '../../group/group.service';
 import { CoinService } from '../../coin/coin.service';
 import { QueryRunnerFactory } from '../../common/query-runner/queryRunner.factory';
 import { FamilyMemberResolverService } from '../../common/family-member-resolver/family-member-resolver.service';
+import { InstallmentPlannerService } from '../../common/installment/installment-planner.service';
 import { User } from '../../user/entities/user.entity';
 import { Store } from '../../store/entities/store.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
 import { createQueryRunnerFactoryMock } from '../../common/test/query-runner-factory.mock';
 import { provideEventEmitterMock } from '../../common/test/event-emitter.mock';
+import { FILE_STORAGE } from '../../file-storage/file-storage.constants';
 
 describe('ExpenseService', () => {
   let service: ExpenseService;
@@ -78,6 +80,20 @@ describe('ExpenseService', () => {
           provide: FamilyMemberResolverService,
           useValue: familyMemberResolver,
         },
+        {
+          provide: InstallmentPlannerService,
+          useValue: {
+            isFiniteInstallment: jest.fn().mockReturnValue(false),
+            resolveMeta: jest.fn().mockReturnValue({
+              installmentGroupId: null,
+              installmentNumber: null,
+              totalInstallments: null,
+              isInstallment: false,
+              repeat: false,
+            }),
+          },
+        },
+        { provide: FILE_STORAGE, useValue: { upload: jest.fn(), delete: jest.fn() } },
         provideEventEmitterMock(),
       ],
     }).compile();
@@ -95,6 +111,7 @@ describe('ExpenseService', () => {
         expect.any(Number),
         5,
         'x',
+        undefined,
         undefined,
       );
     });

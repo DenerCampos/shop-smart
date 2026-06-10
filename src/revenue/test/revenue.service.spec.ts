@@ -7,9 +7,13 @@ import { AppConfig } from '../../common/app-config/app.config';
 import { Pagination } from '../../common/pagination/pagination';
 import { CoinService } from '../../coin/coin.service';
 import { FamilyMemberResolverService } from '../../common/family-member-resolver/family-member-resolver.service';
+import { QueryRunnerFactory } from '../../common/query-runner/queryRunner.factory';
+import { InstallmentPlannerService } from '../../common/installment/installment-planner.service';
 import { User } from '../../user/entities/user.entity';
 import { Revenue } from '../entities/revenue.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { createQueryRunnerFactoryMock } from '../../common/test/query-runner-factory.mock';
+import { FILE_STORAGE } from '../../file-storage/file-storage.constants';
 
 describe('RevenueService', () => {
   let service: RevenueService;
@@ -56,6 +60,24 @@ describe('RevenueService', () => {
             }),
           },
         },
+        { provide: QueryRunnerFactory, useValue: createQueryRunnerFactoryMock() },
+        {
+          provide: InstallmentPlannerService,
+          useValue: {
+            isFiniteInstallment: jest.fn().mockReturnValue(false),
+            resolveMeta: jest.fn().mockReturnValue({
+              installmentGroupId: null,
+              installmentNumber: null,
+              totalInstallments: null,
+              isInstallment: false,
+              repeat: false,
+            }),
+            mergeInstallmentFields: jest
+              .fn()
+              .mockImplementation((base: Record<string, unknown>) => base),
+          },
+        },
+        { provide: FILE_STORAGE, useValue: { upload: jest.fn(), delete: jest.fn() } },
       ],
     }).compile();
 
@@ -85,6 +107,7 @@ describe('RevenueService', () => {
       ['u1'],
       expect.any(Number),
       10,
+      undefined,
       undefined,
       undefined,
     );
