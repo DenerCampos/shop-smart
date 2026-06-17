@@ -1,9 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
+  Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter } from 'events';
@@ -22,6 +26,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { AppConfig } from '../common/app-config/app.config';
 import { SecurityAuditLogService } from '../common/logging/security-audit-log.service';
+import { logJson } from '../common/logging/log-event.util';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,6 +45,7 @@ export interface IntegrationStatus {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly oauthSessions = new Map<string, OauthSession>();
   private readonly SESSION_TTL_MS = 10 * 60 * 1000;
   private readonly CODE_TTL_MS = 5 * 60 * 1000;
@@ -81,6 +87,48 @@ export class AuthService {
     await this.usersService.saveToken(user.id, accessToken);
 
     this.eventEmitter.emit('auth.login_success', { userId: user.id });
+
+    return { accessToken };
+  }
+
+  async demoLogin(key: string): Promise<jwtTokenType> {
+    if (!this.appConfig.isDemoEnabled()) {
+      throw new ForbiddenException('Demo desabilitado');
+    }
+
+    if (!key) {
+      throw new UnauthorizedException('Chave demo inválida');
+    }
+
+    const secret = this.appConfig.getDemoSecret();
+
+    const isKeyValid =
+      secret.length > 0 &&
+      key.length === secret.length &&
+      timingSafeEqual(Buffer.from(key), Buffer.from(secret));
+
+    if (!isKeyValid) {
+      logJson(
+        this.logger,
+        { event: 'demo_login_failed', reason: 'invalid_key' },
+        'warn',
+      );
+      throw new UnauthorizedException('Chave demo inválida');
+    }
+
+    const demoEmail = this.appConfig.getDemoUserEmail();
+    const user = await this.usersService.findByEmail(demoEmail);
+
+    if (!user) {
+      throw new NotFoundException('Usuário demo não encontrado');
+    }
+
+    const payload = { sub: user.id, username: user.email, isDemo: true };
+    const accessToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '2h',
+    });
+
+    await this.usersService.saveToken(user.id, accessToken);
 
     return { accessToken };
   }
