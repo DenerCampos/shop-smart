@@ -174,6 +174,29 @@ export class AppConfig {
     return getLokiConfig(this.configService);
   }
 
+  isDemoEnabled(): boolean {
+    const raw = (
+      this.configService.get<string>('DEMO_ENABLED', 'false') ?? 'false'
+    )
+      .toString()
+      .toLowerCase()
+      .trim();
+    return ['true', '1', 'yes', 'on'].includes(raw);
+  }
+
+  getDemoSecret(): string {
+    return (this.configService.get<string>('DEMO_SECRET') ?? '').trim();
+  }
+
+  getDemoUserEmail(): string {
+    return (
+      this.configService.get<string>(
+        'DEMO_USER_EMAIL',
+        'demo@superfamilyquest.com',
+      ) ?? 'demo@superfamilyquest.com'
+    ).trim();
+  }
+
   /**
    * Origens CORS para HTTP (Express) e WebSocket (Socket.IO), alinhadas a main.ts.
    */

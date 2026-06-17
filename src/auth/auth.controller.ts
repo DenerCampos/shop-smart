@@ -16,6 +16,7 @@ import { RefreshTokenDto } from './dto/refreshToken.dto';
 import { OauthAuthorizeDto } from './dto/oauth-authorize.dto';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { OauthTokenDto } from './dto/oauth-token.dto';
+import { DemoLoginDto } from './dto/demo-login.dto';
 import { jwtTokenType } from './types/jwtTokenType';
 
 @Controller('auth')
@@ -60,5 +61,12 @@ export class AuthController {
   @Post('oauth/token')
   async oauthToken(@Body() dto: OauthTokenDto) {
     return this.authService.oauthToken(dto);
+  }
+
+  @Throttle({ default: { limit: 3, ttl: seconds(60) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('demo')
+  async demoLogin(@Body() dto: DemoLoginDto): Promise<jwtTokenType> {
+    return this.authService.demoLogin(dto.key);
   }
 }
