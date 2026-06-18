@@ -284,6 +284,7 @@ export class ChoreRepository implements IChoreRepository {
         familyGroup: { id: familyGroupId },
         status: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
       },
+      relations: ['assignedTo'],
     });
   }
 

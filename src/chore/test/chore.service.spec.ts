@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { NotExistException } from 'src/exception/notExistException';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { FamilyGroupService } from 'src/family-group/family-group.service';
@@ -337,6 +338,73 @@ describe('ChoreService', () => {
       memberUser.id,
     );
     expect(total).toBe(12);
+  });
+
+  it('returnOccurrenceForAdjustment — devolve para IN_PROGRESS mantendo executor', async () => {
+    const waiting = {
+      id: 'occ1',
+      deletedAt: null,
+      status: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
+      assignedTo: memberUser,
+      submittedAt: new Date(),
+      approvedBy: null,
+      rejectionReason: null,
+    } as ChoreOccurrence;
+
+    choreRepository.findOccurrenceWaitingApproval.mockResolvedValue(waiting);
+    choreRepository.saveOccurrence.mockImplementation(async (o) => o);
+
+    const afterReturn = {
+      ...waiting,
+      status: CHORE_OCCURRENCE_STATUS.IN_PROGRESS,
+      submittedAt: null,
+    } as ChoreOccurrence;
+
+    jest.spyOn(service, 'loadOccurrence').mockResolvedValue(afterReturn);
+
+    const result = await service.returnOccurrenceForAdjustment(
+      'g1',
+      adminUser,
+      'occ1',
+    );
+
+    expect(familyGroupService.assertFamilyAdmin).toHaveBeenCalledWith(
+      'g1',
+      adminUser.id,
+    );
+    expect(choreRepository.saveOccurrence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: CHORE_OCCURRENCE_STATUS.IN_PROGRESS,
+        submittedAt: null,
+        assignedTo: memberUser,
+      }),
+    );
+    expect(result.status).toBe(CHORE_OCCURRENCE_STATUS.IN_PROGRESS);
+  });
+
+  it('returnOccurrenceForAdjustment — exige executor associado', async () => {
+    choreRepository.findOccurrenceWaitingApproval.mockResolvedValue({
+      id: 'occ1',
+      deletedAt: null,
+      status: CHORE_OCCURRENCE_STATUS.WAITING_APPROVAL,
+      assignedTo: null,
+    } as ChoreOccurrence);
+
+    await expect(
+      service.returnOccurrenceForAdjustment('g1', adminUser, 'occ1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(choreRepository.saveOccurrence).not.toHaveBeenCalled();
+  });
+
+  it('returnOccurrenceForAdjustment — NotExistException quando não aguarda aprovação', async () => {
+    choreRepository.findOccurrenceWaitingApproval.mockResolvedValue(null);
+
+    await expect(
+      service.returnOccurrenceForAdjustment('g1', adminUser, 'occ1'),
+    ).rejects.toBeInstanceOf(NotExistException);
+
+    expect(choreRepository.saveOccurrence).not.toHaveBeenCalled();
   });
 
   it('celebratePendingCoinRewards — valida membership e retorna total celebrado', async () => {

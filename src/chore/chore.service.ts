@@ -568,6 +568,46 @@ export class ChoreService {
     return this.loadOccurrence(occurrenceId, familyGroupId);
   }
 
+  async returnOccurrenceForAdjustment(
+    familyGroupId: string,
+    user: User,
+    occurrenceId: string,
+  ): Promise<ChoreOccurrence> {
+    await this.familyGroupService.assertFamilyAdmin(familyGroupId, user.id);
+
+    const occ = await this.choreRepository.findOccurrenceWaitingApproval(
+      occurrenceId,
+      familyGroupId,
+    );
+
+    if (!occ || occ.deletedAt) {
+      throw new NotExistException();
+    }
+
+    const assigneeId = occ.assignedTo?.id;
+    if (!assigneeId) {
+      throw new BadRequestException(
+        'Não há executor associado a esta ocorrência.',
+      );
+    }
+
+    occ.status = CHORE_OCCURRENCE_STATUS.IN_PROGRESS;
+    occ.submittedAt = null;
+    occ.approvedBy = null;
+    occ.rejectionReason = null;
+
+    await this.choreRepository.saveOccurrence(occ);
+
+    logJson(this.logger, {
+      event: 'chore_returned_for_adjustment',
+      occurrenceId,
+      familyGroupId,
+      assigneeUserId: assigneeId,
+    });
+
+    return this.loadOccurrence(occurrenceId, familyGroupId);
+  }
+
   async getPayrollSuggestion(
     familyGroupId: string,
     user: User,

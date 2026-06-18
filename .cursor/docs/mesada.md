@@ -28,6 +28,14 @@ Fora do escopo: estorno de liquidação; edição manual de `earnedPeriodYm` pel
 2. Se já existe `chore_payroll_settlement` para M no grupo, `earnedPeriodYm` = M+1.
 3. Caso contrário, `earnedPeriodYm` = M (mês da aprovação).
 
+## Fluxo — devolver para ajuste (SP-115)
+
+1. Admin abre **Aprovações** com ocorrência em `WAITING_APPROVAL`.
+2. `POST .../occurrences/:id/return-for-adjustment` (sem body).
+3. Status volta para `IN_PROGRESS`; `assignedTo` permanece o executor original.
+4. `submittedAt`, `approvedBy` e `rejectionReason` são limpos; fotos permanecem para o executor revisar.
+5. Executor pode reenviar fotos e submeter novamente.
+
 ## Contratos HTTP
 
 | Método | Rota | Auth | Descrição |
@@ -36,6 +44,7 @@ Fora do escopo: estorno de liquidação; edição manual de `earnedPeriodYm` pel
 | GET | `.../payroll/suggestion` | admin | Sugestão (mês anterior) |
 | GET | `.../payroll/settlements?year&month` | admin | Detalhe da liquidação ou `null` |
 | POST | `.../payroll/settle` | admin | Liquida período |
+| POST | `.../occurrences/:occurrenceId/return-for-adjustment` | admin | Devolve ocorrência para `IN_PROGRESS` (SP-115) |
 
 **Resposta `GET payroll/settlements`:** `{ id, periodYm, settledAt, settledBy, members: [{ member, totalAmount }], totalSettled }` ou `null`.
 
@@ -52,7 +61,7 @@ Fora do escopo: estorno de liquidação; edição manual de `earnedPeriodYm` pel
 
 | Arquivo | Papel |
 |---------|--------|
-| `chore/chore.service.ts` | `settlePayroll`, `getPayrollSettlement`, rollover na aprovação |
+| `chore/chore.service.ts` | `settlePayroll`, `getPayrollSettlement`, rollover na aprovação, `returnOccurrenceForAdjustment` (SP-115) |
 | `chore/utils/period-ym.util.ts` | Helpers de período |
 | `expense/expense.service.ts` | `createPayrollExpense` |
 | `revenue/revenue.service.ts` | `createPayrollRevenue` |

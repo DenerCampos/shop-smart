@@ -1,4 +1,7 @@
 import { INestApplication } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
 import * as request from 'supertest';
 import {
   bearerAuth,
@@ -6,6 +9,57 @@ import {
   loginAsSeedUser,
 } from './helpers/create-e2e-app';
 import { expectPaginatedEnvelope } from './helpers/expect-response';
+
+const E2E_USER_PASSWORD = 'Valid123';
+
+async function loginE2eUser(
+  app: INestApplication,
+  email: string,
+): Promise<string> {
+  const res = await request(app.getHttpServer())
+    .post('/auth/login')
+    .send({ email, password: E2E_USER_PASSWORD })
+    .expect(200);
+  return res.body.accessToken as string;
+}
+
+async function insertE2eUser(
+  app: INestApplication,
+  email: string,
+): Promise<void> {
+  const ds = app.get(DataSource);
+  const existing = await ds.query(
+    'SELECT `id` FROM `user` WHERE `email` = ? LIMIT 1',
+    [email],
+  );
+  if (existing?.length) {
+    return;
+  }
+
+  const userId = randomUUID();
+  const passwordHash = await bcrypt.hash(E2E_USER_PASSWORD, 10);
+
+  await ds.query(
+    `INSERT INTO \`user\`
+      (\`id\`, \`name\`, \`email\`, \`family\`, \`coatOfArms\`, \`password\`, \`token\`, \`refreshtoken\`, \`profileImage\`, \`createdAt\`, \`updatedAt\`, \`deletedAt\`)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NOW(6), NOW(6), NULL)`,
+    [
+      userId,
+      'e2e chore user',
+      email,
+      'e2e',
+      '/assets/images/brasao/brasao-1.png',
+      passwordHash,
+    ],
+  );
+
+  await ds.query(
+    `INSERT INTO \`coin\`
+      (\`id\`, \`balance\`, \`totalEarned\`, \`totalSpent\`, \`createdAt\`, \`updatedAt\`, \`deletedAt\`, \`userId\`)
+     VALUES (?, 0, 0, 0, NOW(6), NOW(6), NULL, ?)`,
+    [randomUUID(), userId],
+  );
+}
 
 async function getOrCreateFamilyGroupId(
   app: INestApplication,
@@ -151,6 +205,196 @@ describe('Chore / mesada (e2e)', () => {
       .set(auth())
       .send({ periodYm })
       .expect(409);
+  });
+
+  it('return-for-adjustment — devolve ocorrência para IN_PROGRESS com mesmo executor', async () => {
+    const groupId = await getOrCreateFamilyGroupId(app, token);
+
+    const defRes = await request(app.getHttpServer())
+      .post(`/family-groups/${groupId}/chores/definitions`)
+      .set(auth())
+      .send({
+        title: `Ajuste ${Date.now()}`,
+        description: 'Teste devolução',
+        rewardValue: 8,
+        coinReward: 1,
+        requirePhoto: false,
+        recurrence: 'once',
+      })
+      .expect(201);
+
+    expect(defRes.body.id).toBeDefined();
+
+    const openList = await request(app.getHttpServer())
+      .get(`/family-groups/${groupId}/chores/occurrences`)
+      .query({ page: 1, limit: 10 })
+      .set(auth())
+      .expect(200);
+
+    const occId = openList.body.data[0].id as string;
+
+    await request(app.getHttpServer())
+      .patch(`/family-groups/${groupId}/chores/occurrences/${occId}/start`)
+      .set(auth())
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/family-groups/${groupId}/chores/occurrences/${occId}/submit`)
+      .set(auth())
+      .expect(201);
+
+    const returned = await request(app.getHttpServer())
+      .post(
+        `/family-groups/${groupId}/chores/occurrences/${occId}/return-for-adjustment`,
+      )
+      .set(auth())
+      .expect(201);
+
+    expect(returned.body).toEqual(
+      expect.objectContaining({
+        id: occId,
+        status: 'IN_PROGRESS',
+        assignedTo: expect.objectContaining({ id: expect.any(String) }),
+      }),
+    );
+
+    const pending = await request(app.getHttpServer())
+      .get(`/family-groups/${groupId}/chores/occurrences/pending-approval`)
+      .query({ page: 1, limit: 10 })
+      .set(auth())
+      .expect(200);
+
+    expect(pending.body.data.some((r: { id: string }) => r.id === occId)).toBe(
+      false,
+    );
+
+    const mine = await request(app.getHttpServer())
+      .get(`/family-groups/${groupId}/chores/occurrences/mine`)
+      .query({ page: 1, limit: 10 })
+      .set(auth())
+      .expect(200);
+
+    expect(mine.body.data.some((r: { id: string; status: string }) => r.id === occId && r.status === 'IN_PROGRESS')).toBe(
+      true,
+    );
+  });
+
+  it('return-for-adjustment em ocorrência inexistente — 404', async () => {
+    const groupId = await getOrCreateFamilyGroupId(app, token);
+
+    await request(app.getHttpServer())
+      .post(
+        `/family-groups/${groupId}/chores/occurrences/00000000-0000-0000-0000-000000000099/return-for-adjustment`,
+      )
+      .set(auth())
+      .expect(404);
+  });
+
+  it('return-for-adjustment fora de WAITING_APPROVAL — 404', async () => {
+    const groupId = await getOrCreateFamilyGroupId(app, token);
+
+    await request(app.getHttpServer())
+      .post(`/family-groups/${groupId}/chores/definitions`)
+      .set(auth())
+      .send({
+        title: `Sem submit ${Date.now()}`,
+        description: 'Ainda em execução',
+        rewardValue: 5,
+        coinReward: 1,
+        requirePhoto: false,
+        recurrence: 'once',
+      })
+      .expect(201);
+
+    const openList = await request(app.getHttpServer())
+      .get(`/family-groups/${groupId}/chores/occurrences`)
+      .query({ page: 1, limit: 10 })
+      .set(auth())
+      .expect(200);
+
+    const occId = openList.body.data[0].id as string;
+
+    await request(app.getHttpServer())
+      .patch(`/family-groups/${groupId}/chores/occurrences/${occId}/start`)
+      .set(auth())
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(
+        `/family-groups/${groupId}/chores/occurrences/${occId}/return-for-adjustment`,
+      )
+      .set(auth())
+      .expect(404);
+  });
+
+  it('return-for-adjustment — 403 para membro não-admin', async () => {
+    const suffix = Date.now();
+    const memberEmail = `chore-e2e-member-${suffix}@local.test`;
+    await insertE2eUser(app, memberEmail);
+    const memberToken = await loginE2eUser(app, memberEmail);
+
+    const groupRes = await request(app.getHttpServer())
+      .post('/family-group')
+      .set(auth())
+      .send({ name: `Chore return 403 ${suffix}` })
+      .expect(201);
+    const groupId = groupRes.body.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/family-group/${groupId}/invite`)
+      .set(auth())
+      .send({ email: memberEmail })
+      .expect(201);
+
+    const invitations = await request(app.getHttpServer())
+      .get('/family-group/invitations')
+      .set(bearerAuth(memberToken))
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(
+        `/family-group/invitations/${invitations.body[0].id as string}/accept`,
+      )
+      .set(bearerAuth(memberToken))
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/family-groups/${groupId}/chores/definitions`)
+      .set(auth())
+      .send({
+        title: `Admin only return ${suffix}`,
+        description: 'Membro não pode devolver',
+        rewardValue: 6,
+        coinReward: 1,
+        requirePhoto: false,
+        recurrence: 'once',
+      })
+      .expect(201);
+
+    const openList = await request(app.getHttpServer())
+      .get(`/family-groups/${groupId}/chores/occurrences`)
+      .query({ page: 1, limit: 10 })
+      .set(auth())
+      .expect(200);
+
+    const occId = openList.body.data[0].id as string;
+
+    await request(app.getHttpServer())
+      .patch(`/family-groups/${groupId}/chores/occurrences/${occId}/start`)
+      .set(auth())
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/family-groups/${groupId}/chores/occurrences/${occId}/submit`)
+      .set(auth())
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(
+        `/family-groups/${groupId}/chores/occurrences/${occId}/return-for-adjustment`,
+      )
+      .set(bearerAuth(memberToken))
+      .expect(403);
   });
 
   it('start em ocorrência inexistente — 404', async () => {
