@@ -290,6 +290,21 @@ export class ChoreController {
     return this.responseService.mapToDto(ChoreOccurrenceResponseDto, occ);
   }
 
+  @Post('occurrences/:occurrenceId/return-for-adjustment')
+  @UseGuards(AuthGuard)
+  async returnForAdjustment(
+    @Param('familyGroupId') familyGroupId: string,
+    @Param('occurrenceId') occurrenceId: string,
+    @CurrentUser() user: User,
+  ): Promise<ChoreOccurrenceResponseDto> {
+    const occ = await this.choreService.returnOccurrenceForAdjustment(
+      familyGroupId,
+      user,
+      occurrenceId,
+    );
+    return this.responseService.mapToDto(ChoreOccurrenceResponseDto, occ);
+  }
+
   @Get('payroll/suggestion')
   @UseGuards(AuthGuard)
   async payrollSuggestion(

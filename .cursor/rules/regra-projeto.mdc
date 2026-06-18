@@ -166,7 +166,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
 | `/family-group` | family-group |
 | `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
-| `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113) |
+| `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113), `POST .../occurrences/:id/return-for-adjustment` (SP-115) |
 | `/recipes` | recipe |
 | `missions` | mission |
 | `alexa` | alexa |
