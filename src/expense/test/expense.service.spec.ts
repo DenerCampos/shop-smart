@@ -93,7 +93,10 @@ describe('ExpenseService', () => {
             }),
           },
         },
-        { provide: FILE_STORAGE, useValue: { upload: jest.fn(), delete: jest.fn() } },
+        {
+          provide: FILE_STORAGE,
+          useValue: { upload: jest.fn(), delete: jest.fn() },
+        },
         provideEventEmitterMock(),
       ],
     }).compile();

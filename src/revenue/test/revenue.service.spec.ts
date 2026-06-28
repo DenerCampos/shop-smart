@@ -60,7 +60,10 @@ describe('RevenueService', () => {
             }),
           },
         },
-        { provide: QueryRunnerFactory, useValue: createQueryRunnerFactoryMock() },
+        {
+          provide: QueryRunnerFactory,
+          useValue: createQueryRunnerFactoryMock(),
+        },
         {
           provide: InstallmentPlannerService,
           useValue: {
@@ -77,7 +80,10 @@ describe('RevenueService', () => {
               .mockImplementation((base: Record<string, unknown>) => base),
           },
         },
-        { provide: FILE_STORAGE, useValue: { upload: jest.fn(), delete: jest.fn() } },
+        {
+          provide: FILE_STORAGE,
+          useValue: { upload: jest.fn(), delete: jest.fn() },
+        },
       ],
     }).compile();
 

@@ -19,6 +19,7 @@ Use como lista de verificação em toda entrega. Marque cada item antes de consi
 - [ ] **Testes unitários**: `src/**/test/*.spec.ts` ou `*.spec.ts` no módulo para service/regras novas ou alteradas.
 - [ ] **Testes E2E**: `test/**/*.e2e-spec.ts` para rota HTTP nova ou contrato alterado. Rodar com **pouca RAM** (pode demorar): `npm run test:e2e:low-mem -- --testPathPattern=<arquivo>` — ver `.cursor/docs/testes.md` e `test/E2E-ESTRATEGIA.md`.
 - [ ] **Observabilidade**: erros HTTP via `AllExceptionsFilter`; novos eventos com `logJson` e `event` estável; IA com `AiCallTelemetryService.measure()` nos providers Gemini.
+- [ ] **Prompts IA**: textos de prompt Gemini em `src/common/prompts/` (funções `build*Prompt`); **não** criar pasta `prompts/` dentro de módulos de domínio nem importar domínio → infra inversa (ver [Prompts Gemini](#prompts-gemini-ia)).
 - [ ] **Documentação**: criar (feature nova) ou atualizar (regra/contrato alterado) `.cursor/docs/<dominio>.md` — ver `/.cursor/rules/workflow.mdc` seção Documentação.
 - [ ] **Atualizar este arquivo**: incluir módulo/rota na seção [Índice de módulos](#índice-de-módulos) e endpoint em [API REST](#api-rest).
 
@@ -73,13 +74,14 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | chore | `chore/` | Tarefas/quests familiares |
 | recipe | `recipe/` | Receitas |
 | mission | `mission/` | Missões dinâmicas (SP-78) |
+| health | `health/` | Módulo de Saúde — exames, processamento IA, receituário, visão geral (SP-123) |
 | alexa | `alexa/` | Integração Alexa |
 
 **Infraestrutura** (não expor como REST principal; usar via services):
 
 | Módulo | Pasta | Uso |
 |--------|-------|-----|
-| common | `common/` | Config, logger, logging, filters, middleware, pagination, response, **`FamilyMemberResolverService`** (escopo familiar sem importar `FamilyGroupModule`) |
+| common | `common/` | Config, logger, logging, filters, middleware, pagination, response, **`FamilyMemberResolverService`**, **`prompts/`** (prompts Gemini compartilhados) |
 | file-storage | `file-storage/` | Abstração de armazenamento de arquivos |
 | supabase-storage | `supabase-storage/` | Provider Supabase |
 | google-drive | `google-drive/` | Google Drive (tokens, upload) |
@@ -169,6 +171,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113), `POST .../occurrences/:id/return-for-adjustment` (SP-115) |
 | `/recipes` | recipe |
 | `missions` | mission |
+| `/health` | health — `POST/GET /exams`, `PUT/DELETE /exams/:id`, `POST /upload`, `GET/DELETE /processing`, `POST /processing/:id/approve`, `POST /ai-overview`, `GET /ai-overview/latest`, `POST/GET /prescriptions`, `PUT/DELETE /prescriptions/:id` (SP-123) |
 | `alexa` | alexa |
 
 REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em DELETE sem body.
@@ -184,7 +187,31 @@ REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em D
 - **WebSockets**: `@nestjs/websockets` + `socket.io` (ex.: shopping-list).
 - **Arquivos**: `file-storage` + `supabase-storage`; ver `.cursor/docs/file-storage.md`.
 - **Logging**: Winston + Loki opcional (`LOKI_*`); `RequestLoggingMiddleware`; `logJson` com contexto `Observability`.
-- **IA**: providers Gemini com factory; telemetria `ai_provider_call`.
+- **IA**: providers Gemini com factory; telemetria `ai_provider_call`; **prompts centralizados** em `src/common/prompts/` (ver [Prompts Gemini](#prompts-gemini-ia)).
+
+---
+
+## Prompts Gemini (IA)
+
+Todos os textos de prompt enviados ao Gemini ficam em **`src/common/prompts/`**, um arquivo por domínio ou caso de uso, exportando funções `build*Prompt(...)`.
+
+| Arquivo | Uso |
+|---------|-----|
+| `health-exam-extraction.prompt.ts` | Extração de exames (texto + imagem) |
+| `health-overview.prompt.ts` | Relatório de visão geral de saúde |
+| `health-imaging-image.prompt.ts` | Laudo de imagem (legado/auxiliar) |
+| `prescription-extraction.prompt.ts` | Receituário (texto + imagem) |
+| `shopping-list.prompt.ts` | Item e lista de compras |
+| `coupon-text.prompt.ts` | Cupom fiscal / NF-e (texto) |
+| `image-finance.prompt.ts` | Despesa/receita por imagem |
+| `audio-finance.prompt.ts` | Despesa/receita por áudio |
+
+**Regras:**
+
+- **Novos prompts** → criar ou estender arquivo em `src/common/prompts/`; providers (`*-recognition/providers/gemini/`) apenas **importam** e montam a chamada.
+- **Proibido** pasta `prompts/` dentro de módulos REST (`health/`, `expense/`, etc.) — evita acoplamento domínio ↔ infra e imports circulares (`image-recognition` → `health`).
+- Prompts dinâmicos (listas de categorias, grupos, payment padrão) recebem parâmetros na função `build*`, não concatenar strings soltas no provider quando o bloco for reutilizável.
+- Alteração de prompt de produção → atualizar doc de domínio em `.cursor/docs/` se mudar comportamento visível ao usuário.
 
 ---
 
@@ -239,11 +266,12 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 - `demo-login.md` — login demo via link para portfólio (SP-118)
+- `saude.md` — módulo de saúde: exames, processamento IA, receituário, visão geral (SP-123)
 
 ---
 
 ## Regras críticas
 
-**Nunca:** commitar secrets; `synchronize` em produção; expor entidade/senha na response; SQL manual fora de migration; listagem sem paginação; deploy sem testes locais; import circular entre módulos quando `FamilyMemberResolverService` (ou outro serviço de infra em `CommonModule`) resolve o caso.
+**Nunca:** commitar secrets; `synchronize` em produção; expor entidade/senha na response; SQL manual fora de migration; listagem sem paginação; deploy sem testes locais; import circular entre módulos quando `FamilyMemberResolverService` (ou outro serviço de infra em `CommonModule`) resolve o caso; **prompts Gemini inline em providers** ou em pastas `prompts/` de módulos de domínio (usar `src/common/prompts/`).
 
-**Sempre:** DTO entrada/saída; validar entrada; migration para schema; testes (unit + E2E se HTTP); doc em `.cursor/docs/` alinhada ao código; atualizar **este** `regra-projeto.mdc` no checklist de nova funcionalidade; escopo familiar via `CommonModule` quando não houver regra de domínio do `family-group`.
+**Sempre:** DTO entrada/saída; validar entrada; migration para schema; testes (unit + E2E se HTTP); doc em `.cursor/docs/` alinhada ao código; atualizar **este** `regra-projeto.mdc` no checklist de nova funcionalidade; escopo familiar via `CommonModule` quando não houver regra de domínio do `family-group`; **prompts IA** em `src/common/prompts/`.
