@@ -36,12 +36,12 @@ describe('ReportsService', () => {
   beforeEach(async () => {
     reportsRepository = {
       expenseByGroup: jest.fn().mockResolvedValue([]),
-      expenseByGroupedMonth: jest.fn().mockResolvedValue([
-        { month: '2026-06', totalExpenses: 100 },
-      ]),
-      revenueByGroupedMonth: jest.fn().mockResolvedValue([
-        { month: '2026-06', totalRevenues: 200 },
-      ]),
+      expenseByGroupedMonth: jest
+        .fn()
+        .mockResolvedValue([{ month: '2026-06', totalExpenses: 100 }]),
+      revenueByGroupedMonth: jest
+        .fn()
+        .mockResolvedValue([{ month: '2026-06', totalRevenues: 200 }]),
     };
     familyGroupService = {
       getAcceptedMemberUserIdsIfAdmin: jest.fn().mockResolvedValue(['u1']),

@@ -9,6 +9,16 @@ import { ImageRecognitionException } from '../../exceptions/imageRecognition.exc
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
+import { ExtractedExamData, ExtractedPrescriptionData } from 'src/text-recognition/types/textRecognitionType';
+import { buildHealthExamImageExtractionPrompt } from 'src/common/prompts/health-exam-extraction.prompt';
+import { buildHealthImagingImageExtractionPrompt } from 'src/common/prompts/health-imaging-image.prompt';
+import {
+  buildPrescriptionImageExtractionPrompt,
+} from 'src/common/prompts/prescription-extraction.prompt';
+import {
+  buildImageExpensePrompt,
+  buildImageRevenuePrompt,
+} from 'src/common/prompts/image-finance.prompt';
 
 @Injectable()
 export class GeminiProvider implements IImageRecognitionProvider {
@@ -58,40 +68,9 @@ export class GeminiProvider implements IImageRecognitionProvider {
           let prompt: string;
 
           if (context === 'revenue') {
-            prompt = `Analise esta imagem de um comprovante, recibo ou documento de receita/entrada financeira e extraia as seguintes informações em formato JSON:
-        - name: descrição da receita (ex: Salário, Freelance, Venda, Comissão)
-          IMPORTANTE: Converta o nome (name) para "Title Case" (apenas iniciais maiúsculas), remova abreviações excessivas e tente deduzir o nome completo e amigável da descrição.
-          Ao expandir abreviações, use apenas o contexto presente no texto. Se não tiver certeza absoluta do nome completo, apenas converta para 'Title Case' e remova caracteres especiais.
-        - value: valor total da receita (número)
-        - date: data da receita (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
-        - repeat: boolean indicando se é uma receita recorrente (ex: salário mensal = true, venda única = false)
-        
-        IMPORTANTE: 
-        - Todas as chaves devem estar em inglês (name, value, date, repeat).
-        - Se a imagem mencionar algo como "mensal", "recorrente", "fixo", defina repeat como true
-        - Se não for possível identificar se é recorrente, assuma false
-        - Retorne apenas o JSON, sem explicações adicionais.`;
+            prompt = buildImageRevenuePrompt();
           } else {
-            prompt = `Analise esta imagem de um cupom fiscal ou nota fiscal e extraia as seguintes informações em formato JSON:
-        - name: nome do estabelecimento
-        - value: valor total da nota (número)
-        - date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
-        - items: array de produtos, cada item deve conter:
-          * code: código do produto, se não for possível identificar, retorne '1'
-          * name: nome do produto
-          IMPORTANTE: Converta o nome (name) para "Title Case" (apenas iniciais maiúsculas), remova abreviações excessivas e tente deduzir o nome completo e amigável do produto (ex: de 'MAC VILM OV ESP' para 'Macarrão de Ovos Vilma Especial'). 
-          Ao expandir abreviações, use apenas o contexto presente no texto. Se não tiver certeza absoluta do nome completo, apenas converta para 'Title Case' e remova caracteres especiais.
-          Mantenha informações de peso/volume/unidade (ex: 500g, 1L,1U).
-          * quantity: quantidade (número), se não for possível identificar, retorne 0
-          * unit: unidade - use 'unidade' para UN, 'quilograma' para KG, ou 'pacote' para PT, se não for possível identificar, retorne 'unidade'
-          * value: valor unitário (número), se não for possível identificar, retorne 0
-          * total: valor total do item (número), se não for possível identificar, retorne 0
-          * group: objeto com a propriedade 'name' contendo o nome do grupo de classificação. Os grupos possíveis são: ${groups}
-        - store: objeto com a propriedade 'name' contendo o nome do estabelecimento
-        - payment: objeto com a propriedade 'name' contendo o nome do método de pagamento. Se não for possível identificar, use '${payment}'
-        
-        IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment, name).
-        Retorne apenas o JSON, sem explicações adicionais.`;
+            prompt = buildImageExpensePrompt(groups, payment);
           }
 
           // Prepara a imagem para o Gemini
@@ -151,14 +130,152 @@ export class GeminiProvider implements IImageRecognitionProvider {
     }
   }
 
-  /**
-   * Retorna informações sobre o uso da quota
-   */
   async getQuotaInfo(): Promise<{
     requestCount: number;
     dailyLimit: number;
     remaining: number;
   }> {
     return await this.apiQuotaService.getCurrentUsage(this.name);
+  }
+
+  async analyzeHealthExamImage(
+    base64Data: string,
+    mimeType: string,
+  ): Promise<ExtractedExamData> {
+    return this.aiCallTelemetry.measure(
+      'image_recognition',
+      this.name,
+      async () => {
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
+
+        const prompt = buildHealthExamImageExtractionPrompt();
+
+        if (!this.model) {
+          throw new ImageRecognitionException('Modelo de IA não disponível.');
+        }
+        const result = await this.model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
+            },
+          },
+        ]);
+
+        let clean = result.response.text().trim();
+        if (clean.startsWith('```json')) {
+          clean = clean.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (clean.startsWith('```')) {
+          clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        try {
+          return JSON.parse(clean) as ExtractedExamData;
+        } catch {
+          throw new ImageRecognitionException(
+            'Resposta da IA para exame médico (imagem) não é um JSON válido',
+          );
+        }
+      },
+    );
+  }
+
+  /** @deprecated Use analyzeHealthExamImage */
+  async analyzeHealthLabImage(
+    base64Data: string,
+    mimeType: string,
+  ): Promise<ExtractedExamData> {
+    return this.analyzeHealthExamImage(base64Data, mimeType);
+  }
+
+  async analyzeHealthImaging(
+    base64Data: string,
+    mimeType: string,
+  ): Promise<ExtractedExamData> {
+    return this.aiCallTelemetry.measure(
+      'image_recognition',
+      this.name,
+      async () => {
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
+
+        const prompt = buildHealthImagingImageExtractionPrompt();
+
+        if (!this.model) {
+          throw new ImageRecognitionException('Modelo de IA não disponível.');
+        }
+        const result = await this.model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
+            },
+          },
+        ]);
+
+        let clean = result.response.text().trim();
+        if (clean.startsWith('```json')) {
+          clean = clean.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (clean.startsWith('```')) {
+          clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        try {
+          return JSON.parse(clean) as ExtractedExamData;
+        } catch {
+          throw new ImageRecognitionException(
+            'Resposta da IA para laudo de imagem não é um JSON válido',
+          );
+        }
+      },
+    );
+  }
+
+  async analyzePrescriptionImage(
+    base64Data: string,
+    mimeType: string,
+  ): Promise<ExtractedPrescriptionData> {
+    return this.aiCallTelemetry.measure(
+      'image_recognition',
+      this.name,
+      async () => {
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
+
+        const prompt = buildPrescriptionImageExtractionPrompt();
+
+        if (!this.model) {
+          throw new ImageRecognitionException('Modelo de IA não disponível.');
+        }
+        const result = await this.model.generateContent([
+          prompt,
+          { inlineData: { mimeType, data: base64Data } },
+        ]);
+
+        let clean = result.response.text().trim();
+        if (clean.startsWith('```json')) {
+          clean = clean.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (clean.startsWith('```')) {
+          clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        try {
+          return JSON.parse(clean) as ExtractedPrescriptionData;
+        } catch {
+          throw new ImageRecognitionException(
+            'Resposta da IA para receituário não é um JSON válido',
+          );
+        }
+      },
+    );
   }
 }

@@ -4,6 +4,8 @@ import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import {
   CouponTextResult,
+  ExtractedExamData,
+  ExtractedPrescriptionData,
   ShoppingListItemTextAiResult,
   ShoppingListItemTextAiResultArray,
 } from '../../types/textRecognitionType';
@@ -15,6 +17,14 @@ import {
   TextRecognitionAnalyzeOptions,
 } from '../interfaces/text-recognition-provider.interface';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
+import { buildHealthExamTextExtractionPrompt } from 'src/common/prompts/health-exam-extraction.prompt';
+import { buildHealthOverviewPrompt } from 'src/common/prompts/health-overview.prompt';
+import { buildPrescriptionTextExtractionPrompt } from 'src/common/prompts/prescription-extraction.prompt';
+import { buildCouponTextPrompt } from 'src/common/prompts/coupon-text.prompt';
+import {
+  buildShoppingListBulkPrompt,
+  buildShoppingListItemPrompt,
+} from 'src/common/prompts/shopping-list.prompt';
 
 /** Alinhado a shopping-list-item-unit (evita import do módulo shopping-list). */
 const ALLOWED_UNITS = ['un', 'kg', 'g', 'l', 'ml', 'pack', 'dz'] as const;
@@ -141,27 +151,7 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
 
           const allowedUnits = ALLOWED_UNITS.join(', ');
 
-          const prompt = `Você interpreta uma linha de item de lista de compras em português (ex.: "3x leite", "500g queijo mussarela", "2 pacotes de arroz").
-
-Categorias já existentes do usuário (use uma delas quando fizer sentido; copie o nome exatamente como aparece na lista): ${groupsCsv}
-
-Retorne APENAS um JSON válido (sem markdown, sem texto extra), com as chaves em inglês:
-{
-  "name": "nome do produto sem quantidade/unidade (ex.: Leite)",
-  "quantity": número (mínimo 0.01, padrão 1 se não houver quantidade),
-  "unit": uma destas strings exatas: ${allowedUnits},
-  "group": {
-    "name": "nome da categoria em português",
-    "isNew": boolean
-  }
-}
-
-Regras:
-- "isNew": false quando a categoria adequada está na lista de categorias existentes; nesse caso "group.name" DEVE ser exatamente um dos nomes da lista (mesma grafia).
-- "isNew": true quando nenhuma categoria existente serve; proponha um nome curto para a nova categoria em português (ex.: Alimentação, Limpeza).
-- Se não houver categorias cadastradas, use "isNew": true com um nome razoável.
-- Unidade: infira do texto (kg, g, l, ml, pacotes → pack, dúzias → dz, peças → un).
-- Não inclua comentários nem blocos \`\`\`json.`;
+          const prompt = buildShoppingListItemPrompt(groupsCsv, allowedUnits);
 
           const result = await this.model.generateContent(
             `${prompt}\n\nTexto do usuário:\n${text}`,
@@ -211,31 +201,7 @@ Regras:
 
           const allowedUnits = ALLOWED_UNITS.join(', ');
 
-          const prompt = `Você interpreta uma lista de compras em português. O usuário pode enviar vários produtos em uma única linha, normalmente separados por vírgulas (ex.: "feijão, arroz, 3 óleos, papel higiênico").
-
-Categorias já existentes do usuário (use uma delas quando fizer sentido; copie o nome exatamente como aparece na lista): ${groupsCsv}
-
-Retorne APENAS um JSON válido (sem markdown, sem texto extra), com as chaves em inglês:
-{
-  "items": [
-    {
-      "name": "nome do produto sem quantidade/unidade",
-      "quantity": número (mínimo 0.01, padrão 1),
-      "unit": uma destas strings exatas: ${allowedUnits},
-      "group": {
-        "name": "nome da categoria em português",
-        "isNew": boolean
-      }
-    }
-  ]
-}
-
-Regras:
-- Inclua um objeto em "items" para cada produto mencionado pelo usuário (ignore espaços vazios entre vírgulas).
-- Mesmas regras de categoria e unidade que para um item único: "isNew": false só quando "group.name" for exatamente um nome da lista de categorias existentes; caso contrário "isNew": true com nome curto em português.
-- Se não houver categorias cadastradas, use "isNew": true com nome razoável para cada item.
-- Unidade: infira do texto (kg, g, l, ml, pacotes → pack, dúzias → dz, peças → un).
-- Não inclua comentários nem blocos \`\`\`json.`;
+          const prompt = buildShoppingListBulkPrompt(groupsCsv, allowedUnits);
 
           const result = await this.model.generateContent(
             `${prompt}\n\nTexto do usuário:\n${text}`,
@@ -305,30 +271,7 @@ Regras:
             'Alimentação, Bebida, Limpeza, Higiene, Outros';
           const payment = options?.defaultPayment || 'Cartão de crédito';
 
-          const prompt = `Analise o texto abaixo de um cupom fiscal ou nota fiscal eletrônica e extraia as seguintes informações em formato JSON:
-- name: nome do estabelecimento
-- value: valor total da nota (número)
-- date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
-- repeat: sempre false
-- items: array de produtos, cada item deve conter:
-  * code: código do produto, se não for possível identificar, retorne '1'
-  * name: nome do produto formatado. 
-    IMPORTANTE: Converta o nome para "Title Case" (apenas iniciais maiúsculas), remova abreviações excessivas e tente deduzir o nome completo e amigável do produto (ex: de 'MAC VILM OV ESP' para 'Macarrão de Ovos Vilma Especial'). 
-    Ao expandir abreviações, use apenas o contexto presente no texto. Se não tiver certeza absoluta do nome completo, apenas converta para 'Title Case' e remova caracteres especiais.
-    Mantenha informações de peso/volume (ex: 500g, 1L).
-  * quantity: quantidade (número), se não for possível identificar, retorne 0
-  * unit: unidade - use 'unidade' para UN, 'quilograma' para KG, ou 'pacote' para PT, se não for possível identificar, retorne 'unidade'
-  * value: valor unitário (número), se não for possível identificar, retorne 0
-  * total: valor total do item (número), se não for possível identificar, retorne 0
-  * group: objeto com a propriedade 'name' contendo o nome do grupo de classificação. Os grupos possíveis são: ${groups}
-- store: objeto com a propriedade 'name' contendo o nome do estabelecimento
-- payment: objeto com a propriedade 'name' contendo o nome do método de pagamento. Se não for possível identificar, use '${payment}'
-
-IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment).
-Retorne apenas o JSON, sem explicações adicionais.
-
-Texto do cupom:
-${text}`;
+          const prompt = buildCouponTextPrompt(text, groups, payment);
 
           const result = await this.model.generateContent(prompt);
           const responseText = result.response.text();
@@ -392,5 +335,87 @@ ${text}`;
     remaining: number;
   }> {
     return this.apiQuotaService.getCurrentUsage(this.name);
+  }
+
+  async analyzeHealthExamText(text: string): Promise<ExtractedExamData> {
+    return this.aiCallTelemetry.measure(
+      'text_recognition',
+      this.name,
+      async () => {
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
+
+        const prompt = buildHealthExamTextExtractionPrompt(text);
+
+        if (!this.model) {
+          throw new TextRecognitionException('Modelo de IA não disponível.');
+        }
+        const result = await this.model.generateContent(prompt);
+        const clean = this.cleanModelJson(result.response.text());
+        try {
+          return JSON.parse(clean) as ExtractedExamData;
+        } catch {
+          throw new TextRecognitionException(
+            'Resposta da IA para exame médico não é um JSON válido',
+          );
+        }
+      },
+    );
+  }
+
+  /** @deprecated Use analyzeHealthExamText */
+  async analyzeHealthLabText(text: string): Promise<ExtractedExamData> {
+    return this.analyzeHealthExamText(text);
+  }
+
+  async generateHealthOverview(examsContext: string): Promise<string> {
+    return this.aiCallTelemetry.measure(
+      'text_recognition',
+      this.name,
+      async () => {
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
+
+        const prompt = buildHealthOverviewPrompt(examsContext);
+
+        if (!this.model) {
+          throw new TextRecognitionException('Modelo de IA não disponível.');
+        }
+        const result = await this.model.generateContent(prompt);
+        return result.response.text();
+      },
+    );
+  }
+
+  async analyzePrescriptionText(text: string): Promise<ExtractedPrescriptionData> {
+    return this.aiCallTelemetry.measure(
+      'text_recognition',
+      this.name,
+      async () => {
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
+
+        const prompt = buildPrescriptionTextExtractionPrompt(text);
+
+        if (!this.model) {
+          throw new TextRecognitionException('Modelo de IA não disponível.');
+        }
+        const result = await this.model.generateContent(prompt);
+        const clean = this.cleanModelJson(result.response.text());
+        try {
+          return JSON.parse(clean) as ExtractedPrescriptionData;
+        } catch {
+          throw new TextRecognitionException(
+            'Resposta da IA para receituário não é um JSON válido',
+          );
+        }
+      },
+    );
   }
 }

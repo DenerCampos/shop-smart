@@ -274,9 +274,12 @@ describe('Chore / mesada (e2e)', () => {
       .set(auth())
       .expect(200);
 
-    expect(mine.body.data.some((r: { id: string; status: string }) => r.id === occId && r.status === 'IN_PROGRESS')).toBe(
-      true,
-    );
+    expect(
+      mine.body.data.some(
+        (r: { id: string; status: string }) =>
+          r.id === occId && r.status === 'IN_PROGRESS',
+      ),
+    ).toBe(true);
   });
 
   it('return-for-adjustment em ocorrência inexistente — 404', async () => {
