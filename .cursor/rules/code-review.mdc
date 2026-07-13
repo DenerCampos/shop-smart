@@ -450,6 +450,9 @@ async update(id: string, dto: UpdateExpenseDto): Promise<Expense> {
 ### 6. IA, WebSocket e integrações
 
 - [ ] Providers Gemini: factory + mocks em E2E; quota (`ApiQuotaException`) tratada
+- [ ] **Prompts Gemini** em `src/common/prompts/` (funções `build*Prompt`); provider só importa — ver `regra-projeto.mdc` § Prompts Gemini
+- [ ] **Sem** prompt inline longo em `*-recognition/providers/gemini/` quando for reutilizável ou de domínio (mover para `common/prompts/`)
+- [ ] **Sem** import de módulo de domínio (`health/`, `expense/`, …) dentro de provider de IA só para ler prompt — 🔴 acoplamento / risco de ciclo
 - [ ] Prompts/dados de IA não misturam dados de outro `userId`
 - [ ] **WebSocket** (`shopping-list`): autenticação na conexão; salas isoladas por família/usuário
 - [ ] **Alexa / OAuth / Google Drive**: tokens com escopo mínimo; revogação e armazenamento seguro
@@ -471,6 +474,8 @@ async update(id: string, dto: UpdateExpenseDto): Promise<Expense> {
 | Senha/token em log ou response | Sim |
 | `repository.query()` com concatenação | Sim |
 | Listagem sem paginação em endpoint novo | Sim |
+| Prompt Gemini novo/alterado fora de `src/common/prompts/` | Sim (🟡 se refactor pendente; 🔴 se cria import domínio → infra) |
+| Provider Gemini importa `src/<dominio>/` só para prompt | Sim |
 
 Comando `/cr`: seção **🔒 Segurança** obrigatória no relatório (`.cursor/commands/cr.md`).
 

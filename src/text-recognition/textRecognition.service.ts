@@ -6,6 +6,8 @@ import { TextRecognitionProviderFactory } from './providers/factory/text-recogni
 import { ITextRecognitionRepository } from './interfaces/textRecognition.repository.interface';
 import {
   CouponTextResult,
+  ExtractedExamData,
+  ExtractedPrescriptionData,
   ParsedShoppingListItemFromText,
   ShoppingListItemTextAiResult,
   TextRecognitionStatus,
@@ -291,5 +293,174 @@ export class TextRecognitionService {
       provider: provider.name,
       ...quotaInfo,
     };
+  }
+
+  /**
+   * Analisa texto extraído de PDF/imagem e retorna dados estruturados de exame.
+   * Persiste tentativa em `text_recognition`.
+   */
+  async analyzeHealthExamText(
+    text: string,
+    user: User,
+  ): Promise<ExtractedExamData> {
+    const provider = await this.providerFactory.getProvider(
+      this.appConfig.getDefaultRecognitionProvider() + '-text',
+    );
+
+    const analyze =
+      provider.analyzeHealthExamText ?? provider.analyzeHealthLabText;
+
+    if (typeof analyze !== 'function') {
+      throw new TextRecognitionException(
+        'Provedor não suporta análise de exames médicos por texto.',
+      );
+    }
+
+    try {
+      const result = await analyze.call(provider, text);
+
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: text.slice(0, 500),
+          provider: provider.name,
+          confidence: 1,
+          result: result as object,
+          status: TextRecognitionStatus.COMPLETED,
+        },
+        user,
+      );
+
+      return result;
+    } catch (error) {
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: text.slice(0, 500),
+          provider: provider.name,
+          confidence: 0,
+          result: null,
+          status: TextRecognitionStatus.FAILED,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        user,
+      );
+
+      if (error instanceof ApiQuotaException) throw error;
+
+      throw new TextRecognitionException(
+        `Falha ao analisar exame: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /** @deprecated Use analyzeHealthExamText */
+  async analyzeHealthLabText(
+    text: string,
+    user: User,
+  ): Promise<ExtractedExamData> {
+    return this.analyzeHealthExamText(text, user);
+  }
+
+  /**
+   * Gera relatório geral de saúde com base em contexto de exames.
+   * Persiste tentativa em `text_recognition`.
+   */
+  async generateHealthOverview(
+    examsContext: string,
+    user: User,
+  ): Promise<string> {
+    const provider = await this.providerFactory.getProvider(
+      this.appConfig.getDefaultRecognitionProvider() + '-text',
+    );
+
+    if (typeof provider.generateHealthOverview !== 'function') {
+      throw new TextRecognitionException(
+        'Provedor não suporta geração de visão geral de saúde.',
+      );
+    }
+
+    try {
+      const result = await provider.generateHealthOverview(examsContext);
+
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: examsContext.slice(0, 500),
+          provider: provider.name,
+          confidence: 1,
+          result: { summary: result.slice(0, 200) } as object,
+          status: TextRecognitionStatus.COMPLETED,
+        },
+        user,
+      );
+
+      return result;
+    } catch (error) {
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: examsContext.slice(0, 500),
+          provider: provider.name,
+          confidence: 0,
+          result: null,
+          status: TextRecognitionStatus.FAILED,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        user,
+      );
+
+      if (error instanceof ApiQuotaException) throw error;
+
+      throw new TextRecognitionException(
+        `Falha ao gerar visão geral de saúde: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async analyzePrescription(
+    text: string,
+    user: User,
+  ): Promise<ExtractedPrescriptionData> {
+    const provider = await this.providerFactory.getProvider(
+      this.appConfig.getDefaultRecognitionProvider() + '-text',
+    );
+
+    if (typeof provider.analyzePrescriptionText !== 'function') {
+      throw new TextRecognitionException(
+        'Provedor não suporta análise de receituários.',
+      );
+    }
+
+    try {
+      const result = await provider.analyzePrescriptionText(text);
+
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: text.slice(0, 500),
+          provider: provider.name,
+          confidence: 1,
+          result: result as object,
+          status: TextRecognitionStatus.COMPLETED,
+        },
+        user,
+      );
+
+      return result;
+    } catch (error) {
+      await this.textRecognitionRepository.create(
+        {
+          sourceText: text.slice(0, 500),
+          provider: provider.name,
+          confidence: 0,
+          result: null,
+          status: TextRecognitionStatus.FAILED,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        user,
+      );
+
+      if (error instanceof ApiQuotaException) throw error;
+
+      throw new TextRecognitionException(
+        `Falha ao analisar receituário: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 }

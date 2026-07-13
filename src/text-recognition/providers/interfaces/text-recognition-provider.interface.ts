@@ -1,5 +1,7 @@
 import {
   CouponTextResult,
+  ExtractedExamData,
+  ExtractedPrescriptionData,
   ShoppingListItemTextAiResult,
   ShoppingListItemTextAiResultArray,
 } from '../../types/textRecognitionType';
@@ -36,4 +38,13 @@ export interface ITextRecognitionProvider {
   ): Promise<CouponTextResult>;
   isAvailable(): Promise<boolean>;
   getQuotaInfo(): Promise<QuotaInfo>;
+  /** Extrai dados estruturados de texto de exame laboratorial. */
+  /** Analisa texto de laudo/resultado de exame (laboratorial ou imagem). */
+  analyzeHealthExamText?(text: string): Promise<ExtractedExamData>;
+  /** @deprecated Use analyzeHealthExamText */
+  analyzeHealthLabText?(text: string): Promise<ExtractedExamData>;
+  /** Gera relatório geral de saúde com base em contexto de exames. */
+  generateHealthOverview?(examsContext: string): Promise<string>;
+  /** Extrai dados estruturados de receituário médico a partir de texto. */
+  analyzePrescriptionText?(text: string): Promise<ExtractedPrescriptionData>;
 }

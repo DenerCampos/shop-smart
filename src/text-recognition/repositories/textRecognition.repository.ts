@@ -17,6 +17,10 @@ export class TextRecognitionRepository implements ITextRecognitionRepository {
     user: User,
     manager?: EntityManager,
   ): Promise<TextRecognition> {
+    if (!user?.id) {
+      throw new Error('text_recognition: userId obrigatório para persistir análise');
+    }
+
     const repository = manager
       ? manager.getRepository(TextRecognition)
       : this.entity;
