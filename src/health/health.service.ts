@@ -32,6 +32,8 @@ import type { CreateHealthPrescriptionDto } from './dto/create-health-prescripti
 import type { UpdateHealthPrescriptionDto } from './dto/update-health-prescription.dto';
 import type { HealthPrescriptionFilterDto } from './dto/health-prescription-filter.dto';
 import type { GenerateOverviewDto } from './dto/generate-overview.dto';
+import type { CreatePatientContextDto } from './dto/create-patient-context.dto';
+import type { HealthOverviewFilterDto } from './dto/health-overview-filter.dto';
 import type {
   ExtractedExamData,
   ExtractedExamItem,
@@ -490,6 +492,41 @@ export class HealthService {
     return this.patientContextRepo.findByUserId(resolvedTargetId, groupId);
   }
 
+  async getLatestPatientContext(
+    user: User,
+    targetUserId?: string,
+  ): Promise<HealthPatientContext | null> {
+    const contexts = await this.listPatientContext(user, targetUserId);
+    return contexts[0] ?? null;
+  }
+
+  async createPatientContext(
+    user: User,
+    dto: CreatePatientContextDto,
+  ): Promise<HealthPatientContext> {
+    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+      user.id,
+    );
+    const targetUserId = await this.resolveTargetUserId(
+      dto.targetUserId,
+      user.id,
+      isAdmin,
+      groupId,
+    );
+
+    const content = dto.content?.trim() ?? '';
+    if (!content) {
+      throw new BadRequestException('Informe a descrição do paciente.');
+    }
+
+    return this.patientContextRepo.create({
+      content,
+      familyGroup: groupId ? ({ id: groupId } as any) : null,
+      user: { id: targetUserId } as any,
+      createdBy: { id: user.id } as any,
+    });
+  }
+
   async generateOverview(
     user: User,
     dto: GenerateOverviewDto,
@@ -509,15 +546,9 @@ export class HealthService {
       targetUserId,
       groupId,
     );
-    const exams = await this.examRepo.findApprovedByUserId(targetUserId);
 
-    await this.assertCanGenerateOverview(
-      targetUserId,
-      latestOverview,
-      trimmedContext.length > 0,
-      exams.length > 0,
-    );
-
+    // Texto novo digitado no request é salvo antes de decidir o que enviar,
+    // assim ele já entra como "contexto novo" desde o último relatório.
     if (trimmedContext) {
       await this.patientContextRepo.create({
         content: trimmedContext,
@@ -527,18 +558,84 @@ export class HealthService {
       });
     }
 
-    const contextHistory = await this.patientContextRepo.findByUserId(
+    const latestPrescription = await this.prescriptionRepo.findLatestByUserId(
       targetUserId,
       groupId,
     );
 
+    const isFirstReport = !latestOverview;
+    // Usa `createdAt` (gerado por CURRENT_TIMESTAMP no banco) como marco, e não
+    // `generatedAt` (setado via `new Date()` no Node): assim a comparação fica no
+    // mesmo fuso dos `createdAt`/`updatedAt` de exames, contextos e receituários.
+    const since = latestOverview?.createdAt ?? null;
+
+    // 1º relatório → envia tudo. 2º em diante → apenas o que é novo desde a
+    // data do último relatório.
+    const exams =
+      isFirstReport || !since
+        ? await this.examRepo.findApprovedByUserId(targetUserId)
+        : await this.examRepo.findApprovedByUserIdChangedAfter(
+            targetUserId,
+            since,
+          );
+
+    const contextHistory =
+      isFirstReport || !since
+        ? await this.patientContextRepo.findByUserId(targetUserId, groupId)
+        : await this.patientContextRepo.findByUserIdCreatedAfter(
+            targetUserId,
+            groupId,
+            since,
+          );
+
+    const prescriptionIsNew =
+      !!latestPrescription &&
+      !!since &&
+      (new Date(latestPrescription.createdAt) > since ||
+        new Date(latestPrescription.updatedAt) > since);
+
+    if (!isFirstReport && since) {
+      const hasNewData =
+        exams.length > 0 || contextHistory.length > 0 || prescriptionIsNew;
+
+      // Sem exames, contextos ou receituários novos → não gera; devolve o último.
+      if (!hasNewData) {
+        return latestOverview as HealthAiOverview;
+      }
+    } else {
+      // Primeiro relatório: precisa de ao menos um dado para gerar.
+      const hasAnyData =
+        exams.length > 0 || contextHistory.length > 0 || !!latestPrescription;
+      if (!hasAnyData) {
+        throw new BadRequestException(
+          'Cadastre exames ou informe o contexto do paciente para gerar o primeiro relatório.',
+        );
+      }
+    }
+
+    const previousReportSection = this.buildPreviousReportSection(
+      isFirstReport ? null : latestOverview,
+    );
+    const patientSection = this.buildPatientContextSection(contextHistory);
+    const examsLabel = isFirstReport
+      ? 'DADOS DOS EXAMES:'
+      : 'NOVOS EXAMES DESDE O ÚLTIMO RELATÓRIO:';
     const examsSection = exams.length
       ? this.buildExamsContext(exams)
-      : 'Nenhum exame cadastrado.';
-    const patientSection = this.buildPatientContextSection(contextHistory);
-    const fullContext = patientSection
-      ? `${patientSection}\n\n---\n\nDADOS DOS EXAMES:\n${examsSection}`
-      : examsSection;
+      : isFirstReport
+        ? 'Nenhum exame cadastrado.'
+        : 'Nenhum exame novo desde o último relatório.';
+    const prescriptionSection =
+      this.buildPrescriptionSection(latestPrescription);
+
+    const fullContext = [
+      previousReportSection,
+      patientSection,
+      `${examsLabel}\n${examsSection}`,
+      prescriptionSection,
+    ]
+      .filter(Boolean)
+      .join('\n\n---\n\n');
 
     const reportContent =
       await this.textRecognitionService.generateHealthOverview(
@@ -567,6 +664,48 @@ export class HealthService {
     }
 
     return this.overviewRepo.findLatest(resolvedTargetId, groupId);
+  }
+
+  async listOverviews(
+    user: User,
+    filter: HealthOverviewFilterDto,
+  ): Promise<HealthAiOverview[]> {
+    const { groupId } = await this.familyMemberResolver.resolve(user.id);
+
+    let userIds: string[];
+    if (filter.targetUserId) {
+      if (filter.targetUserId !== user.id) {
+        await this.assertCanView(filter.targetUserId, user.id);
+      }
+      userIds = [filter.targetUserId];
+    } else {
+      userIds = await this.familyMemberResolver.getAcceptedMemberUserIds(
+        user.id,
+      );
+    }
+
+    const startDate = filter.startDate
+      ? `${filter.startDate.slice(0, 10)} 00:00:00`
+      : undefined;
+    const endDate = filter.endDate
+      ? `${filter.endDate.slice(0, 10)} 23:59:59`
+      : undefined;
+
+    return this.overviewRepo.findByFilters(
+      userIds,
+      groupId,
+      startDate,
+      endDate,
+    );
+  }
+
+  async getOverviewById(id: string, user: User): Promise<HealthAiOverview> {
+    const overview = await this.overviewRepo.findById(id);
+    if (!overview) {
+      throw new NotFoundException('Relatório não encontrado');
+    }
+    await this.assertCanView(overview.user.id, user.id);
+    return overview;
   }
 
   // ─── Processamento interno (chamado pelo Scheduler) ───────────────────────
@@ -623,7 +762,9 @@ export class HealthService {
       });
     }
 
-    return (await this.processingRepo.findById(item.id)) as HealthExamProcessing;
+    return (await this.processingRepo.findById(
+      item.id,
+    )) as HealthExamProcessing;
   }
 
   private async processFile(item: HealthExamProcessing) {
@@ -698,9 +839,7 @@ export class HealthService {
     };
   }
 
-  private resolveMergedExamType(
-    results: ExtractedExamData[],
-  ): HealthExamType {
+  private resolveMergedExamType(results: ExtractedExamData[]): HealthExamType {
     const declared = results
       .map((r) => r.examType)
       .filter((t): t is HealthExamType => Boolean(t) && t !== 'OTHER');
@@ -711,7 +850,10 @@ export class HealthService {
     if (declared.includes('LABORATORY')) return 'LABORATORY';
     if (declared.length) return declared[0];
 
-    return this.inferExamTypeFromItems(undefined, results.flatMap((r) => r.items ?? []));
+    return this.inferExamTypeFromItems(
+      undefined,
+      results.flatMap((r) => r.items ?? []),
+    );
   }
 
   private isImagingLikeType(type?: HealthExamType): boolean {
@@ -742,7 +884,9 @@ export class HealthService {
     return Array.from(map.values());
   }
 
-  private normalizeExtractedExamData(data: ExtractedExamData): ExtractedExamData {
+  private normalizeExtractedExamData(
+    data: ExtractedExamData,
+  ): ExtractedExamData {
     return {
       ...data,
       examType: this.inferExamTypeFromItems(data.examType, data.items ?? []),
@@ -827,34 +971,60 @@ export class HealthService {
     return `INFORMAÇÕES ADICIONAIS DO PACIENTE (histórico):\n\n${lines.join('\n\n---\n\n')}`;
   }
 
-  private async assertCanGenerateOverview(
-    targetUserId: string,
-    latestOverview: HealthAiOverview | null,
-    hasNewContextInRequest: boolean,
-    hasAnyExams: boolean,
-  ): Promise<void> {
-    if (!latestOverview) {
-      if (!hasAnyExams && !hasNewContextInRequest) {
-        throw new BadRequestException(
-          'Cadastre exames ou informe o contexto do paciente para gerar o primeiro relatório.',
+  private buildPrescriptionSection(
+    prescription: HealthPrescription | null,
+  ): string {
+    if (!prescription) return '';
+
+    const header = [
+      `Data da receita: ${prescription.prescriptionDate ?? 'N/A'}`,
+      prescription.doctorName ? `Médico: ${prescription.doctorName}` : '',
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    const itemLines = (prescription.items ?? [])
+      .map((item) => {
+        const parts = [`  - ${item.medicationName}`];
+        if (item.dosage) parts.push(`Dosagem: ${item.dosage}`);
+        if (item.scheduleTimes?.length) {
+          parts.push(`Horários: ${item.scheduleTimes.join(', ')}`);
+        }
+        parts.push(
+          item.daysOfWeek?.length
+            ? `Dias: ${item.daysOfWeek.join(', ')}`
+            : 'Dias: todos os dias',
         );
-      }
-      return;
-    }
+        parts.push(
+          item.endDate
+            ? `Uso até: ${item.endDate}`
+            : 'Uso contínuo (sem data de término)',
+        );
+        if (item.notes) parts.push(`Obs.: ${item.notes}`);
+        return parts.join(' | ');
+      })
+      .join('\n');
 
-    if (hasNewContextInRequest) return;
+    const body = itemLines || '  Nenhum medicamento cadastrado.';
+    const notes = prescription.notes
+      ? `\nObservações da receita: ${prescription.notes}`
+      : '';
 
-    const since = latestOverview.generatedAt;
-    const [newExamsCount, newContextCount] = await Promise.all([
-      this.examRepo.countApprovedUpdatedAfter(targetUserId, since),
-      this.patientContextRepo.countCreatedAfter(targetUserId, since),
-    ]);
+    return `ÚLTIMO RECEITUÁRIO DO PACIENTE:\n${header}\n${body}${notes}`;
+  }
 
-    if (newExamsCount === 0 && newContextCount === 0) {
-      throw new BadRequestException(
-        'Não há dados novos desde o último relatório. Cadastre ou atualize exames ou adicione informações no campo de contexto.',
-      );
-    }
+  private buildPreviousReportSection(
+    overview: HealthAiOverview | null,
+  ): string {
+    if (!overview) return '';
+
+    const date = new Date(overview.generatedAt).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    return `RELATÓRIO ANTERIOR (gerado em ${date}) — use-o como base e gere uma versão ATUALIZADA e CONSOLIDADA incorporando os novos dados abaixo:\n\n${overview.reportContent}`;
   }
 
   // ─── Helpers de permissão ────────────────────────────────────────────────

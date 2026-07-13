@@ -91,7 +91,7 @@ describe('HealthService', () => {
     analyzePrescriptionImage: jest.Mock;
   };
   let familyMemberResolver: jest.Mocked<
-    Pick<FamilyMemberResolverService, 'resolve'>
+    Pick<FamilyMemberResolverService, 'resolve' | 'getAcceptedMemberUserIds'>
   >;
 
   beforeEach(async () => {
@@ -102,6 +102,7 @@ describe('HealthService', () => {
         .fn()
         .mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
       findApprovedByUserId: jest.fn().mockResolvedValue([makeExam()]),
+      findApprovedByUserIdChangedAfter: jest.fn().mockResolvedValue([]),
       countApprovedUpdatedAfter: jest.fn().mockResolvedValue(0),
       saveExam: jest.fn().mockResolvedValue(makeExam()),
       replaceItems: jest.fn().mockResolvedValue(undefined),
@@ -122,6 +123,7 @@ describe('HealthService', () => {
     prescriptionRepo = {
       create: jest.fn(),
       findById: jest.fn(),
+      findLatestByUserId: jest.fn().mockResolvedValue(null),
       findAll: jest
         .fn()
         .mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
@@ -133,6 +135,8 @@ describe('HealthService', () => {
     overviewRepo = {
       save: jest.fn(),
       findLatest: jest.fn().mockResolvedValue(null),
+      findByFilters: jest.fn().mockResolvedValue([]),
+      findById: jest.fn().mockResolvedValue(null),
     };
 
     memberRepo = {
@@ -148,6 +152,7 @@ describe('HealthService', () => {
         createdAt: new Date(),
       }),
       findByUserId: jest.fn().mockResolvedValue([]),
+      findByUserIdCreatedAfter: jest.fn().mockResolvedValue([]),
       countCreatedAfter: jest.fn().mockResolvedValue(0),
     };
 
@@ -171,6 +176,7 @@ describe('HealthService', () => {
         isAdmin: false,
         groupId: null,
       }),
+      getAcceptedMemberUserIds: jest.fn().mockResolvedValue(['user-1']),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -466,6 +472,38 @@ describe('HealthService', () => {
       expect(overviewRepo.save).toHaveBeenCalled();
     });
 
+    it('deve incluir o último receituário no contexto enviado à IA', async () => {
+      prescriptionRepo.findLatestByUserId.mockResolvedValue({
+        id: 'rx-1',
+        prescriptionDate: '2026-06-10',
+        doctorName: 'Dra. Souza',
+        notes: null,
+        items: [
+          {
+            medicationName: 'Losartana',
+            dosage: '50mg',
+            scheduleTimes: ['08:00'],
+            daysOfWeek: null,
+            endDate: null,
+            notes: null,
+          },
+        ],
+      } as any);
+
+      await service.generateOverview(makeUser('user-1'), {
+        patientContext: 'Pressão alta',
+      });
+
+      expect(prescriptionRepo.findLatestByUserId).toHaveBeenCalledWith(
+        'user-1',
+        null,
+      );
+      const contextArg =
+        textRecognitionService.generateHealthOverview.mock.calls[0][0];
+      expect(contextArg).toContain('ÚLTIMO RECEITUÁRIO DO PACIENTE');
+      expect(contextArg).toContain('Losartana');
+    });
+
     it('deve lançar BadRequestException na primeira geração sem exames nem contexto', async () => {
       examRepo.findApprovedByUserId.mockResolvedValue([]);
 
@@ -474,17 +512,53 @@ describe('HealthService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('deve lançar BadRequestException ao regenerar sem dados novos', async () => {
+    it('deve retornar o último relatório sem gerar quando não há dados novos', async () => {
       overviewRepo.findLatest.mockResolvedValue({
         id: 'ov-old',
         generatedAt: new Date('2026-06-01'),
+        createdAt: new Date('2026-06-01'),
+        reportContent: 'Relatório antigo',
       } as any);
-      examRepo.countApprovedUpdatedAfter.mockResolvedValue(0);
-      patientContextRepo.countCreatedAfter.mockResolvedValue(0);
+      examRepo.findApprovedByUserIdChangedAfter.mockResolvedValue([]);
+      patientContextRepo.findByUserIdCreatedAfter.mockResolvedValue([]);
+      prescriptionRepo.findLatestByUserId.mockResolvedValue(null);
 
-      await expect(
-        service.generateOverview(makeUser('user-1'), {}),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.generateOverview(makeUser('user-1'), {});
+
+      expect(result).toEqual(expect.objectContaining({ id: 'ov-old' }));
+      expect(
+        textRecognitionService.generateHealthOverview,
+      ).not.toHaveBeenCalled();
+      expect(overviewRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('do 2º relatório em diante envia apenas dados novos + relatório anterior', async () => {
+      overviewRepo.findLatest.mockResolvedValue({
+        id: 'ov-old',
+        generatedAt: new Date('2026-06-01'),
+        createdAt: new Date('2026-06-01'),
+        reportContent: 'Relatório anterior de saúde',
+      } as any);
+      examRepo.findApprovedByUserIdChangedAfter.mockResolvedValue([
+        makeExam({ id: 'exam-novo' }),
+      ]);
+      patientContextRepo.findByUserIdCreatedAfter.mockResolvedValue([
+        { id: 'ctx-novo', content: 'novo sintoma', createdAt: new Date() } as any,
+      ]);
+
+      await service.generateOverview(makeUser('user-1'), {});
+
+      expect(examRepo.findApprovedByUserId).not.toHaveBeenCalled();
+      expect(examRepo.findApprovedByUserIdChangedAfter).toHaveBeenCalledWith(
+        'user-1',
+        new Date('2026-06-01'),
+      );
+      const contextArg =
+        textRecognitionService.generateHealthOverview.mock.calls[0][0];
+      expect(contextArg).toContain('RELATÓRIO ANTERIOR');
+      expect(contextArg).toContain('Relatório anterior de saúde');
+      expect(contextArg).toContain('NOVOS EXAMES DESDE O ÚLTIMO RELATÓRIO');
+      expect(overviewRepo.save).toHaveBeenCalled();
     });
   });
 
@@ -507,6 +581,103 @@ describe('HealthService', () => {
     });
   });
 
+  // ─── listOverviews ───────────────────────────────────────────────────────
+
+  describe('listOverviews', () => {
+    it('deve listar relatórios de todos os membros quando não há targetUserId (família toda)', async () => {
+      familyMemberResolver.resolve.mockResolvedValueOnce({
+        userIds: ['user-1', 'user-2'],
+        isAdmin: true,
+        groupId: 'group-1',
+      });
+      familyMemberResolver.getAcceptedMemberUserIds.mockResolvedValueOnce([
+        'user-1',
+        'user-2',
+      ]);
+      overviewRepo.findByFilters.mockResolvedValueOnce([
+        { id: 'ov-1' } as any,
+      ]);
+
+      const result = await service.listOverviews(makeUser('user-1'), {
+        startDate: '2026-07-01',
+        endDate: '2026-07-31',
+      });
+
+      expect(
+        familyMemberResolver.getAcceptedMemberUserIds,
+      ).toHaveBeenCalledWith('user-1');
+      expect(overviewRepo.findByFilters).toHaveBeenCalledWith(
+        ['user-1', 'user-2'],
+        'group-1',
+        '2026-07-01 00:00:00',
+        '2026-07-31 23:59:59',
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('deve filtrar por um único membro quando targetUserId é o próprio usuário', async () => {
+      await service.listOverviews(makeUser('user-1'), {
+        targetUserId: 'user-1',
+      });
+
+      expect(
+        familyMemberResolver.getAcceptedMemberUserIds,
+      ).not.toHaveBeenCalled();
+      expect(overviewRepo.findByFilters).toHaveBeenCalledWith(
+        ['user-1'],
+        null,
+        undefined,
+        undefined,
+      );
+    });
+
+    it('deve validar permissão ao filtrar relatórios de outro membro', async () => {
+      memberRepo.findMembershipWithGroup
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.listOverviews(makeUser('user-1'), { targetUserId: 'user-2' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── getOverviewById ───────────────────────────────────────────────────────
+
+  describe('getOverviewById', () => {
+    it('deve lançar NotFoundException quando relatório não existe', async () => {
+      overviewRepo.findById.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getOverviewById('ov-x', makeUser('user-1')),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve retornar o relatório do próprio usuário', async () => {
+      overviewRepo.findById.mockResolvedValueOnce({
+        id: 'ov-1',
+        user: { id: 'user-1' },
+      } as any);
+
+      const result = await service.getOverviewById('ov-1', makeUser('user-1'));
+      expect(result.id).toBe('ov-1');
+    });
+
+    it('deve lançar ForbiddenException ao acessar relatório de outro sem grupo', async () => {
+      overviewRepo.findById.mockResolvedValueOnce({
+        id: 'ov-1',
+        user: { id: 'user-2' },
+      } as any);
+      memberRepo.findMembershipWithGroup
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.getOverviewById('ov-1', makeUser('user-1')),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   // ─── discardProcessing ───────────────────────────────────────────────────
 
   describe('discardProcessing', () => {
@@ -515,6 +686,102 @@ describe('HealthService', () => {
       await service.discardProcessing('proc-1', user);
 
       expect(processingRepo.deleteById).toHaveBeenCalledWith('proc-1');
+    });
+  });
+
+  // ─── createPatientContext ────────────────────────────────────────────────
+
+  describe('createPatientContext', () => {
+    it('deve criar descrição para o próprio usuário', async () => {
+      patientContextRepo.create.mockResolvedValue({
+        id: 'ctx-1',
+        content: 'Com dor de cabeça hoje',
+        createdAt: new Date(),
+      } as any);
+
+      const result = await service.createPatientContext(makeUser('user-1'), {
+        content: 'Com dor de cabeça hoje',
+      });
+
+      expect(patientContextRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'Com dor de cabeça hoje',
+          user: expect.objectContaining({ id: 'user-1' }),
+          createdBy: expect.objectContaining({ id: 'user-1' }),
+        }),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('deve lançar BadRequestException para conteúdo vazio', async () => {
+      await expect(
+        service.createPatientContext(makeUser('user-1'), { content: '   ' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('membro comum não pode criar descrição para outro usuário', async () => {
+      familyMemberResolver.resolve.mockResolvedValue({
+        userIds: ['user-1'],
+        isAdmin: false,
+        groupId: null,
+      });
+
+      await expect(
+        service.createPatientContext(makeUser('user-1'), {
+          content: 'algo',
+          targetUserId: 'user-2',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('admin pode criar descrição para outro membro do grupo', async () => {
+      familyMemberResolver.resolve.mockResolvedValue({
+        userIds: ['user-1', 'user-2'],
+        isAdmin: true,
+        groupId: 'group-1',
+      });
+      memberRepo.isMemberOfGroup.mockResolvedValue(true);
+      patientContextRepo.create.mockResolvedValue({
+        id: 'ctx-2',
+        content: 'febre',
+        createdAt: new Date(),
+      } as any);
+
+      await service.createPatientContext(makeUser('user-1'), {
+        content: 'febre',
+        targetUserId: 'user-2',
+      });
+
+      expect(patientContextRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user: expect.objectContaining({ id: 'user-2' }),
+        }),
+      );
+    });
+  });
+
+  // ─── getLatestPatientContext ─────────────────────────────────────────────
+
+  describe('getLatestPatientContext', () => {
+    it('deve retornar a descrição mais recente', async () => {
+      patientContextRepo.findByUserId.mockResolvedValue([
+        { id: 'ctx-new', content: 'recente', createdAt: new Date() } as any,
+        { id: 'ctx-old', content: 'antiga', createdAt: new Date() } as any,
+      ]);
+
+      const result = await service.getLatestPatientContext(makeUser('user-1'));
+
+      expect(result).toEqual(
+        expect.objectContaining({ id: 'ctx-new' }),
+      );
+    });
+
+    it('deve retornar null quando não há descrições', async () => {
+      patientContextRepo.findByUserId.mockResolvedValue([]);
+
+      const result = await service.getLatestPatientContext(makeUser('user-1'));
+
+      expect(result).toBeNull();
     });
   });
 

@@ -32,6 +32,12 @@ export interface IHealthExamRepository {
     manager?: EntityManager,
   ): Promise<HealthExam[]>;
 
+  findApprovedByUserIdChangedAfter(
+    userId: string,
+    since: Date,
+    manager?: EntityManager,
+  ): Promise<HealthExam[]>;
+
   countApprovedUpdatedAfter(
     userId: string,
     since: Date,

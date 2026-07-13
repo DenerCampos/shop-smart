@@ -57,6 +57,22 @@ async function insertUser(app: INestApplication, email: string): Promise<string>
   return userId;
 }
 
+async function insertOverview(
+  app: INestApplication,
+  userId: string,
+  reportContent: string,
+): Promise<string> {
+  const ds = app.get(DataSource);
+  const id = randomUUID();
+  await ds.query(
+    `INSERT INTO \`health_ai_overview\`
+      (\`id\`, \`reportContent\`, \`generatedAt\`, \`createdAt\`, \`familyGroupId\`, \`userId\`, \`generatedByUserId\`)
+     VALUES (?, ?, NOW(), NOW(6), NULL, ?, ?)`,
+    [id, reportContent, userId, userId],
+  );
+  return id;
+}
+
 describe('Health (e2e)', () => {
   let app: INestApplication;
   let tokenA: string;
@@ -164,5 +180,109 @@ describe('Health (e2e)', () => {
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  // ─── patient-context ──────────────────────────────────────────────────────
+
+  it('POST /health/patient-context exige autenticação', async () => {
+    await request(app.getHttpServer())
+      .post('/health/patient-context')
+      .send({ content: 'Sem token' })
+      .expect(401);
+  });
+
+  it('POST /health/patient-context com conteúdo vazio retorna 400', async () => {
+    await request(app.getHttpServer())
+      .post('/health/patient-context')
+      .set(bearerAuth(tokenB))
+      .send({ content: '' })
+      .expect(400);
+  });
+
+  it('POST /health/patient-context cria descrição e GET /latest retorna a mais recente', async () => {
+    const create = await request(app.getHttpServer())
+      .post('/health/patient-context')
+      .set(bearerAuth(tokenB))
+      .send({ content: 'Com dor de cabeça hoje' })
+      .expect(201);
+
+    expect(create.body).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        content: 'Com dor de cabeça hoje',
+      }),
+    );
+
+    const latest = await request(app.getHttpServer())
+      .get('/health/patient-context/latest')
+      .set(bearerAuth(tokenB))
+      .expect(200);
+
+    expect(latest.body).toEqual(
+      expect.objectContaining({ content: 'Com dor de cabeça hoje' }),
+    );
+  });
+
+  // ─── ai-overview (listagem e consulta) ────────────────────────────────────
+
+  it('GET /health/ai-overview exige autenticação', async () => {
+    await request(app.getHttpServer()).get('/health/ai-overview').expect(401);
+  });
+
+  it('GET /health/ai-overview retorna array', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/health/ai-overview')
+      .set(bearerAuth(tokenA))
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('GET /health/ai-overview com data inválida retorna 400', async () => {
+    await request(app.getHttpServer())
+      .get('/health/ai-overview')
+      .query({ startDate: 'ontem' })
+      .set(bearerAuth(tokenA))
+      .expect(400);
+  });
+
+  it('GET /health/ai-overview/:id inexistente retorna 404', async () => {
+    await request(app.getHttpServer())
+      .get(`/health/ai-overview/${randomUUID()}`)
+      .set(bearerAuth(tokenA))
+      .expect(404);
+  });
+
+  it('GET /health/ai-overview/:id retorna o relatório do próprio usuário', async () => {
+    const overviewId = await insertOverview(
+      app,
+      userBId,
+      'Relatório de saúde E2E do usuário B',
+    );
+
+    const res = await request(app.getHttpServer())
+      .get(`/health/ai-overview/${overviewId}`)
+      .set(bearerAuth(tokenB))
+      .expect(200);
+
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        id: overviewId,
+        reportContent: 'Relatório de saúde E2E do usuário B',
+      }),
+    );
+  });
+
+  it('GET /health/ai-overview/:id bloqueia acesso a relatório de outro usuário sem grupo', async () => {
+    const overviewId = await insertOverview(
+      app,
+      userBId,
+      'Relatório privado do usuário B',
+    );
+
+    await request(app.getHttpServer())
+      .get(`/health/ai-overview/${overviewId}`)
+      .set(bearerAuth(tokenA))
+      .expect(403);
   });
 });

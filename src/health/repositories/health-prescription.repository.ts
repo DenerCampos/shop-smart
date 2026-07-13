@@ -59,6 +59,27 @@ export class HealthPrescriptionRepository implements IHealthPrescriptionReposito
     });
   }
 
+  async findLatestByUserId(
+    userId: string,
+    groupId: string | null,
+    manager?: EntityManager,
+  ): Promise<HealthPrescription | null> {
+    const qb = this.rx(manager)
+      .createQueryBuilder('rx')
+      .leftJoinAndSelect('rx.items', 'items')
+      .where('rx.deletedAt IS NULL')
+      .andWhere('rx.userId = :userId', { userId });
+
+    if (groupId) {
+      qb.andWhere('rx.familyGroupId = :groupId', { groupId });
+    }
+
+    return qb
+      .orderBy('rx.prescriptionDate', 'DESC')
+      .addOrderBy('rx.createdAt', 'DESC')
+      .getOne();
+  }
+
   async findAll(
     filter: HealthPrescriptionFilterDto,
     groupId: string | null,

@@ -41,6 +41,25 @@ export class HealthPatientContextRepository implements IHealthPatientContextRepo
     return qb.orderBy('ctx.createdAt', 'DESC').getMany();
   }
 
+  async findByUserIdCreatedAfter(
+    userId: string,
+    groupId: string | null,
+    since: Date,
+    manager?: EntityManager,
+  ): Promise<HealthPatientContext[]> {
+    const qb = this.repo(manager)
+      .createQueryBuilder('ctx')
+      .leftJoinAndSelect('ctx.createdBy', 'createdBy')
+      .where('ctx.userId = :userId', { userId })
+      .andWhere('ctx.createdAt > :since', { since });
+
+    if (groupId) {
+      qb.andWhere('ctx.familyGroupId = :groupId', { groupId });
+    }
+
+    return qb.orderBy('ctx.createdAt', 'DESC').getMany();
+  }
+
   async countCreatedAfter(
     userId: string,
     since: Date,

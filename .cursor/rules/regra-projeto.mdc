@@ -171,7 +171,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113), `POST .../occurrences/:id/return-for-adjustment` (SP-115) |
 | `/recipes` | recipe |
 | `missions` | mission |
-| `/health` | health — `POST/GET /exams`, `PUT/DELETE /exams/:id`, `POST /upload`, `GET/DELETE /processing`, `POST /processing/:id/approve`, `POST /ai-overview`, `GET /ai-overview/latest`, `POST/GET /prescriptions`, `PUT/DELETE /prescriptions/:id` (SP-123) |
+| `/health` | health — `POST/GET /exams`, `PUT/DELETE /exams/:id`, `POST /upload`, `GET/DELETE /processing`, `POST /processing/:id/approve`, `GET /patient-context`, `GET /patient-context/latest`, `POST /patient-context`, `POST /ai-overview`, `GET /ai-overview`, `GET /ai-overview/latest`, `GET /ai-overview/:id`, `POST/GET /prescriptions`, `PUT/DELETE /prescriptions/:id` (SP-123) |
 | `alexa` | alexa |
 
 REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em DELETE sem body.

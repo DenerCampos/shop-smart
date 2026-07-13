@@ -13,6 +13,13 @@ export interface IHealthPatientContextRepository {
     manager?: EntityManager,
   ): Promise<HealthPatientContext[]>;
 
+  findByUserIdCreatedAfter(
+    userId: string,
+    groupId: string | null,
+    since: Date,
+    manager?: EntityManager,
+  ): Promise<HealthPatientContext[]>;
+
   countCreatedAfter(
     userId: string,
     since: Date,

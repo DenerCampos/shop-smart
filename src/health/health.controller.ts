@@ -29,6 +29,8 @@ import { ApproveProcessingDto } from './dto/approve-processing.dto';
 import { CreateHealthPrescriptionDto } from './dto/create-health-prescription.dto';
 import { HealthPrescriptionFilterDto } from './dto/health-prescription-filter.dto';
 import { GenerateOverviewDto } from './dto/generate-overview.dto';
+import { CreatePatientContextDto } from './dto/create-patient-context.dto';
+import { HealthOverviewFilterDto } from './dto/health-overview-filter.dto';
 import { UpdateHealthPrescriptionDto } from './dto/update-health-prescription.dto';
 import { HEALTH_MAX_FILE_BYTES } from './constants/health-processing.constants';
 import {
@@ -213,6 +215,30 @@ export class HealthController {
     );
   }
 
+  @Get('patient-context/latest')
+  async getLatestPatientContext(
+    @CurrentUser() user: User,
+    @Query('targetUserId') targetUserId?: string,
+  ): Promise<HealthPatientContextResponseDto | null> {
+    const item = await this.healthService.getLatestPatientContext(
+      user,
+      targetUserId,
+    );
+    return this.responseService.mapOptionalToDto(
+      HealthPatientContextResponseDto,
+      item,
+    );
+  }
+
+  @Post('patient-context')
+  async createPatientContext(
+    @CurrentUser() user: User,
+    @Body() dto: CreatePatientContextDto,
+  ): Promise<HealthPatientContextResponseDto> {
+    const item = await this.healthService.createPatientContext(user, dto);
+    return this.responseService.mapToDto(HealthPatientContextResponseDto, item);
+  }
+
   @Post('ai-overview')
   async generateOverview(
     @CurrentUser() user: User,
@@ -220,6 +246,18 @@ export class HealthController {
   ): Promise<HealthAiOverviewResponseDto> {
     const overview = await this.healthService.generateOverview(user, dto);
     return this.responseService.mapToDto(HealthAiOverviewResponseDto, overview);
+  }
+
+  @Get('ai-overview')
+  async listOverviews(
+    @CurrentUser() user: User,
+    @Query() filter: HealthOverviewFilterDto,
+  ): Promise<HealthAiOverviewResponseDto[]> {
+    const items = await this.healthService.listOverviews(user, filter);
+    return this.responseService.mapArrayToDto(
+      HealthAiOverviewResponseDto,
+      items,
+    );
   }
 
   @Get('ai-overview/latest')
@@ -235,6 +273,15 @@ export class HealthController {
       HealthAiOverviewResponseDto,
       overview,
     );
+  }
+
+  @Get('ai-overview/:id')
+  async getOverviewById(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<HealthAiOverviewResponseDto> {
+    const overview = await this.healthService.getOverviewById(id, user);
+    return this.responseService.mapToDto(HealthAiOverviewResponseDto, overview);
   }
 
   // ─── Receituário ─────────────────────────────────────────────────────────

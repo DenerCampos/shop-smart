@@ -142,6 +142,24 @@ export class HealthExamRepository implements IHealthExamRepository {
     });
   }
 
+  async findApprovedByUserIdChangedAfter(
+    userId: string,
+    since: Date,
+    manager?: EntityManager,
+  ): Promise<HealthExam[]> {
+    return this.exam(manager)
+      .createQueryBuilder('exam')
+      .leftJoinAndSelect('exam.items', 'items')
+      .where('exam.userId = :userId', { userId })
+      .andWhere('exam.status = :status', { status: 'APPROVED' })
+      .andWhere('exam.deletedAt IS NULL')
+      .andWhere('(exam.createdAt > :since OR exam.updatedAt > :since)', {
+        since,
+      })
+      .orderBy('exam.examDate', 'DESC')
+      .getMany();
+  }
+
   async countApprovedUpdatedAfter(
     userId: string,
     since: Date,

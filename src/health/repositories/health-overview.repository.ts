@@ -37,4 +37,45 @@ export class HealthOverviewRepository implements IHealthOverviewRepository {
       order: { generatedAt: 'DESC' },
     });
   }
+
+  async findByFilters(
+    userIds: string[],
+    groupId: string | null,
+    startDate?: string,
+    endDate?: string,
+    manager?: EntityManager,
+  ): Promise<HealthAiOverview[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    const qb = this.repo(manager)
+      .createQueryBuilder('overview')
+      .leftJoinAndSelect('overview.user', 'user')
+      .where('overview.userId IN (:...userIds)', { userIds });
+
+    if (groupId) {
+      qb.andWhere('overview.familyGroupId = :groupId', { groupId });
+    }
+
+    if (startDate) {
+      qb.andWhere('overview.generatedAt >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      qb.andWhere('overview.generatedAt <= :endDate', { endDate });
+    }
+
+    return qb.orderBy('overview.generatedAt', 'DESC').getMany();
+  }
+
+  async findById(
+    id: string,
+    manager?: EntityManager,
+  ): Promise<HealthAiOverview | null> {
+    return this.repo(manager).findOne({
+      where: { id },
+      relations: ['user'],
+    });
+  }
 }

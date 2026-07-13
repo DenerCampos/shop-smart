@@ -22,6 +22,12 @@ export interface IHealthPrescriptionRepository {
     manager?: EntityManager,
   ): Promise<HealthPrescription | null>;
 
+  findLatestByUserId(
+    userId: string,
+    groupId: string | null,
+    manager?: EntityManager,
+  ): Promise<HealthPrescription | null>;
+
   findAll(
     filter: HealthPrescriptionFilterDto,
     groupId: string | null,

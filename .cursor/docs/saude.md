@@ -57,12 +57,13 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 3. (Opcional) Preenche campo de **informações adicionais** sobre o paciente — sintomas, relatos de consultas, doenças conhecidas/suspeitas
 4. Clica "Gerar Relatório" → POST `/health/ai-overview` com `{ targetUserId?, patientContext? }`
 5. Se `patientContext` informado, salvo em `health_patient_context` (histórico com data)
-6. API valida se há dados novos desde o último relatório (exames criados/atualizados ou novos registros de contexto); caso contrário retorna 400
-7. API busca exames aprovados + histórico completo de contexto do paciente e monta prompt para a IA
-8. Gemini gera relatório em Markdown com seções de saúde
-9. Resultado salvo em `health_ai_overview`
-10. Próximas visitas carregam do cache via GET `/health/ai-overview/latest` e histórico via GET `/health/patient-context`
-11. Botão "Regenerar" só funciona com dados novos ou novo texto no campo opcional
+6. **Geração incremental:**
+   - **1º relatório** (nenhum anterior): envia **tudo** — todos os exames aprovados + todo o histórico de contexto + último receituário. Se não houver nenhum dado, retorna 400.
+   - **2º em diante**: envia apenas o que é **novo desde a data (`generatedAt`) do último relatório** — exames criados/atualizados após essa data + contextos criados após essa data + **último receituário** (sempre) + o **conteúdo do relatório anterior** (para a IA consolidar/atualizar).
+   - Se **não houver** exames novos, contextos novos nem receituário novo → **não gera** e retorna o último relatório existente (sem chamar a IA).
+7. Gemini gera relatório em Markdown com seções de saúde (incl. `## Medicamentos em Uso`)
+8. Resultado salvo em `health_ai_overview` (uma nova linha por geração)
+9. Próximas visitas carregam do cache via GET `/health/ai-overview/latest` e histórico via GET `/health/patient-context`
 
 ### Receituário
 - Listagem: GET `/health/prescriptions` com filtro por membro
@@ -98,8 +99,14 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/health/patient-context?targetUserId=` | Histórico de informações adicionais do paciente |
+| GET | `/health/patient-context/latest?targetUserId=` | Última descrição registrada do paciente |
+| POST | `/health/patient-context` | Registrar descrição ("como estou me sentindo agora") sem gerar relatório |
 | POST | `/health/ai-overview` | Gerar relatório (`patientContext` opcional) |
 | GET | `/health/ai-overview/latest` | Última geração (cache) |
+| GET | `/health/ai-overview?targetUserId=&startDate=&endDate=` | Listar relatórios (`health_ai_overview`) por membro (ou família toda, sem `targetUserId`) e período; ordenado por `generatedAt` desc |
+| GET | `/health/ai-overview/:id` | Buscar um relatório específico (usado no card "Relatórios de Saúde" do dashboard) |
+
+> **Filtro por período:** usa `generatedAt` (data/hora local exibida ao usuário). `startDate`/`endDate` no formato `YYYY-MM-DD`; o service normaliza para `00:00:00`/`23:59:59`. Sem `targetUserId`, lista todos os membros aceitos da família (`getAcceptedMemberUserIds`); com `targetUserId`, valida permissão via `assertCanView`.
 
 ### Receituário
 | Método | Rota | Descrição |
