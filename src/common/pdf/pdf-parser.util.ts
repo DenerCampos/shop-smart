@@ -52,8 +52,10 @@ export async function parsePdf(
     return { text: '', pageCount: 0 };
   }
 
-  let parser: { getText: () => Promise<{ text?: string; total?: number }>; destroy: () => Promise<void> } | null =
-    null;
+  let parser: {
+    getText: () => Promise<{ text?: string; total?: number }>;
+    destroy: () => Promise<void>;
+  } | null = null;
 
   try {
     const { PDFParse } = await import('pdf-parse');

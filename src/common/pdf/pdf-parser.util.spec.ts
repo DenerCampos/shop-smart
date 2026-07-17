@@ -14,7 +14,9 @@ describe('parsePdfText', () => {
       const fs = await import('fs');
       buffer = fs.readFileSync(samplePdfPath);
     } catch {
-      console.warn(`PDF de teste não encontrado em ${samplePdfPath} — teste ignorado.`);
+      console.warn(
+        `PDF de teste não encontrado em ${samplePdfPath} — teste ignorado.`,
+      );
       return;
     }
 

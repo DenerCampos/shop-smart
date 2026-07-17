@@ -1,5 +1,8 @@
 import { ImageRecognitionResult } from '../../types/imageRecognitionType';
-import { ExtractedExamData, ExtractedPrescriptionData } from 'src/text-recognition/types/textRecognitionType';
+import {
+  ExtractedExamData,
+  ExtractedPrescriptionData,
+} from 'src/text-recognition/types/textRecognitionType';
 
 export interface AnalyzeOptions {
   groups?: string[];

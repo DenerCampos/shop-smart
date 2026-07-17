@@ -9,12 +9,13 @@ import { ImageRecognitionException } from '../../exceptions/imageRecognition.exc
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
-import { ExtractedExamData, ExtractedPrescriptionData } from 'src/text-recognition/types/textRecognitionType';
+import {
+  ExtractedExamData,
+  ExtractedPrescriptionData,
+} from 'src/text-recognition/types/textRecognitionType';
 import { buildHealthExamImageExtractionPrompt } from 'src/common/prompts/health-exam-extraction.prompt';
 import { buildHealthImagingImageExtractionPrompt } from 'src/common/prompts/health-imaging-image.prompt';
-import {
-  buildPrescriptionImageExtractionPrompt,
-} from 'src/common/prompts/prescription-extraction.prompt';
+import { buildPrescriptionImageExtractionPrompt } from 'src/common/prompts/prescription-extraction.prompt';
 import {
   buildImageExpensePrompt,
   buildImageRevenuePrompt,
