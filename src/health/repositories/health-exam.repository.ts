@@ -5,10 +5,26 @@ import { HealthExam } from '../entities/health-exam.entity';
 import { HealthExamItem } from '../entities/health-exam-item.entity';
 import { HealthExamFile } from '../entities/health-exam-file.entity';
 import {
+  HealthExamItemEvolutionPoint,
   HealthExamListResult,
   IHealthExamRepository,
 } from '../interfaces/health-exam.repository.interface';
 import type { HealthExamFilterDto } from '../dto/health-exam-filter.dto';
+
+/**
+ * Normaliza coluna SQL DATE para YYYY-MM-DD sem deslocar o dia por fuso
+ * (evita `toISOString()` em Date que represente meia-noite local).
+ */
+function formatSqlDateOnly(value: string | Date | null): string | null {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    return value.slice(0, 10);
+  }
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(value.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 @Injectable()
 export class HealthExamRepository implements IHealthExamRepository {
@@ -140,6 +156,91 @@ export class HealthExamRepository implements IHealthExamRepository {
       relations: ['items'],
       order: { examDate: 'DESC' },
     });
+  }
+
+  async findDistinctLabItemNames(
+    userId: string,
+    search?: string,
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    const qb = this.exam(manager)
+      .createQueryBuilder('exam')
+      .innerJoin('exam.items', 'item')
+      .select('item.itemName', 'itemName')
+      .distinct(true)
+      .where('exam.deletedAt IS NULL')
+      .andWhere('exam.status = :status', { status: 'APPROVED' })
+      .andWhere('exam.examType = :examType', { examType: 'LABORATORY' })
+      .andWhere('exam.userId = :userId', { userId })
+      .andWhere('item.resultValue IS NOT NULL')
+      .andWhere("item.resultValue <> ''");
+
+    if (search) {
+      qb.andWhere('LOWER(item.itemName) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    qb.orderBy('item.itemName', 'ASC');
+
+    const rows = await qb.getRawMany<{ itemName: string }>();
+    return rows.map((r) => r.itemName);
+  }
+
+  async findLabItemEvolution(
+    userId: string,
+    itemName: string,
+    dateFrom?: string,
+    dateTo?: string,
+    manager?: EntityManager,
+  ): Promise<HealthExamItemEvolutionPoint[]> {
+    const qb = this.exam(manager)
+      .createQueryBuilder('exam')
+      .innerJoin('exam.items', 'item')
+      .select('exam.id', 'examId')
+      .addSelect('item.itemName', 'itemName')
+      .addSelect('exam.examDate', 'examDate')
+      .addSelect('item.resultValue', 'resultValue')
+      .addSelect('item.resultUnit', 'resultUnit')
+      .addSelect('item.referenceRange', 'referenceRange')
+      .addSelect('item.isAbnormal', 'isAbnormal')
+      .where('exam.deletedAt IS NULL')
+      .andWhere('exam.status = :status', { status: 'APPROVED' })
+      .andWhere('exam.examType = :examType', { examType: 'LABORATORY' })
+      .andWhere('exam.userId = :userId', { userId })
+      .andWhere('LOWER(item.itemName) = LOWER(:itemName)', { itemName })
+      .andWhere('exam.examDate IS NOT NULL')
+      .andWhere('item.resultValue IS NOT NULL')
+      .andWhere("item.resultValue <> ''");
+
+    if (dateFrom) {
+      qb.andWhere('exam.examDate >= :dateFrom', { dateFrom });
+    }
+    if (dateTo) {
+      qb.andWhere('exam.examDate <= :dateTo', { dateTo });
+    }
+
+    qb.orderBy('exam.examDate', 'ASC');
+
+    const rows = await qb.getRawMany<{
+      examId: string;
+      itemName: string;
+      examDate: string | Date | null;
+      resultValue: string | null;
+      resultUnit: string | null;
+      referenceRange: string | null;
+      isAbnormal: number | boolean | null;
+    }>();
+
+    return rows.map((r) => ({
+      examId: r.examId,
+      itemName: r.itemName,
+      examDate: formatSqlDateOnly(r.examDate),
+      resultValue: r.resultValue,
+      resultUnit: r.resultUnit,
+      referenceRange: r.referenceRange,
+      isAbnormal: r.isAbnormal === 1 || r.isAbnormal === true,
+    }));
   }
 
   async findApprovedByUserIdChangedAfter(

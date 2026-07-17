@@ -391,7 +391,9 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
     );
   }
 
-  async analyzePrescriptionText(text: string): Promise<ExtractedPrescriptionData> {
+  async analyzePrescriptionText(
+    text: string,
+  ): Promise<ExtractedPrescriptionData> {
     return this.aiCallTelemetry.measure(
       'text_recognition',
       this.name,

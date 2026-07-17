@@ -1,8 +1,8 @@
-# Módulo de Saúde — SP-123
+# Módulo de Saúde — SP-123 / SP-124
 
 ## Objetivo
 
-Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exames médicos, receituários e obtenham um relatório de saúde gerado por IA (Gemini), com suporte a upload de PDFs e imagens.
+Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exames médicos, receituários e obtenham um relatório de saúde gerado por IA (Gemini), com suporte a upload de PDFs e imagens. Inclui série temporal de itens laboratoriais.
 
 ---
 
@@ -12,7 +12,8 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 - Cadastro manual de exames (laboratorial, imagem, funcional, procedimento)
 - Upload de PDFs e imagens de exames para processamento automático via IA
 - Revisão e aprovação dos dados extraídos pela IA antes de salvar
-- Busca de exames com filtros (nome, médico, laboratório, data, tipo) + gráfico de evolução
+- Busca de exames com filtros (nome, médico, laboratório, data, tipo)
+- Evolução temporal por nome de item laboratorial (endpoints `exam-items/names` e `exam-items/evolution`)
 - Visão geral de saúde gerada por Gemini (relatório em cache, regenerável)
 - Cadastro, listagem e detalhe de receituários com horários e agendamento estruturado
 - Permissões familiares: admin gerencia qualquer membro; membros gerenciam apenas os seus
@@ -49,7 +50,13 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 ### Busca
 - `/new-resources/health/search` com filtros independentes
 - Resultado em lista expansível; item anormal com badge laranja
-- Botão "Ver evolução" exibe `LineChart` (Recharts) com histórico do primeiro item laboratorial
+- Evolução temporal **não** fica embutida na busca
+
+### Evolução (SP-124)
+1. App lista nomes via GET `/health/exam-items/names?userId=&search=`
+2. Ao escolher um item → GET `/health/exam-items/evolution?itemName=&userId=&dateFrom=&dateTo=`
+3. Backend retorna pontos de exames `LABORATORY` + `APPROVED` com `resultValue` não vazio, ordenados por `examDate` ASC
+4. Front filtra valores numéricos e renderiza o gráfico
 
 ### Visão Geral (IA)
 1. Usuário acessa `/new-resources/health/overview`
@@ -84,6 +91,8 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 | GET | `/health/exams/:id` | Detalhe |
 | PUT | `/health/exams/:id` | Atualização |
 | DELETE | `/health/exams/:id` | Exclusão (soft delete) |
+| GET | `/health/exam-items/names?userId=&search=` | Nomes distintos de itens laboratoriais com valor (formatados: 1ª maiúscula + resto minúsculo; `search` case-insensitive; dedupe por caixa) |
+| GET | `/health/exam-items/evolution?itemName=&userId=&dateFrom=&dateTo=` | Série temporal do item (ASC por `examDate`; match de `itemName` case-insensitive) |
 
 ### Upload / Processamento
 | Método | Rota | Descrição |
@@ -182,7 +191,8 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 | `src/pages/NewHealth/HealthRegisterView.tsx` | Cadastro manual + upload |
 | `src/pages/NewHealth/HealthPendingView.tsx` | Lista de pendentes |
 | `src/pages/NewHealth/HealthPendingDetailView.tsx` | Revisão / aprovação de IA |
-| `src/pages/NewHealth/HealthSearchView.tsx` | Busca de exames + gráfico |
+| `src/pages/NewHealth/HealthSearchView.tsx` | Busca de exames (lista) |
+| `src/pages/NewHealth/HealthEvolutionView.tsx` | Evolução por item laboratorial |
 | `src/pages/NewHealth/HealthOverviewView.tsx` | Relatório IA |
 | `src/pages/NewHealth/HealthPrescriptionsView.tsx` | Lista receituários |
 | `src/pages/NewHealth/HealthPrescriptionFormView.tsx` | Formulário receituário |

@@ -25,6 +25,8 @@ import { HealthService } from './health.service';
 import { CreateHealthExamDto } from './dto/create-health-exam.dto';
 import { UpdateHealthExamDto } from './dto/update-health-exam.dto';
 import { HealthExamFilterDto } from './dto/health-exam-filter.dto';
+import { HealthExamItemNamesQueryDto } from './dto/health-exam-item-names.query.dto';
+import { HealthExamEvolutionQueryDto } from './dto/health-exam-evolution.query.dto';
 import { ApproveProcessingDto } from './dto/approve-processing.dto';
 import { CreateHealthPrescriptionDto } from './dto/create-health-prescription.dto';
 import { HealthPrescriptionFilterDto } from './dto/health-prescription-filter.dto';
@@ -35,6 +37,7 @@ import { UpdateHealthPrescriptionDto } from './dto/update-health-prescription.dt
 import { HEALTH_MAX_FILE_BYTES } from './constants/health-processing.constants';
 import {
   HealthAiOverviewResponseDto,
+  HealthExamItemEvolutionPointResponseDto,
   HealthExamResponseDto,
   HealthPatientContextResponseDto,
   HealthPrescriptionResponseDto,
@@ -77,6 +80,26 @@ export class HealthController {
     return this.responseService.mapPaginatedToDto(
       HealthExamResponseDto,
       result,
+    );
+  }
+
+  @Get('exam-items/names')
+  async listLabItemNames(
+    @CurrentUser() user: User,
+    @Query() query: HealthExamItemNamesQueryDto,
+  ): Promise<string[]> {
+    return this.healthService.listLabItemNames(user, query);
+  }
+
+  @Get('exam-items/evolution')
+  async getLabItemEvolution(
+    @CurrentUser() user: User,
+    @Query() query: HealthExamEvolutionQueryDto,
+  ): Promise<HealthExamItemEvolutionPointResponseDto[]> {
+    const points = await this.healthService.getLabItemEvolution(user, query);
+    return this.responseService.mapArrayToDto(
+      HealthExamItemEvolutionPointResponseDto,
+      points,
     );
   }
 

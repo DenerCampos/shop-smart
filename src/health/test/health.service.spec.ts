@@ -102,6 +102,8 @@ describe('HealthService', () => {
         .fn()
         .mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
       findApprovedByUserId: jest.fn().mockResolvedValue([makeExam()]),
+      findDistinctLabItemNames: jest.fn().mockResolvedValue([]),
+      findLabItemEvolution: jest.fn().mockResolvedValue([]),
       findApprovedByUserIdChangedAfter: jest.fn().mockResolvedValue([]),
       countApprovedUpdatedAfter: jest.fn().mockResolvedValue(0),
       saveExam: jest.fn().mockResolvedValue(makeExam()),
@@ -329,6 +331,99 @@ describe('HealthService', () => {
     });
   });
 
+  // ─── listLabItemNames ──────────────────────────────────────────────────────
+
+  describe('listLabItemNames', () => {
+    it('deve listar nomes distintos do próprio usuário por padrão', async () => {
+      examRepo.findDistinctLabItemNames.mockResolvedValueOnce([
+        'Plaquetas',
+        'Proteinúria',
+      ]);
+
+      const result = await service.listLabItemNames(makeUser('user-1'), {
+        search: 'pla',
+      });
+
+      expect(examRepo.findDistinctLabItemNames).toHaveBeenCalledWith(
+        'user-1',
+        'pla',
+      );
+      expect(result).toEqual(['Plaquetas', 'Proteinúria']);
+    });
+
+    it('deve formatar nomes (primeira maiúscula) e deduplicar ignorando caixa', async () => {
+      examRepo.findDistinctLabItemNames.mockResolvedValueOnce([
+        'PLAQUETAS',
+        'plaquetas',
+        'neutrofilos bastonetes',
+      ]);
+
+      const result = await service.listLabItemNames(makeUser('user-1'), {});
+
+      expect(result).toEqual(['Neutrofilos bastonetes', 'Plaquetas']);
+    });
+
+    it('deve validar permissão ao consultar de outro membro', async () => {
+      memberRepo.findMembershipWithGroup
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.listLabItemNames(makeUser('user-1'), { userId: 'user-2' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(examRepo.findDistinctLabItemNames).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getLabItemEvolution ────────────────────────────────────────────────────
+
+  describe('getLabItemEvolution', () => {
+    it('deve retornar a evolução do analito para o próprio usuário', async () => {
+      const points = [
+        {
+          examId: 'e1',
+          itemName: 'Plaquetas',
+          examDate: '2024-01-11',
+          resultValue: '280000',
+          resultUnit: '/mm3',
+          referenceRange: '150000 A 450000',
+          isAbnormal: false,
+        },
+      ];
+      examRepo.findLabItemEvolution.mockResolvedValueOnce(points);
+
+      const result = await service.getLabItemEvolution(makeUser('user-1'), {
+        itemName: 'Plaquetas',
+        dateFrom: '2024-01-01',
+        dateTo: '2024-12-31',
+      });
+
+      expect(examRepo.findLabItemEvolution).toHaveBeenCalledWith(
+        'user-1',
+        'Plaquetas',
+        '2024-01-01',
+        '2024-12-31',
+      );
+      expect(result).toEqual(points);
+    });
+
+    it('deve validar permissão ao consultar evolução de outro membro', async () => {
+      memberRepo.findMembershipWithGroup
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.getLabItemEvolution(makeUser('user-1'), {
+          itemName: 'Plaquetas',
+          userId: 'user-2',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(examRepo.findLabItemEvolution).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── assertCanWrite ───────────────────────────────────────────────────────
 
   describe('assertCanWrite (via updateExam)', () => {
@@ -400,15 +495,12 @@ describe('HealthService', () => {
           expect.objectContaining({ itemName: 'UREIA' }),
         ]),
       );
-      expect(examRepo.attachFiles).toHaveBeenCalledWith(
-        'exam-1',
-        [
-          expect.objectContaining({
-            fileUrl: processing.fileUrl,
-            fileType: 'PDF',
-          }),
-        ],
-      );
+      expect(examRepo.attachFiles).toHaveBeenCalledWith('exam-1', [
+        expect.objectContaining({
+          fileUrl: processing.fileUrl,
+          fileType: 'PDF',
+        }),
+      ]);
       expect(processingRepo.deleteById).toHaveBeenCalledWith('proc-1');
     });
 
@@ -543,7 +635,11 @@ describe('HealthService', () => {
         makeExam({ id: 'exam-novo' }),
       ]);
       patientContextRepo.findByUserIdCreatedAfter.mockResolvedValue([
-        { id: 'ctx-novo', content: 'novo sintoma', createdAt: new Date() } as any,
+        {
+          id: 'ctx-novo',
+          content: 'novo sintoma',
+          createdAt: new Date(),
+        } as any,
       ]);
 
       await service.generateOverview(makeUser('user-1'), {});
@@ -594,9 +690,7 @@ describe('HealthService', () => {
         'user-1',
         'user-2',
       ]);
-      overviewRepo.findByFilters.mockResolvedValueOnce([
-        { id: 'ov-1' } as any,
-      ]);
+      overviewRepo.findByFilters.mockResolvedValueOnce([{ id: 'ov-1' } as any]);
 
       const result = await service.listOverviews(makeUser('user-1'), {
         startDate: '2026-07-01',
@@ -771,9 +865,7 @@ describe('HealthService', () => {
 
       const result = await service.getLatestPatientContext(makeUser('user-1'));
 
-      expect(result).toEqual(
-        expect.objectContaining({ id: 'ctx-new' }),
-      );
+      expect(result).toEqual(expect.objectContaining({ id: 'ctx-new' }));
     });
 
     it('deve retornar null quando não há descrições', async () => {
@@ -817,7 +909,10 @@ describe('HealthService', () => {
 
       const processFileSpy = jest.spyOn(service as any, 'processFile');
 
-      const result = await service.retryProcessing('proc-1', makeUser('user-1'));
+      const result = await service.retryProcessing(
+        'proc-1',
+        makeUser('user-1'),
+      );
 
       expect(processingRepo.updateStatus).toHaveBeenCalledWith(
         'proc-1',
@@ -833,7 +928,9 @@ describe('HealthService', () => {
 
   describe('processNextQueued', () => {
     it('deve buscar FAILED elegíveis quando sobrar vaga no lote', async () => {
-      processingRepo.findQueued.mockResolvedValue([makeProcessing({ status: 'QUEUED' })]);
+      processingRepo.findQueued.mockResolvedValue([
+        makeProcessing({ status: 'QUEUED' }),
+      ]);
       processingRepo.findFailedReadyForAutoRetry.mockResolvedValue([]);
 
       jest.spyOn(service as any, 'processFile').mockResolvedValue({
@@ -862,7 +959,9 @@ describe('HealthService', () => {
       processingRepo.findFailedReadyForAutoRetry.mockResolvedValue([failed]);
       processingRepo.findById.mockResolvedValue(failed);
 
-      jest.spyOn(service as any, 'processFile').mockRejectedValue(new Error('falhou de novo'));
+      jest
+        .spyOn(service as any, 'processFile')
+        .mockRejectedValue(new Error('falhou de novo'));
 
       await service.processNextQueued();
 
@@ -938,7 +1037,9 @@ describe('HealthService', () => {
       const file = makeFile('application/pdf', 'pdf-bytes');
       const result = await service.analyzePrescription(makeUser(), file);
 
-      expect(imageRecognitionService.analyzePrescriptionImage).toHaveBeenCalledWith(
+      expect(
+        imageRecognitionService.analyzePrescriptionImage,
+      ).toHaveBeenCalledWith(
         file.buffer.toString('base64'),
         'application/pdf',
         expect.any(User),
@@ -957,7 +1058,9 @@ describe('HealthService', () => {
       const file = makeFile('image/jpeg');
       const result = await service.analyzePrescription(makeUser(), file);
 
-      expect(imageRecognitionService.analyzePrescriptionImage).toHaveBeenCalledWith(
+      expect(
+        imageRecognitionService.analyzePrescriptionImage,
+      ).toHaveBeenCalledWith(
         file.buffer.toString('base64'),
         'image/jpeg',
         expect.any(User),

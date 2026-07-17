@@ -18,7 +18,10 @@ import { HealthExamProcessing } from './entities/health-exam-processing.entity';
 import { HealthPrescription } from './entities/health-prescription.entity';
 import { HealthAiOverview } from './entities/health-ai-overview.entity';
 import { HealthPatientContext } from './entities/health-patient-context.entity';
-import { IHealthExamRepository } from './interfaces/health-exam.repository.interface';
+import {
+  HealthExamItemEvolutionPoint,
+  IHealthExamRepository,
+} from './interfaces/health-exam.repository.interface';
 import { IHealthProcessingRepository } from './interfaces/health-processing.repository.interface';
 import { IHealthPrescriptionRepository } from './interfaces/health-prescription.repository.interface';
 import { IHealthOverviewRepository } from './interfaces/health-overview.repository.interface';
@@ -27,6 +30,9 @@ import { IHealthPatientContextRepository } from './interfaces/health-patient-con
 import type { CreateHealthExamDto } from './dto/create-health-exam.dto';
 import type { UpdateHealthExamDto } from './dto/update-health-exam.dto';
 import type { HealthExamFilterDto } from './dto/health-exam-filter.dto';
+import type { HealthExamItemNamesQueryDto } from './dto/health-exam-item-names.query.dto';
+import type { HealthExamEvolutionQueryDto } from './dto/health-exam-evolution.query.dto';
+import { formatLabItemDisplayName } from './utils/format-lab-item-name';
 import type { ApproveProcessingDto } from './dto/approve-processing.dto';
 import type { CreateHealthPrescriptionDto } from './dto/create-health-prescription.dto';
 import type { UpdateHealthPrescriptionDto } from './dto/update-health-prescription.dto';
@@ -138,6 +144,41 @@ export class HealthService {
     if (!exam) throw new NotFoundException('Exame não encontrado');
     await this.assertCanView(exam.user.id, user.id);
     return exam;
+  }
+
+  async listLabItemNames(
+    user: User,
+    dto: HealthExamItemNamesQueryDto,
+  ): Promise<string[]> {
+    const targetUserId = dto.userId ?? user.id;
+    if (dto.userId && dto.userId !== user.id) {
+      await this.assertCanView(dto.userId, user.id);
+    }
+    const names = await this.examRepo.findDistinctLabItemNames(
+      targetUserId,
+      dto.search,
+    );
+
+    const formatted = names.map(formatLabItemDisplayName);
+    return [...new Set(formatted)].sort((a, b) =>
+      a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }),
+    );
+  }
+
+  async getLabItemEvolution(
+    user: User,
+    dto: HealthExamEvolutionQueryDto,
+  ): Promise<HealthExamItemEvolutionPoint[]> {
+    const targetUserId = dto.userId ?? user.id;
+    if (dto.userId && dto.userId !== user.id) {
+      await this.assertCanView(dto.userId, user.id);
+    }
+    return this.examRepo.findLabItemEvolution(
+      targetUserId,
+      dto.itemName,
+      dto.dateFrom,
+      dto.dateTo,
+    );
   }
 
   async updateExam(

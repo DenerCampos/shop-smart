@@ -10,6 +10,16 @@ export interface HealthExamListResult {
   limit: number;
 }
 
+export interface HealthExamItemEvolutionPoint {
+  examId: string;
+  itemName: string;
+  examDate: string | null;
+  resultValue: string | null;
+  resultUnit: string | null;
+  referenceRange: string | null;
+  isAbnormal: boolean;
+}
+
 export interface IHealthExamRepository {
   createExam(
     examData: Partial<HealthExam>,
@@ -31,6 +41,20 @@ export interface IHealthExamRepository {
     userId: string,
     manager?: EntityManager,
   ): Promise<HealthExam[]>;
+
+  findDistinctLabItemNames(
+    userId: string,
+    search?: string,
+    manager?: EntityManager,
+  ): Promise<string[]>;
+
+  findLabItemEvolution(
+    userId: string,
+    itemName: string,
+    dateFrom?: string,
+    dateTo?: string,
+    manager?: EntityManager,
+  ): Promise<HealthExamItemEvolutionPoint[]>;
 
   findApprovedByUserIdChangedAfter(
     userId: string,
