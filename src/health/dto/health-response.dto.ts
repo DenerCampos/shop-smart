@@ -8,6 +8,29 @@ export class HealthUserResponseDto {
   name: string;
 }
 
+export class HealthExamItemEvolutionPointResponseDto {
+  @Expose()
+  examId: string;
+
+  @Expose()
+  itemName: string;
+
+  @Expose()
+  examDate: string | null;
+
+  @Expose()
+  resultValue: string | null;
+
+  @Expose()
+  resultUnit: string | null;
+
+  @Expose()
+  referenceRange: string | null;
+
+  @Expose()
+  isAbnormal: boolean;
+}
+
 export class HealthExamItemResponseDto {
   @Expose()
   id: string;

@@ -18,7 +18,9 @@ export class ImageRecognitionRepository implements IImageRecognitionRepository {
     manager?: EntityManager,
   ): Promise<ImageRecognition> {
     if (!user?.id) {
-      throw new Error('image_recognition: userId obrigatório para persistir análise');
+      throw new Error(
+        'image_recognition: userId obrigatório para persistir análise',
+      );
     }
 
     const repository = manager

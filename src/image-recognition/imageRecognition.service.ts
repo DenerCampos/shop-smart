@@ -6,7 +6,10 @@ import {
   ImageRecognitionResult,
   RecognitionStatus,
 } from './types/imageRecognitionType';
-import { ExtractedExamData, ExtractedPrescriptionData } from 'src/text-recognition/types/textRecognitionType';
+import {
+  ExtractedExamData,
+  ExtractedPrescriptionData,
+} from 'src/text-recognition/types/textRecognitionType';
 import { User } from 'src/user/entities/user.entity';
 import { GroupService } from 'src/group/group.service';
 import { PaymentService } from 'src/payment/payment.service';
@@ -115,7 +118,9 @@ export class ImageRecognitionService {
       provider.analyzeHealthExamImage ?? provider.analyzeHealthLabImage;
 
     if (typeof analyze !== 'function') {
-      throw new Error('Provedor não suporta análise de exames médicos por imagem.');
+      throw new Error(
+        'Provedor não suporta análise de exames médicos por imagem.',
+      );
     }
 
     try {
@@ -218,11 +223,16 @@ export class ImageRecognitionService {
     );
 
     if (typeof provider.analyzePrescriptionImage !== 'function') {
-      throw new Error('Provedor não suporta análise de receituários por imagem.');
+      throw new Error(
+        'Provedor não suporta análise de receituários por imagem.',
+      );
     }
 
     try {
-      const result = await provider.analyzePrescriptionImage(base64Data, mimeType);
+      const result = await provider.analyzePrescriptionImage(
+        base64Data,
+        mimeType,
+      );
 
       await this.imageRecognitionRepository.create(
         {

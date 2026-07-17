@@ -20,7 +20,10 @@ async function login(app: INestApplication, email: string): Promise<string> {
   return res.body.accessToken as string;
 }
 
-async function insertUser(app: INestApplication, email: string): Promise<string> {
+async function insertUser(
+  app: INestApplication,
+  email: string,
+): Promise<string> {
   const ds = app.get(DataSource);
   const existing = await ds.query(
     'SELECT `id` FROM `user` WHERE `email` = ? LIMIT 1',
@@ -82,8 +85,8 @@ describe('Health (e2e)', () => {
   beforeAll(async () => {
     app = await createE2eApplication();
     tokenA = await loginAsSeedUser(app);
-    const suffix = Date.now();
-    const emailB = `health-e2e-outsider-${suffix}@local.test`;
+    const suffix = Date.now().toString(36);
+    const emailB = `heb${suffix}@t.local`;
     userBId = await insertUser(app, emailB);
     tokenB = await login(app, emailB);
   });
@@ -282,6 +285,154 @@ describe('Health (e2e)', () => {
 
     await request(app.getHttpServer())
       .get(`/health/ai-overview/${overviewId}`)
+      .set(bearerAuth(tokenA))
+      .expect(403);
+  });
+
+  // ─── exam-items (evolução laboratorial — SP-124) ─────────────────────────
+
+  it('GET /health/exam-items/names exige autenticação', async () => {
+    await request(app.getHttpServer())
+      .get('/health/exam-items/names')
+      .expect(401);
+  });
+
+  it('GET /health/exam-items/names lista itens do próprio usuário e filtra por search', async () => {
+    await request(app.getHttpServer())
+      .post('/health/exams')
+      .set(bearerAuth(tokenB))
+      .send({
+        examType: 'LABORATORY',
+        labName: 'Lab Evolução',
+        examDate: '2026-01-15',
+        items: [
+          {
+            itemName: 'PLAQUETAS',
+            resultValue: '250000',
+            resultUnit: '/mm3',
+            isAbnormal: false,
+          },
+          {
+            itemName: 'glicose',
+            resultValue: '95',
+            resultUnit: 'mg/dL',
+            isAbnormal: false,
+          },
+        ],
+      })
+      .expect(201);
+
+    const names = await request(app.getHttpServer())
+      .get('/health/exam-items/names')
+      .set(bearerAuth(tokenB))
+      .expect(200);
+
+    expect(Array.isArray(names.body)).toBe(true);
+    expect(names.body).toEqual(
+      expect.arrayContaining(['Plaquetas', 'Glicose']),
+    );
+
+    const filtered = await request(app.getHttpServer())
+      .get('/health/exam-items/names')
+      .query({ search: 'plaq' })
+      .set(bearerAuth(tokenB))
+      .expect(200);
+
+    expect(filtered.body).toEqual(expect.arrayContaining(['Plaquetas']));
+    expect(filtered.body).not.toContain('Glicose');
+  });
+
+  it('GET /health/exam-items/names?userId= bloqueia outro usuário sem grupo', async () => {
+    await request(app.getHttpServer())
+      .get('/health/exam-items/names')
+      .query({ userId: userBId })
+      .set(bearerAuth(tokenA))
+      .expect(403);
+  });
+
+  it('GET /health/exam-items/evolution exige autenticação', async () => {
+    await request(app.getHttpServer())
+      .get('/health/exam-items/evolution')
+      .query({ itemName: 'Plaquetas' })
+      .expect(401);
+  });
+
+  it('GET /health/exam-items/evolution sem itemName retorna 400', async () => {
+    await request(app.getHttpServer())
+      .get('/health/exam-items/evolution')
+      .set(bearerAuth(tokenB))
+      .expect(400);
+  });
+
+  it('GET /health/exam-items/evolution retorna série ASC do próprio usuário', async () => {
+    await request(app.getHttpServer())
+      .post('/health/exams')
+      .set(bearerAuth(tokenB))
+      .send({
+        examType: 'LABORATORY',
+        labName: 'Lab Evolução 2',
+        examDate: '2026-03-01',
+        items: [
+          {
+            itemName: 'Hemoglobina',
+            resultValue: '13.5',
+            resultUnit: 'g/dL',
+            referenceRange: '12-16',
+            isAbnormal: false,
+          },
+        ],
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/health/exams')
+      .set(bearerAuth(tokenB))
+      .send({
+        examType: 'LABORATORY',
+        labName: 'Lab Evolução 2',
+        examDate: '2026-02-01',
+        items: [
+          {
+            itemName: 'HEMOGLOBINA',
+            resultValue: '12.8',
+            resultUnit: 'g/dL',
+            referenceRange: '12-16',
+            isAbnormal: false,
+          },
+        ],
+      })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .get('/health/exam-items/evolution')
+      .query({
+        itemName: 'Hemoglobina',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-12-31',
+      })
+      .set(bearerAuth(tokenB))
+      .expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThanOrEqual(2);
+    expect(res.body[0]).toEqual(
+      expect.objectContaining({
+        examId: expect.any(String),
+        examDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        resultValue: expect.any(String),
+        isAbnormal: expect.any(Boolean),
+      }),
+    );
+
+    const dates = res.body.map((p: { examDate: string }) => p.examDate);
+    const sorted = [...dates].sort();
+    expect(dates).toEqual(sorted);
+  });
+
+  it('GET /health/exam-items/evolution?userId= bloqueia outro usuário sem grupo', async () => {
+    await request(app.getHttpServer())
+      .get('/health/exam-items/evolution')
+      .query({ itemName: 'Plaquetas', userId: userBId })
       .set(bearerAuth(tokenA))
       .expect(403);
   });
