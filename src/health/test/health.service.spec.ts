@@ -351,16 +351,21 @@ describe('HealthService', () => {
       expect(result).toEqual(['Plaquetas', 'Proteinúria']);
     });
 
-    it('deve formatar nomes (primeira maiúscula) e deduplicar ignorando caixa', async () => {
+    it('deve formatar nomes (Title Case) e deduplicar ignorando caixa', async () => {
       examRepo.findDistinctLabItemNames.mockResolvedValueOnce([
         'PLAQUETAS',
         'plaquetas',
         'neutrofilos bastonetes',
+        'hemácias (hemograma)',
       ]);
 
       const result = await service.listLabItemNames(makeUser('user-1'), {});
 
-      expect(result).toEqual(['Neutrofilos bastonetes', 'Plaquetas']);
+      expect(result).toEqual([
+        'Hemácias (Hemograma)',
+        'Neutrofilos Bastonetes',
+        'Plaquetas',
+      ]);
     });
 
     it('deve validar permissão ao consultar de outro membro', async () => {
@@ -492,7 +497,7 @@ describe('HealthService', () => {
           status: 'APPROVED',
         }),
         expect.arrayContaining([
-          expect.objectContaining({ itemName: 'UREIA' }),
+          expect.objectContaining({ itemName: 'Ureia' }),
         ]),
       );
       expect(examRepo.attachFiles).toHaveBeenCalledWith('exam-1', [
