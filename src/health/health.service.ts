@@ -115,7 +115,10 @@ export class HealthService {
         user: { id: targetUserId } as any,
         createdBy: { id: user.id } as any,
       },
-      (dto.items ?? []).map((i) => ({ ...i })),
+      (dto.items ?? []).map((i) => ({
+        ...i,
+        itemName: formatLabItemDisplayName(i.itemName),
+      })),
     );
   }
 
@@ -200,7 +203,13 @@ export class HealthService {
     await this.examRepo.saveExam(exam);
 
     if (dto.items !== undefined) {
-      await this.examRepo.replaceItems(id, dto.items);
+      await this.examRepo.replaceItems(
+        id,
+        dto.items.map((i) => ({
+          ...i,
+          itemName: formatLabItemDisplayName(i.itemName),
+        })),
+      );
     }
 
     return this.getExamById(id, user);
@@ -327,7 +336,7 @@ export class HealthService {
         createdBy: { id: user.id } as any,
       },
       items.map((i) => ({
-        itemName: i.itemName,
+        itemName: formatLabItemDisplayName(i.itemName),
         material: i.material ?? null,
         method: i.method ?? null,
         resultValue: i.resultValue ?? null,

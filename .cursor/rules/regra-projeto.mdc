@@ -266,7 +266,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 - `demo-login.md` — login demo via link para portfólio (SP-118)
-- `saude.md` — módulo de saúde: exames, processamento IA, evolução laboratorial, receituário, visão geral (SP-123/SP-124)
+- `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
 
 ---
 
