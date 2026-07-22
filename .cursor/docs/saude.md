@@ -1,4 +1,4 @@
-# Módulo de Saúde — SP-123 / SP-124
+# Módulo de Saúde — SP-123 / SP-124 / SP-125
 
 ## Objetivo
 
@@ -142,6 +142,14 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
   - **LABORATORY:** analitos com `resultValue`, `referenceRange`, `itemNotes`, etc.
   - **IMAGING / FUNCTIONAL / PROCEDURE:** `findings` (laudo/descrição) + `conclusion` (impressão/conclusão)
   - **OTHER:** `findings` + `conclusion` quando aplicável
+- **Padronização de `itemName` (SP-125):** o prompt exige nomes canônicos para evolução temporal:
+  - **Title Case** — cada palavra com inicial maiúscula e restante minúsculo (ex.: `Ureia`, não `UREIA`)
+  - Analitos de **hemograma** terminam com ` (Hemograma)` — ex.: `Hemácias (Hemograma)`
+  - Analitos de **urina** terminam com ` (Urina)` — ex.: `Hemoglobina (Urina)`, `Proteinúria 24h (Urina)`
+  - Remove ruído do laudo (`Hemograma - …`, `Urina Rotina - …`, `, Dosagem`, etc.)
+  - Na **persistência** (criar / editar / aprovar), `formatLabItemDisplayName` reforça o Title Case por palavra
+  - A revisão humana na aprovação continua sendo o ponto final de correção; nomes já salvos no banco **não** são migrados automaticamente
+  - Sufixos `(Hemograma)` / `(Urina)` dependem da IA + revisão; o formatter de código **não** adiciona esses sufixos
 - Logs estruturados no parse: `pdf_parse_start`, `pdf_parse_ok`, `pdf_parse_failed`
 - Máx. 3 arquivos por execução do cron (a cada 2 min) — `HEALTH_PROCESSING_BATCH_SIZE`
 - Falhas registradas com `errorMessage`, `failedAt` e `retryCount`; status `FAILED` visível na fila de pendentes
@@ -179,7 +187,8 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 | `src/health/dto/` | DTOs de entrada/filtro/saída |
 | `db/migrations/1775300000000-AddHealthTables.ts` | Migration inicial (7 tabelas) |
 | `src/common/pdf/pdf-parser.util.ts` | Extração de texto PDF (v2) com logs |
-| `src/common/prompts/health-exam-extraction.prompt.ts` | Prompt unificado (texto + visão) — lab ou laudo de imagem |
+| `src/common/prompts/health-exam-extraction.prompt.ts` | Prompt unificado (texto + visão) — lab ou laudo; padronização `itemName` (SP-125) |
+| `src/health/utils/format-lab-item-name.ts` | Title Case de `itemName` na listagem e na persistência (SP-125) |
 | `db/migrations/1775500000000-AddHealthExamItemNotes.ts` | Coluna `itemNotes` em `health_exam_item` |
 | `src/health/entities/health-patient-context.entity.ts` | Entidade do histórico |
 | `src/health/repositories/health-patient-context.repository.ts` | Repositório do histórico |
