@@ -146,7 +146,7 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
   - **Title Case** — cada palavra com inicial maiúscula e restante minúsculo (ex.: `Ureia`, não `UREIA`)
   - Analitos de **hemograma** terminam com ` (Hemograma)` — ex.: `Hemácias (Hemograma)`
   - Analitos de **urina** terminam com ` (Urina)` — ex.: `Hemoglobina (Urina)`, `Proteinúria 24h (Urina)`
-  - Remove ruído do laudo (`Hemograma - …`, `Urina Rotina - …`, `, Dosagem`, etc.)
+  - Remove ruído do laudo (`Hemograma - …`, `Urina Rotina - …`, `, Dosagem`, etc.), **exceto** no painel razão/relação proteína/creatinina urinária: `Proteína - Dosagem (Urina)`, `Creatinina - Dosagem (Urina)` e `Relação Proteína/Creatinina (Urina)`
   - Na **persistência** (criar / editar / aprovar), `formatLabItemDisplayName` reforça o Title Case por palavra
   - A revisão humana na aprovação continua sendo o ponto final de correção; nomes já salvos no banco **não** são migrados automaticamente
   - Sufixos `(Hemograma)` / `(Urina)` dependem da IA + revisão; o formatter de código **não** adiciona esses sufixos

@@ -51,7 +51,8 @@ PADRONIZAÇÃO OBRIGATÓRIA DE itemName (importante para evolução temporal):
 
 2. NOME CANÔNICO CURTO: remova ruído do laudo do itemName.
    - Remova prefixos de painel no nome: "Hemograma - ", "Urina Rotina - ", "Eas - ", "Sumário De Urina - ".
-   - Remova sufixos genéricos: ", Dosagem", "- Dosagem", "Dosagem", "Pesquisa De", "Quantificação".
+   - Remova sufixos genéricos na maioria dos casos: ", Dosagem", "- Dosagem", "Dosagem", "Pesquisa De", "Quantificação".
+   - EXCEÇÃO OBRIGATÓRIA — razão/relação proteína/creatinina na urina: MANTENHA " - dosagem" nos analitos de proteína e creatinina desse painel (ver regra 4a).
    - Não coloque unidade, método ou faixa de referência no itemName (use resultUnit / method / referenceRange).
    - material: preencha "Sangue", "Urina", etc. quando souber; NÃO use o material como substituto do sufixo de painel abaixo.
 
@@ -64,9 +65,19 @@ PADRONIZAÇÃO OBRIGATÓRIA DE itemName (importante para evolução temporal):
 
 4. SUFIXO (Urina) — quando o analito for de urina (EAS / urina rotina / urina 24h / microalbuminúria urinária etc.):
    - Sempre termine o itemName com " (Urina)".
-   - Exemplos CORRETOS: "Hemoglobina (Urina)", "Hemácias (Urina)", "Proteína (Urina)", "Proteinúria 24h (Urina)", "Glicose (Urina)", "Leucócito Esterase (Urina)", "Nitrito (Urina)", "Ph (Urina)", "Densidade (Urina)", "Cristais (Urina)", "Cilindros Hialinos (Urina)", "Cilindros Patológicos (Urina)", "Piócitos (Urina)", "Corpos Cetônicos (Urina)", "Creatinina (Urina)", "Relação Proteína/Creatinina (Urina)", "Volume Urinário (24 Horas) (Urina)".
-   - Exemplos ERRADOS: "URINA ROTINA - PROTEÍNA", "PROTEÍNA (URINA)", "HEMÁCIAS (URINA)", "Proteínas - Dosagem" (quando for urina).
+   - Exemplos CORRETOS: "Hemoglobina (Urina)", "Hemácias (Urina)", "Proteína (Urina)", "Proteinúria 24h (Urina)", "Glicose (Urina)", "Leucócito Esterase (Urina)", "Nitrito (Urina)", "Ph (Urina)", "Densidade (Urina)", "Cristais (Urina)", "Cilindros Hialinos (Urina)", "Cilindros Patológicos (Urina)", "Piócitos (Urina)", "Corpos Cetônicos (Urina)", "Creatinina (Urina)", "Volume Urinário (24 Horas) (Urina)".
+   - Exemplos ERRADOS: "URINA ROTINA - PROTEÍNA", "PROTEÍNA (URINA)", "HEMÁCIAS (URINA)".
    - Se o mesmo analito existir em sangue e urina, o de urina DEVE ter " (Urina)" (ex.: "Creatinina" vs "Creatinina (Urina)"; "Hemoglobina (Hemograma)" vs "Hemoglobina (Urina)").
+
+4a. RAZÃO / RELAÇÃO PROTEÍNA/CREATININA (urina) — painel específico:
+   - Quando o laudo for "Razão Proteína/Creatinina", "Relação Proteína/Creatinina" ou equivalente, DESMEMBRE em até 3 itens (não agrupe tudo em um só):
+     1) "Proteína - dosagem (Urina)" — valor da proteína urinária (ex.: 836,26 mg/dL)
+     2) "Creatinina - dosagem (Urina)" — valor da creatinina urinária (ex.: 91,26 mg/dL)
+     3) "Relação Proteína/Creatinina (Urina)" — valor da razão/relação (ex.: 9,16); sem "- dosagem" neste item
+   - Nesses dois primeiros nomes, MANTENHA exatamente " - dosagem" antes de " (Urina)" (não remova).
+   - material = "Urina"; method = o método de cada linha quando existir (ex.: Colorimétrico, Enzimático).
+   - NÃO use só "Proteína (Urina)" / "Creatinina (Urina)" nesse painel — reserve esses nomes para EAS/urina rotina sem dosagem da razão.
+   - NÃO use "Proteínas - dosagem" (plural/sem Urina) para esse painel.
 
 5. OUTROS PAINÉIS (manter consistência, sem inventar sufixos demais):
    - Gasometria: use " (Gasometria Venosa)" ou " (Gasometria)" quando o laudo indicar — ex.: "Pco2 (Gasometria Venosa)", "Saturação De O2 (Gasometria Venosa)".
@@ -93,7 +104,8 @@ SE examType = IMAGING, FUNCTIONAL ou PROCEDURE:
 
 EXEMPLOS POR TIPO:
 - LABORATORY hemograma: Hemoglobina 12,5 g/dL → itemName "Hemoglobina (Hemograma)", resultValue/referenceRange preenchidos.
-- LABORATORY urina: proteína no EAS → itemName "Proteína (Urina)"; proteinúria 24h → "Proteinúria 24h (Urina)".
+- LABORATORY urina (EAS): proteína no sumário → itemName "Proteína (Urina)"; proteinúria 24h → "Proteinúria 24h (Urina)".
+- LABORATORY razão proteína/creatinina: desmembrar em "Proteína - dosagem (Urina)", "Creatinina - dosagem (Urina)" e "Relação Proteína/Creatinina (Urina)" com material "Urina".
 - LABORATORY bioquímica: ureia sérica → itemName "Ureia" (sem sufixo).
 - IMAGING: "ULTRASSONOGRAFIA ABDOMINAL TOTAL" + Aspectos observados + Impressão → examType IMAGING, 1 item "Ultrassonografia Abdominal Total" com findings e conclusion.
 - FUNCTIONAL: laudo de ECG → examType FUNCTIONAL, 1 item; Holter/MAPA/espirometria seguem o mesmo padrão (findings + conclusion).
