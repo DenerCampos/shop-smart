@@ -86,7 +86,8 @@ export class HealthProcessingRepository implements IHealthProcessingRepository {
         '(p.failedAt IS NOT NULL AND p.failedAt <= :cutoff) OR (p.failedAt IS NULL AND p.updatedAt <= :cutoff)',
         { cutoff },
       )
-      .orderBy('COALESCE(p.failedAt, p.updatedAt)', 'ASC')
+      .orderBy('p.failedAt', 'ASC')
+      .addOrderBy('p.updatedAt', 'ASC')
       .take(limit)
       .getMany();
   }
