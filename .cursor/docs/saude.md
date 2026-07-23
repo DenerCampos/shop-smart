@@ -154,6 +154,7 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 - Máx. 3 arquivos por execução do cron (a cada 2 min) — `HEALTH_PROCESSING_BATCH_SIZE`
 - Falhas registradas com `errorMessage`, `failedAt` e `retryCount`; status `FAILED` visível na fila de pendentes
 - **Retry automático:** após **2 horas** (`HEALTH_PROCESSING_AUTO_RETRY_AFTER_MS` em `health-processing.constants.ts`), o cron reenfileira e tenta de novo
+- Ordenação dos `FAILED` elegíveis: `failedAt ASC`, depois `updatedAt ASC` (evita `orderBy` com `COALESCE(...)`, que o TypeORM rejeita e derrubava o cron inteiro — SP-126)
 - **Retry manual:** `POST /health/processing/:id/retry` — reenfileira imediatamente (somente `FAILED`); o cron processa na próxima execução
 - Itens laboratoriais podem ter `itemNotes` (observação curta por analito) — migration `1775500000000-AddHealthExamItemNotes`
 - Campos de retry — migration `1775600000000-AddHealthProcessingRetryFields`
