@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { seconds, Throttle } from '@nestjs/throttler';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ResponseService } from 'src/common/response/response';
@@ -133,6 +134,7 @@ export class HealthController {
 
   // ─── Upload e Processamento ───────────────────────────────────────────────
 
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post('upload')
   @UseInterceptors(
     FilesInterceptor('files', 20, {
@@ -262,6 +264,7 @@ export class HealthController {
     return this.responseService.mapToDto(HealthPatientContextResponseDto, item);
   }
 
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post('ai-overview')
   async generateOverview(
     @CurrentUser() user: User,
@@ -309,6 +312,7 @@ export class HealthController {
 
   // ─── Receituário ─────────────────────────────────────────────────────────
 
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post('prescriptions/analyze')
   @UseInterceptors(
     FileInterceptor('file', {

@@ -24,6 +24,30 @@ describe('ApiQuotaService', () => {
     service = module.get(ApiQuotaService);
   });
 
+  it('assertQuotaAvailable lança sem incrementar quando limite atingido', async () => {
+    apiUsageRepository.findByProviderAndDate.mockResolvedValue({
+      id: 'u1',
+      provider: 'gemini',
+      requestCount: 100,
+      dailyLimit: 100,
+      date: new Date(),
+    } as any);
+
+    await expect(
+      service.assertQuotaAvailable('gemini', 100),
+    ).rejects.toBeInstanceOf(ApiQuotaException);
+
+    expect(apiUsageRepository.incrementCount).not.toHaveBeenCalled();
+  });
+
+  it('assertQuotaAvailable passa quando abaixo do limite ou sem uso', async () => {
+    apiUsageRepository.findByProviderAndDate.mockResolvedValue(null);
+    await expect(
+      service.assertQuotaAvailable('gemini', 100),
+    ).resolves.toBeUndefined();
+    expect(apiUsageRepository.incrementCount).not.toHaveBeenCalled();
+  });
+
   it('checkAndIncrementQuota lança ApiQuotaException quando limite atingido', async () => {
     apiUsageRepository.findByProviderAndDate.mockResolvedValue({
       id: 'u1',

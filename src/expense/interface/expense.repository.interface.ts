@@ -49,6 +49,12 @@ export interface IExpenseRepository {
     startDate: string,
     endDate: string,
   ): Promise<Expense[] | []>;
+  findByPeriodWithItems(
+    userIds: string[],
+    startDate: string,
+    endDate: string,
+    limit?: number,
+  ): Promise<Expense[]>;
   findByMonth(userId: string, month: number): Promise<Expense[] | []>;
   exist(userId: string): Promise<boolean>;
   getLatest(userIds: string[], limit: number): Promise<Expense[] | []>;

@@ -238,6 +238,35 @@ export class ExpenseRepository implements IExpenseRepository {
     return await query.getMany();
   }
 
+  async findByPeriodWithItems(
+    userIds: string[],
+    startDate: string,
+    endDate: string,
+    limit = 100,
+  ): Promise<Expense[]> {
+    if (!userIds.length) return [];
+
+    const take = Math.max(1, Math.min(limit, 500));
+
+    return this.expenseEntity
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.items', 'item', 'item.deletedAt IS NULL')
+      .leftJoinAndSelect('item.group', 'group')
+      .leftJoinAndSelect('expense.store', 'store')
+      .leftJoin('expense.user', 'user')
+      .addSelect(['user.id', 'user.name'])
+      .where('expense.user IN (:...userIds)', { userIds })
+      .andWhere('expense.deletedAt IS NULL')
+      .andWhere('DATE(expense.date) BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .orderBy('expense.date', 'DESC')
+      .addOrderBy('item.createdAt', 'ASC')
+      .take(take)
+      .getMany();
+  }
+
   async findByMonth(userId: string, month: number): Promise<Expense[] | []> {
     const query = this.expenseEntity
       .createQueryBuilder('expense')

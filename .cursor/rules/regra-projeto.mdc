@@ -20,6 +20,7 @@ Use como lista de verificação em toda entrega. Marque cada item antes de consi
 - [ ] **Testes E2E**: `test/**/*.e2e-spec.ts` para rota HTTP nova ou contrato alterado. Rodar com **pouca RAM** (pode demorar): `npm run test:e2e:low-mem -- --testPathPattern=<arquivo>` — ver `.cursor/docs/testes.md` e `test/E2E-ESTRATEGIA.md`.
 - [ ] **Observabilidade**: erros HTTP via `AllExceptionsFilter`; novos eventos com `logJson` e `event` estável; IA com `AiCallTelemetryService.measure()` nos providers Gemini.
 - [ ] **Prompts IA**: textos de prompt Gemini em `src/common/prompts/` (funções `build*Prompt`); **não** criar pasta `prompts/` dentro de módulos de domínio nem importar domínio → infra inversa (ver [Prompts Gemini](#prompts-gemini-ia)).
+- [ ] **Assistente Familiar (tools)**: se o módulo expõe dados pesquisáveis pelo usuário, adicionar/atualizar tool(s) **read-only** em `src/chat-agent/tools/` + declarar no Gemini + atualizar `.cursor/docs/assistente-familiar.md`. `ChatAgentModule` importa o domínio; o domínio **nunca** importa `ChatAgentModule` (ver [assistente-familiar.md](../docs/assistente-familiar.md)).
 - [ ] **Documentação**: criar (feature nova) ou atualizar (regra/contrato alterado) `.cursor/docs/<dominio>.md` — ver `/.cursor/rules/workflow.mdc` seção Documentação.
 - [ ] **Atualizar este arquivo**: incluir módulo/rota na seção [Índice de módulos](#índice-de-módulos) e endpoint em [API REST](#api-rest).
 
@@ -75,6 +76,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | recipe | `recipe/` | Receitas |
 | mission | `mission/` | Missões dinâmicas (SP-78) |
 | health | `health/` | Módulo de Saúde — exames, processamento IA, receituário, visão geral (SP-123) |
+| chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117) |
 | alexa | `alexa/` | Integração Alexa |
 
 **Infraestrutura** (não expor como REST principal; usar via services):
@@ -172,6 +174,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/recipes` | recipe |
 | `missions` | mission |
 | `/health` | health — `POST/GET /exams`, `PUT/DELETE /exams/:id`, `GET /exam-items/names`, `GET /exam-items/evolution`, `POST /upload`, `GET/DELETE /processing`, `POST /processing/:id/approve`, `GET /patient-context`, `GET /patient-context/latest`, `POST /patient-context`, `POST /ai-overview`, `GET /ai-overview`, `GET /ai-overview/latest`, `GET /ai-overview/:id`, `POST/GET /prescriptions`, `PUT/DELETE /prescriptions/:id` (SP-123/SP-124) |
+| `/chat-agent` | chat-agent — `POST/GET /sessions`, `GET /sessions/:id/messages` paginado `{ data, meta }` (20/pág.), `POST /sessions/:id/messages`, `DELETE /sessions/:id` (SP-117) |
 | `alexa` | alexa |
 
 REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em DELETE sem body.
@@ -205,6 +208,7 @@ Todos os textos de prompt enviados ao Gemini ficam em **`src/common/prompts/`**,
 | `coupon-text.prompt.ts` | Cupom fiscal / NF-e (texto) |
 | `image-finance.prompt.ts` | Despesa/receita por imagem |
 | `audio-finance.prompt.ts` | Despesa/receita por áudio |
+| `chat-agent.prompt.ts` | Assistente Familiar — system prompt (SP-117) |
 
 **Regras:**
 
@@ -267,6 +271,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 - `demo-login.md` — login demo via link para portfólio (SP-118)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
+- `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
 
 ---
 
