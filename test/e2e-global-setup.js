@@ -23,7 +23,11 @@ function main() {
     process.exit(1);
   }
 
-  const env = { ...process.env };
+  const env = {
+    ...process.env,
+    // nest build precisa de mais heap que o teto do jest e2e low-mem
+    NODE_OPTIONS: '--max-old-space-size=4096',
+  };
 
   execSync('npm run build', { stdio: 'inherit', cwd: root, env });
   execSync('npx typeorm migration:run -d dist/db/data-source.js', {

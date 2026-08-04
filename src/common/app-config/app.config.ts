@@ -123,6 +123,13 @@ export class AppConfig {
     );
   }
 
+  getGeminiChatDailyLimit(): number {
+    return Number.parseInt(
+      this.configService.get<string>('GEMINI_CHAT_DAILY_LIMIT') || '50',
+      10,
+    );
+  }
+
   getGoogleDrive() {
     return {
       clientId: this.configService.get<string>('GOOGLE_DRIVE_CLIENT_ID'),

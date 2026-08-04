@@ -1052,6 +1052,20 @@ export class ExpenseService {
     return this.expenseRepository.findByPeriod(userId, startDate, endDate);
   }
 
+  async findByPeriodWithItems(
+    userIds: string[],
+    startDate: string,
+    endDate: string,
+    limit = 100,
+  ): Promise<Expense[]> {
+    return this.expenseRepository.findByPeriodWithItems(
+      userIds,
+      startDate,
+      endDate,
+      limit,
+    );
+  }
+
   async getAllByCurrentMonth(user: User): Promise<Expense[] | []> {
     const { startDateString, endDateString } = getCurrentMonthDates();
 

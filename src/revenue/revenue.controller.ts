@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
+import { seconds, Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthGuard } from 'src/auth/auth.guard';
@@ -208,6 +209,7 @@ export class RevenueController {
   }
 
   @UseGuards(AuthGuard)
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post('analyze-audio')
   @UseInterceptors(
     FileInterceptor('audio', {
@@ -270,6 +272,7 @@ export class RevenueController {
   }
 
   @UseGuards(AuthGuard)
+  @Throttle({ default: { limit: 20, ttl: seconds(60) } })
   @Post('analyze-image')
   @UseInterceptors(
     FileInterceptor('image', {
