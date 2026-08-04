@@ -5,7 +5,8 @@ import { logJson } from './log-event.util';
 export type AiTelemetryFeature =
   | 'image_recognition'
   | 'text_recognition'
-  | 'audio_recognition';
+  | 'audio_recognition'
+  | 'chat_agent';
 
 @Injectable()
 export class AiCallTelemetryService {

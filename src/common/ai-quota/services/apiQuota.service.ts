@@ -10,6 +10,32 @@ export class ApiQuotaService {
   ) {}
 
   /**
+   * Só verifica quota (não incrementa). Use antes de efeitos colaterais
+   * (ex.: persistir mensagem do chat) para não gravar se já estiver no limite.
+   */
+  async assertQuotaAvailable(
+    provider: string,
+    dailyLimit: number,
+  ): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const usage = await this.apiUsageRepository.findByProviderAndDate(
+      provider,
+      today,
+    );
+
+    if (usage && usage.requestCount >= dailyLimit) {
+      throw new ApiQuotaException(
+        `Limite diário de ${dailyLimit} requisições para o provedor ${provider} foi atingido. Tente novamente amanhã.`,
+        provider,
+        dailyLimit,
+        usage.requestCount,
+      );
+    }
+  }
+
+  /**
    * Verifica se o provedor ainda tem quota disponível para hoje
    * @param provider Nome do provedor (ex: 'gemini')
    * @param dailyLimit Limite diário de requisições
