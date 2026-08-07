@@ -275,6 +275,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
 - `notificacoes.md` — notificações internas, canais e evento de convite familiar (SP-101)
+- `deploy.md` — deploy VPS (`deploy.sh` / `ci_deploy.sh`), prune de imagens após containers no ar (SP-132)
 
 ---
 
