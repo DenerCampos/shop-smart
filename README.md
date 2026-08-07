@@ -539,7 +539,7 @@ O repositório inclui workflows em [`.github/workflows/`](.github/workflows/) pa
 ## Como usar no fluxo Git
 
 1. Desenvolva em uma branch e abra um **pull request** para `main`. O workflow **CI** aparece na aba **Actions** e na página do PR.
-2. Após revisão, faça **merge** na `main`. Isso gera um push e dispara o workflow **Deploy**: testes de novo e, em seguida, conexão SSH + `ci_deploy.sh` (backup, `git pull`, build Docker, subida dos containers, migrations quando detectadas).
+2. Após revisão, faça **merge** na `main`. Isso gera um push e dispara o workflow **Deploy**: testes de novo e, em seguida, conexão SSH + `ci_deploy.sh` (backup, `git pull`, build Docker, subida dos containers, migrations quando detectadas, `docker image prune -af` ao final).
 3. Deploy **manual** na VPS continua disponível com [`deploy.sh`](deploy.sh) (perguntas interativas). O fluxo automatizado usa apenas [`ci_deploy.sh`](ci_deploy.sh).
 
 ## Configuração no GitHub
@@ -692,8 +692,9 @@ Script que automatiza todo o processo de deploy em produção com detecção int
 
 - 🛡️ **Segurança**: Backup automático do banco antes de qualquer mudança
 - ✅ **Validação**: Verifica se API iniciou corretamente
+- 🧹 **Limpeza de disco**: `docker image prune -af` após containers no ar (remove imagens não usadas)
 - 📊 **Relatórios**: Mostra resumo detalhado do deploy
-- 🔄 **Rollback**: Facilita voltar atrás se necessário
+- 🔄 **Rollback**: após o prune, use commit anterior + rebuild (retag da imagem antiga não fica disponível)
 
 #### Como usar:
 
@@ -716,7 +717,8 @@ Script que automatiza todo o processo de deploy em produção com detecção int
 9. ⏳ Aguarda API inicializar
 10. 🗄️  Executa migrations (se houver)
 11. 📋 Mostra logs e status final
-12. ✅ Confirma sucesso do deploy
+12. 🧹 Remove imagens Docker não utilizadas (docker image prune -af)
+13. ✅ Confirma sucesso do deploy
 ```
 
 #### Exemplo de uso no servidor:
