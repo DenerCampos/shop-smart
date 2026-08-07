@@ -328,7 +328,10 @@ export class ExpenseService {
       expenseList.limit,
     );
 
-    const { userIds } = await this.familyMemberResolver.resolve(user.id);
+    const { userIds } = await this.familyMemberResolver.resolve(
+      user.id,
+      expenseList.familyGroupId,
+    );
 
     const [expenses, total] = await this.expenseRepository.findAll(
       userIds,

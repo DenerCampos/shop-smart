@@ -91,7 +91,15 @@ describe('HealthService', () => {
     analyzePrescriptionImage: jest.Mock;
   };
   let familyMemberResolver: jest.Mocked<
-    Pick<FamilyMemberResolverService, 'resolve' | 'getAcceptedMemberUserIds'>
+    Pick<
+      FamilyMemberResolverService,
+      | 'resolve'
+      | 'getAcceptedMemberUserIds'
+      | 'getPrimaryFamilyGroupId'
+      | 'findAdminGroupForTarget'
+      | 'shareAnyAcceptedGroup'
+      | 'isAdminManagingTarget'
+    >
   >;
 
   beforeEach(async () => {
@@ -179,7 +187,58 @@ describe('HealthService', () => {
         groupId: null,
       }),
       getAcceptedMemberUserIds: jest.fn().mockResolvedValue(['user-1']),
+      getPrimaryFamilyGroupId: jest.fn().mockResolvedValue(null),
+      findAdminGroupForTarget: jest.fn().mockResolvedValue(null),
+      shareAnyAcceptedGroup: jest.fn().mockResolvedValue(true),
+      isAdminManagingTarget: jest
+        .fn()
+        .mockImplementation(
+          async (adminId: string, targetId: string) => adminId === targetId,
+        ),
     };
+
+    const syncFamilyMocksFromResolve = (result: {
+      groupId: string | null;
+      isAdmin: boolean;
+      userIds?: string[];
+    }) => {
+      familyMemberResolver.getPrimaryFamilyGroupId.mockResolvedValue(
+        result.groupId,
+      );
+      familyMemberResolver.findAdminGroupForTarget.mockResolvedValue(
+        result.isAdmin ? result.groupId : null,
+      );
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(
+        !!result.groupId,
+      );
+      familyMemberResolver.isAdminManagingTarget.mockImplementation(
+        async (adminId: string, targetId: string) =>
+          adminId === targetId || result.isAdmin,
+      );
+      if (result.userIds) {
+        familyMemberResolver.getAcceptedMemberUserIds.mockResolvedValue(
+          result.userIds,
+        );
+      }
+    };
+
+    const originalResolveMock =
+      familyMemberResolver.resolve.mockResolvedValue.bind(
+        familyMemberResolver.resolve,
+      );
+    familyMemberResolver.resolve.mockResolvedValue = ((value: any) => {
+      syncFamilyMocksFromResolve(value);
+      return originalResolveMock(value);
+    }) as typeof familyMemberResolver.resolve.mockResolvedValue;
+
+    const originalResolveOnce =
+      familyMemberResolver.resolve.mockResolvedValueOnce.bind(
+        familyMemberResolver.resolve,
+      );
+    familyMemberResolver.resolve.mockResolvedValueOnce = ((value: any) => {
+      syncFamilyMocksFromResolve(value);
+      return originalResolveOnce(value);
+    }) as typeof familyMemberResolver.resolve.mockResolvedValueOnce;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -309,6 +368,8 @@ describe('HealthService', () => {
         .mockResolvedValueOnce(null) // owner sem grupo
         .mockResolvedValueOnce(null); // requester sem grupo
 
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
+
       await expect(
         service.getExamById('exam-1', makeUser('user-1')),
       ).rejects.toThrow(ForbiddenException);
@@ -322,6 +383,8 @@ describe('HealthService', () => {
       memberRepo.findMembershipWithGroup
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
+
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
 
       await expect(
         service.listExams(makeUser('user-1'), { userId: 'user-2', page: '1' }),
@@ -373,6 +436,8 @@ describe('HealthService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
 
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
+
       await expect(
         service.listLabItemNames(makeUser('user-1'), { userId: 'user-2' }),
       ).rejects.toThrow(ForbiddenException);
@@ -417,6 +482,8 @@ describe('HealthService', () => {
       memberRepo.findMembershipWithGroup
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
+
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
 
       await expect(
         service.getLabItemEvolution(makeUser('user-1'), {
@@ -468,6 +535,7 @@ describe('HealthService', () => {
       memberRepo.findMembership.mockResolvedValue({
         role: FAMILY_GROUP_ROLES.ADMIN,
       } as FamilyGroupMember);
+      familyMemberResolver.isAdminManagingTarget.mockResolvedValue(true);
 
       const result = await service.updateExam('exam-1', makeUser('user-1'), {
         examType: 'IMAGING',
@@ -676,6 +744,8 @@ describe('HealthService', () => {
         .mockResolvedValueOnce(null) // owner sem grupo
         .mockResolvedValueOnce(null); // requester sem grupo
 
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
+
       await expect(
         service.getLatestOverview(makeUser('user-1'), 'user-2'),
       ).rejects.toThrow(ForbiddenException);
@@ -685,7 +755,10 @@ describe('HealthService', () => {
   // ─── listOverviews ───────────────────────────────────────────────────────
 
   describe('listOverviews', () => {
-    it('deve listar relatórios de todos os membros quando não há targetUserId (família toda)', async () => {
+    it('deve listar relatórios dos membros do grupo primário quando não há targetUserId', async () => {
+      familyMemberResolver.getPrimaryFamilyGroupId.mockResolvedValueOnce(
+        'group-1',
+      );
       familyMemberResolver.resolve.mockResolvedValueOnce({
         userIds: ['user-1', 'user-2'],
         isAdmin: true,
@@ -704,7 +777,7 @@ describe('HealthService', () => {
 
       expect(
         familyMemberResolver.getAcceptedMemberUserIds,
-      ).toHaveBeenCalledWith('user-1');
+      ).toHaveBeenCalledWith('user-1', 'group-1');
       expect(overviewRepo.findByFilters).toHaveBeenCalledWith(
         ['user-1', 'user-2'],
         'group-1',
@@ -712,6 +785,34 @@ describe('HealthService', () => {
         '2026-07-31 23:59:59',
       );
       expect(result).toHaveLength(1);
+    });
+
+    it('deve usar familyGroupId do filtro quando informado', async () => {
+      familyMemberResolver.resolve.mockResolvedValueOnce({
+        userIds: ['user-1'],
+        isAdmin: false,
+        groupId: 'group-2',
+      });
+      familyMemberResolver.getAcceptedMemberUserIds.mockResolvedValueOnce([
+        'user-1',
+        'user-3',
+      ]);
+      overviewRepo.findByFilters.mockResolvedValueOnce([]);
+
+      await service.listOverviews(makeUser('user-1'), {
+        familyGroupId: 'group-2',
+      });
+
+      expect(familyMemberResolver.getPrimaryFamilyGroupId).not.toHaveBeenCalled();
+      expect(
+        familyMemberResolver.getAcceptedMemberUserIds,
+      ).toHaveBeenCalledWith('user-1', 'group-2');
+      expect(overviewRepo.findByFilters).toHaveBeenCalledWith(
+        ['user-1', 'user-3'],
+        'group-2',
+        undefined,
+        undefined,
+      );
     });
 
     it('deve filtrar por um único membro quando targetUserId é o próprio usuário', async () => {
@@ -734,6 +835,8 @@ describe('HealthService', () => {
       memberRepo.findMembershipWithGroup
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
+
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
 
       await expect(
         service.listOverviews(makeUser('user-1'), { targetUserId: 'user-2' }),
@@ -770,6 +873,8 @@ describe('HealthService', () => {
       memberRepo.findMembershipWithGroup
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null);
+
+      familyMemberResolver.shareAnyAcceptedGroup.mockResolvedValue(false);
 
       await expect(
         service.getOverviewById('ov-1', makeUser('user-1')),

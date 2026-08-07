@@ -374,7 +374,11 @@ export class CoinService {
     user: User,
     query: CoinStatementQueryDto,
   ): Promise<CoinStatementResponseDto> {
-    const userIds = await this.resolveUserIds(user, query.userId);
+    const userIds = await this.resolveUserIds(
+      user,
+      query.userId,
+      query.familyGroupId,
+    );
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const offset = this.pagination.getOffset(page, limit);
@@ -419,21 +423,25 @@ export class CoinService {
   private async resolveUserIds(
     currentUser: User,
     userId?: string,
+    familyGroupId?: string | null,
   ): Promise<string[]> {
     let userIds: string[];
 
     if (!userId) {
       userIds = await this.familyMemberResolver.getAcceptedMemberUserIdsIfAdmin(
         currentUser.id,
+        familyGroupId,
       );
     } else if (userId === 'all') {
       userIds = await this.familyMemberResolver.getAcceptedMemberUserIds(
         currentUser.id,
+        familyGroupId,
       );
     } else {
       const familyMemberIds =
         await this.familyMemberResolver.getAcceptedMemberUserIds(
           currentUser.id,
+          familyGroupId,
         );
 
       if (!familyMemberIds.includes(userId)) {

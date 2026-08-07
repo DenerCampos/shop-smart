@@ -71,7 +71,7 @@ describe('ReportsService', () => {
 
     expect(
       familyGroupService.getAcceptedMemberUserIdsIfAdmin,
-    ).toHaveBeenCalledWith('u1');
+    ).toHaveBeenCalledWith('u1', undefined);
     expect(reportsRepository.expenseByGroup).toHaveBeenCalledWith(
       ['u1'],
       dto.startDate,

@@ -16,7 +16,8 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
 - Evolução temporal por nome de item laboratorial (endpoints `exam-items/names` e `exam-items/evolution`)
 - Visão geral de saúde gerada por Gemini (relatório em cache, regenerável)
 - Cadastro, listagem e detalhe de receituários com horários e agendamento estruturado
-- Permissões familiares: admin gerencia qualquer membro; membros gerenciam apenas os seus
+- Permissões familiares (SP-127): admin/owner pode gerenciar membros de **qualquer** grupo em que seja admin; membros gerenciam apenas os próprios dados. Saúde continua individual (registros por `userId`); `familyGroupId` no registro reflete o grupo usado na autorização.
+- `GET /health/ai-overview` (listagem): escopo por `familyGroupId` (query, UUID) ou, se omitido, pela **família primária** — não agrega membros de todos os grupos do usuário.
 
 **Não inclui (versão inicial):**
 - Prontuário completo / histórico médico geral

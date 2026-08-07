@@ -12,6 +12,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { DenyDemoGuard } from 'src/auth/deny-demo.guard';
 import { ProfileService } from './profile.service';
 import { ResponseService } from 'src/common/response/response';
 import { ProfileResponseDto } from './dto/profile-response.dto';
@@ -31,7 +32,7 @@ export class ProfileController {
     private readonly responseService: ResponseService,
   ) {}
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Post('complete-profile')
   async completeProfile(
     @CurrentUser() user: User,
@@ -59,6 +60,7 @@ export class ProfileController {
         user,
         query.page,
         query.limit,
+        query.familyGroupId,
       );
 
     return this.responseService.mapPaginatedToDto(
@@ -75,13 +77,13 @@ export class ProfileController {
     return this.profileService.getIntegrations(user.id);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Post('integrations/alexa/unlink')
   async unlinkAlexa(@CurrentUser() user: User): Promise<{ unlinked: boolean }> {
     return this.profileService.unlinkAlexa(user.id);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Post('upload-image')
   @UseInterceptors(
     FileInterceptor('image', {

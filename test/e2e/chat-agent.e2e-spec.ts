@@ -209,6 +209,8 @@ describe('ChatAgent (e2e)', () => {
       .set(bearerAuth(token))
       .expect(200);
 
-    expect(list.body.find((s: { id: string }) => s.id === sessionId)).toBeUndefined();
+    expect(
+      list.body.find((s: { id: string }) => s.id === sessionId),
+    ).toBeUndefined();
   });
 });

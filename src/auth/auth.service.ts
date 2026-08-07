@@ -432,6 +432,7 @@ export class AuthService {
     userId: string,
   ): Promise<string | null> {
     try {
+      // findGroupsByUser já ordena owner → admin → member
       const groups = await this.familyGroupService.findGroupsByUser(userId);
       return groups.length > 0 ? groups[0].id : null;
     } catch {

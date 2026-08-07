@@ -171,6 +171,23 @@ echo ""
 echo -e "${BLUE}📊 Status dos containers:${NC}"
 docker_compose ps
 
+# Limpar imagens Docker não utilizadas (após containers rodando — não derruba o deploy se falhar)
+echo ""
+echo -e "${BLUE}🧹 Removendo imagens Docker não utilizadas...${NC}"
+PRUNE_OUTPUT=$(docker image prune -af 2>&1)
+PRUNE_STATUS=$?
+echo "$PRUNE_OUTPUT"
+if [ $PRUNE_STATUS -eq 0 ]; then
+  RECLAIMED=$(echo "$PRUNE_OUTPUT" | grep -i "Total reclaimed space" || true)
+  if [ -n "$RECLAIMED" ]; then
+    echo -e "${GREEN}✅ Imagens antigas removidas! (${RECLAIMED})${NC}"
+  else
+    echo -e "${GREEN}✅ Imagens antigas removidas!${NC}"
+  fi
+else
+  echo -e "${YELLOW}⚠️  Não foi possível limpar imagens (deploy ok; containers já estão no ar).${NC}"
+fi
+
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║     ✅ Deploy concluído com sucesso!   ║${NC}"

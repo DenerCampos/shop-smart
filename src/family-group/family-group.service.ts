@@ -22,8 +22,13 @@ import { NotExistException } from 'src/exception/notExistException';
 import { ExpenseService } from 'src/expense/expense.service';
 import { RevenueService } from 'src/revenue/revenue.service';
 import { UserCreatedEvent } from 'src/user/events/user-created.event';
+import {
+  FAMILY_GROUP_MEMBER_INVITED_EVENT,
+  FamilyGroupMemberInvitedEvent,
+} from './events/family-group-member-invited.event';
 import { FamilyGroupSummaryResponseDto } from './dto/family-group-summary-response.dto';
 import { FamilyGroupMemberDataResponseDto } from './dto/family-group-member-data-response.dto';
+import { sortFamilyGroupsByPriority } from './utils/family-group-priority';
 
 @Injectable()
 export class FamilyGroupService {
@@ -47,15 +52,6 @@ export class FamilyGroupService {
   // ========================
 
   async create(user: User, name: string): Promise<FamilyGroup> {
-    const existingMembership =
-      await this.familyGroupRepository.findAcceptedMembershipByUserId(user.id);
-
-    if (existingMembership) {
-      throw new ConflictException(
-        'Você já participa de um grupo familiar. Saia do grupo atual antes de criar um novo.',
-      );
-    }
-
     const group = await this.dataSource.transaction(async (manager) => {
       const groupRepo = manager.getRepository(FamilyGroup);
       const memberRepo = manager.getRepository(FamilyGroupMember);
@@ -74,7 +70,9 @@ export class FamilyGroupService {
       });
       await memberRepo.save(member);
 
-      await manager.getRepository(User).update(user.id, { family: name });
+      if (!user.family) {
+        await manager.getRepository(User).update(user.id, { family: name });
+      }
 
       return savedGroup;
     });
@@ -85,7 +83,27 @@ export class FamilyGroupService {
   async findGroupsByUser(userId: string): Promise<FamilyGroup[]> {
     const groups = await this.familyGroupRepository.findGroupsByUserId(userId);
 
-    return groups.map((group) => this.filterMembersByRole(group, userId));
+    const sortable = groups.map((group) => {
+      const membership = group.members?.find(
+        (m) =>
+          m.user?.id === userId &&
+          m.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+      );
+      return {
+        id: group.id,
+        name: group.name,
+        ownerId: group.owner.id,
+        viewerRole: (membership?.role ?? FAMILY_GROUP_ROLES.MEMBER) as
+          | 'admin'
+          | 'member',
+        joinedAt: membership?.joinedAt ?? null,
+        group,
+      };
+    });
+
+    return sortFamilyGroupsByPriority(sortable, userId).map((item) =>
+      this.filterMembersByRole(item.group, userId),
+    );
   }
 
   async findGroupById(groupId: string, userId: string): Promise<FamilyGroup> {
@@ -168,14 +186,18 @@ export class FamilyGroupService {
     const invitedUser = await this.userService.findByEmail(email);
 
     if (invitedUser) {
-      const existingAccepted =
-        await this.familyGroupRepository.findAcceptedMembershipByUserId(
+      const alreadyInGroup =
+        await this.familyGroupRepository.findMemberByGroupAndUser(
+          groupId,
           invitedUser.id,
         );
 
-      if (existingAccepted) {
+      if (
+        alreadyInGroup &&
+        alreadyInGroup.status !== FAMILY_GROUP_MEMBER_STATUS.REJECTED
+      ) {
         throw new ConflictException(
-          'Este usuário já participa de outro grupo familiar.',
+          'Este email já possui um convite pendente ou já é membro do grupo.',
         );
       }
     }
@@ -185,7 +207,7 @@ export class FamilyGroupService {
       `[MOCK EMAIL] Convite enviado para ${email} para o grupo "${group.name}"`,
     );
 
-    return await this.familyGroupRepository.createMember(
+    const member = await this.familyGroupRepository.createMember(
       group,
       invitedUser || null,
       email,
@@ -193,6 +215,19 @@ export class FamilyGroupService {
       FAMILY_GROUP_MEMBER_STATUS.PENDING,
       inviter,
     );
+
+    if (invitedUser) {
+      this.emitMemberInvited({
+        recipientUserId: invitedUser.id,
+        actorName: inviter.name,
+        groupId: group.id,
+        groupName: group.name,
+        memberId: member.id,
+        createdAt: member.createdAt,
+      });
+    }
+
+    return member;
   }
 
   async getPendingInvitations(user: User): Promise<FamilyGroupMember[]> {
@@ -241,13 +276,18 @@ export class FamilyGroupService {
       }
     }
 
-    const existingAccepted =
-      await this.familyGroupRepository.findAcceptedMembershipByUserId(userId);
-
-    if (existingAccepted) {
-      throw new ConflictException(
-        'Você já participa de um grupo familiar. Saia do grupo atual para aceitar este convite.',
+    const alreadyInThisGroup =
+      await this.familyGroupRepository.findMemberByGroupAndUser(
+        member.familyGroup.id,
+        userId,
       );
+
+    if (
+      alreadyInThisGroup &&
+      alreadyInThisGroup.id !== member.id &&
+      alreadyInThisGroup.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED
+    ) {
+      throw new ConflictException('Você já é membro deste grupo familiar.');
     }
 
     if (!member.user) {
@@ -583,13 +623,21 @@ export class FamilyGroupService {
 
       for (const invitation of pendingInvitations) {
         if (!invitation.user) {
-          await this.familyGroupRepository.linkUserToMember(
+          const linked = await this.familyGroupRepository.linkUserToMember(
             invitation,
             event.user,
           );
           this.logger.log(
             `Convite vinculado ao novo usuário ${event.user.email} para o grupo ${invitation.familyGroup.name}`,
           );
+          this.emitMemberInvited({
+            recipientUserId: event.user.id,
+            actorName: invitation.invitedBy?.name ?? 'Alguém',
+            groupId: invitation.familyGroup.id,
+            groupName: invitation.familyGroup.name,
+            memberId: linked.id,
+            createdAt: linked.createdAt,
+          });
         }
       }
     } catch (error) {
@@ -598,6 +646,27 @@ export class FamilyGroupService {
         error.message,
       );
     }
+  }
+
+  private emitMemberInvited(payload: {
+    recipientUserId: string;
+    actorName: string;
+    groupId: string;
+    groupName: string;
+    memberId: string;
+    createdAt: Date;
+  }): void {
+    this.eventEmitter.emit(
+      FAMILY_GROUP_MEMBER_INVITED_EVENT,
+      new FamilyGroupMemberInvitedEvent(
+        payload.recipientUserId,
+        payload.actorName,
+        payload.groupId,
+        payload.groupName,
+        payload.memberId,
+        payload.createdAt,
+      ),
+    );
   }
 
   // ========================
@@ -634,26 +703,34 @@ export class FamilyGroupService {
     return await this.validateAdmin(groupId, userId);
   }
 
-  async getAcceptedMemberUserIds(userId: string): Promise<string[]> {
-    const membership =
-      await this.familyGroupRepository.findAcceptedMembershipByUserId(userId);
-
-    if (!membership) {
+  async getAcceptedMemberUserIds(
+    userId: string,
+    familyGroupId?: string | null,
+  ): Promise<string[]> {
+    if (!familyGroupId) {
       return [userId];
     }
 
-    return this.extractAcceptedUserIds(membership.familyGroup.id, userId);
+    await this.validateMembership(familyGroupId, userId);
+
+    return this.extractAcceptedUserIds(familyGroupId, userId);
   }
 
-  async getAcceptedMemberUserIdsIfAdmin(userId: string): Promise<string[]> {
-    const membership =
-      await this.familyGroupRepository.findAcceptedMembershipByUserId(userId);
-
-    if (!membership || membership.role !== FAMILY_GROUP_ROLES.ADMIN) {
+  async getAcceptedMemberUserIdsIfAdmin(
+    userId: string,
+    familyGroupId?: string | null,
+  ): Promise<string[]> {
+    if (!familyGroupId) {
       return [userId];
     }
 
-    return this.extractAcceptedUserIds(membership.familyGroup.id, userId);
+    const membership = await this.validateMembership(familyGroupId, userId);
+
+    if (membership.role !== FAMILY_GROUP_ROLES.ADMIN) {
+      return [userId];
+    }
+
+    return this.extractAcceptedUserIds(familyGroupId, userId);
   }
 
   private async extractAcceptedUserIds(

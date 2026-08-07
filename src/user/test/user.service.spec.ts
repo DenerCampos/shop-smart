@@ -11,11 +11,13 @@ import { AlreadyExistsException } from '../../exception/alreadyExistsException';
 import { NotExistException } from '../../exception/notExistException';
 import { UpdateException } from '../../exception/updateException';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { FamilyMemberResolverService } from '../../common/family-member-resolver/family-member-resolver.service';
 
 describe('UserService', () => {
   let service: UserService;
   let userRepository: jest.Mocked<IUserRepository>;
   let eventEmitter: EventEmitter;
+  let familyMemberResolver: { isAdminOfAnyGroup: jest.Mock };
 
   beforeEach(async () => {
     userRepository = {
@@ -23,6 +25,7 @@ describe('UserService', () => {
       create: jest.fn(),
       find: jest.fn(),
       findByEmail: jest.fn(),
+      searchByEmailPrefix: jest.fn(),
       saveToken: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -30,6 +33,9 @@ describe('UserService', () => {
       exist: jest.fn(),
       saveRefreshToken: jest.fn(),
       findByRefreshToken: jest.fn(),
+    };
+    familyMemberResolver = {
+      isAdminOfAnyGroup: jest.fn().mockResolvedValue(true),
     };
     eventEmitter = new EventEmitter();
     jest.spyOn(eventEmitter, 'emit');
@@ -42,6 +48,10 @@ describe('UserService', () => {
         { provide: 'IUserRepository', useValue: userRepository },
         { provide: AppConfig, useValue: appConfig },
         { provide: EVENT_EMITTER, useValue: eventEmitter },
+        {
+          provide: FamilyMemberResolverService,
+          useValue: familyMemberResolver,
+        },
       ],
     }).compile();
 
@@ -126,6 +136,35 @@ describe('UserService', () => {
       await expect(
         service.update('id1', { email: 'taken@test.local' } as any),
       ).rejects.toBeInstanceOf(AlreadyExistsException);
+    });
+  });
+
+  describe('searchByEmail', () => {
+    it('lança ForbiddenException quando o solicitante não é admin de grupo', async () => {
+      familyMemberResolver.isAdminOfAnyGroup.mockResolvedValue(false);
+
+      await expect(
+        service.searchByEmail('user-1', 'abc'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(userRepository.searchByEmailPrefix).not.toHaveBeenCalled();
+    });
+
+    it('retorna resultados limitados quando o solicitante é admin', async () => {
+      const users = [
+        { id: 'u2', name: 'Ana', email: 'ana@test.local' },
+      ] as User[];
+      userRepository.searchByEmailPrefix.mockResolvedValue(users);
+
+      const result = await service.searchByEmail('admin-1', 'ana');
+
+      expect(familyMemberResolver.isAdminOfAnyGroup).toHaveBeenCalledWith(
+        'admin-1',
+      );
+      expect(userRepository.searchByEmailPrefix).toHaveBeenCalledWith(
+        'ana',
+        10,
+      );
+      expect(result).toEqual(users);
     });
   });
 });

@@ -4,6 +4,7 @@ import { ProfileController } from '../profile.controller';
 import { ProfileService } from '../profile.service';
 import { ResponseService } from '../../common/response/response';
 import { AuthGuard } from '../../auth/auth.guard';
+import { DenyDemoGuard } from '../../auth/deny-demo.guard';
 import { createTestUser } from 'src/common/test/user.fixture';
 import { ProfileModel } from '../models/profile.models';
 
@@ -47,6 +48,8 @@ describe('ProfileController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(DenyDemoGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get(ProfileController);
@@ -86,7 +89,12 @@ describe('ProfileController', () => {
 
     await controller.getLatestRegistrations({ page: 2, limit: 5 } as never, u);
 
-    expect(profileService.getLatestRegistrations).toHaveBeenCalledWith(u, 2, 5);
+    expect(profileService.getLatestRegistrations).toHaveBeenCalledWith(
+      u,
+      2,
+      5,
+      undefined,
+    );
     expect(responseService.mapPaginatedToDto).toHaveBeenCalled();
   });
 

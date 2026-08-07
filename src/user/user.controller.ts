@@ -6,16 +6,21 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { seconds, Throttle } from '@nestjs/throttler';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { DenyDemoGuard } from '../auth/deny-demo.guard';
 import { UserResponseDto } from './dto/user-response.dto';
 import { ResponseService } from 'src/common/response/response';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
+import { SearchUsersQueryDto } from './dto/search-users-query.dto';
+import { UserSearchItemResponseDto } from './dto/user-search-item-response.dto';
 
 @Controller('/user')
 export class UserController {
@@ -32,6 +37,21 @@ export class UserController {
   }
 
   @UseGuards(AuthGuard)
+  @Throttle({ default: { limit: 15, ttl: seconds(60) } })
+  @Get('search')
+  async search(
+    @Query() query: SearchUsersQueryDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<UserSearchItemResponseDto[]> {
+    const users = await this.userService.searchByEmail(
+      currentUser.id,
+      query.email,
+    );
+
+    return this.responseService.mapArrayToDto(UserSearchItemResponseDto, users);
+  }
+
+  @UseGuards(AuthGuard)
   @Get(':id')
   async findOne(
     @Param('id') id: string,
@@ -45,7 +65,7 @@ export class UserController {
     return this.responseService.mapToDto(UserResponseDto, user);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -59,7 +79,7 @@ export class UserController {
     return this.responseService.mapToDto(UserResponseDto, user);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Delete(':id')
   async delete(
     @Param('id') id: string,

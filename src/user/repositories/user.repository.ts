@@ -46,6 +46,22 @@ export class UserRepository implements IUserRepository {
     return await this.userEntity.findOneBy({ email });
   }
 
+  async searchByEmailPrefix(
+    emailPrefix: string,
+    limit: number,
+  ): Promise<User[]> {
+    return await this.userEntity
+      .createQueryBuilder('user')
+      .select(['user.id', 'user.name', 'user.email'])
+      .where('LOWER(user.email) LIKE :prefix', {
+        prefix: `${emailPrefix.toLowerCase()}%`,
+      })
+      .andWhere('user.deletedAt IS NULL')
+      .orderBy('user.email', 'ASC')
+      .take(limit)
+      .getMany();
+  }
+
   async saveToken(id: string, token: string): Promise<User> {
     const updateUser = await this.userEntity.findOneBy({ id });
 

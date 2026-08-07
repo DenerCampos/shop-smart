@@ -114,6 +114,8 @@ O `access_token` é o JWT padrão da plataforma com payload:
 }
 ```
 
+`familyGroupId` (SP-127) é a família **primária** por prioridade owner → admin → member (mesmo critério de `GET /family-group` / profile).
+
 ---
 
 ## Endpoints para Assistentes de Voz

@@ -57,7 +57,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
 | Módulo | Pasta | Responsabilidade resumida |
 |--------|-------|---------------------------|
-| auth | `auth/` | JWT, login, refresh, guards |
+| auth | `auth/` | JWT, login, refresh, guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
 | user | `user/` | Usuários |
 | expense | `expense/` | Despesas, recorrência, itens |
 | revenue | `revenue/` | Receitas |
@@ -77,6 +77,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | mission | `mission/` | Missões dinâmicas (SP-78) |
 | health | `health/` | Módulo de Saúde — exames, processamento IA, receituário, visão geral (SP-123) |
 | chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117) |
+| notification | `notification/` | Notificações internas (canais + orquestrador; SP-101) |
 | alexa | `alexa/` | Integração Alexa |
 
 **Infraestrutura** (não expor como REST principal; usar via services):
@@ -158,7 +159,7 @@ Prefixos atuais (atualizar ao criar controller):
 | Prefixo | Módulo |
 |---------|--------|
 | `auth` | auth |
-| `/user` | user |
+| `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min) |
 | `/expense` | expense |
 | `/revenue` | revenue |
 | `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |
@@ -175,6 +176,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `missions` | mission |
 | `/health` | health — `POST/GET /exams`, `PUT/DELETE /exams/:id`, `GET /exam-items/names`, `GET /exam-items/evolution`, `POST /upload`, `GET/DELETE /processing`, `POST /processing/:id/approve`, `GET /patient-context`, `GET /patient-context/latest`, `POST /patient-context`, `POST /ai-overview`, `GET /ai-overview`, `GET /ai-overview/latest`, `GET /ai-overview/:id`, `POST/GET /prescriptions`, `PUT/DELETE /prescriptions/:id` (SP-123/SP-124) |
 | `/chat-agent` | chat-agent — `POST/GET /sessions`, `GET /sessions/:id/messages` paginado `{ data, meta }` (20/pág.), `POST /sessions/:id/messages`, `DELETE /sessions/:id` (SP-117) |
+| `/notifications` | notification — `GET /`, `GET /unread-count`, `PATCH /read` (SP-101) |
 | `alexa` | alexa |
 
 REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em DELETE sem body.
@@ -269,9 +271,11 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
-- `demo-login.md` — login demo via link para portfólio (SP-118)
+- `demo-login.md` — login demo via link para portfólio (SP-118); bloqueio de mutações de perfil em sessão demo (SP-130)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
+- `notificacoes.md` — notificações internas, canais e evento de convite familiar (SP-101)
+- `deploy.md` — deploy VPS (`deploy.sh` / `ci_deploy.sh`), prune de imagens após containers no ar (SP-132)
 
 ---
 

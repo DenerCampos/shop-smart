@@ -7,11 +7,16 @@ import { UserService } from '../../user/user.service';
 import { ExpenseService } from '../../expense/expense.service';
 import { RevenueService } from '../../revenue/revenue.service';
 import { EVENT_EMITTER } from '../../common/event-emitter/event-emitter.provider';
+import {
+  FAMILY_GROUP_MEMBER_INVITED_EVENT,
+  FamilyGroupMemberInvitedEvent,
+} from '../events/family-group-member-invited.event';
 import { FAMILY_GROUP_ROLES } from '../types/family-group-role.type';
 import { FAMILY_GROUP_MEMBER_STATUS } from '../types/family-group-member-status.type';
 import { FamilyGroup } from '../entities/family-group.entity';
 import { FamilyGroupMember } from '../entities/family-group-member.entity';
 import { User } from '../../user/entities/user.entity';
+import { UserCreatedEvent } from '../../user/events/user-created.event';
 
 const makeUser = (id: string): Partial<User> => ({
   id,
@@ -46,6 +51,8 @@ describe('FamilyGroupService', () => {
   let familyGroupRepository: jest.Mocked<IFamilyGroupRepository>;
   let expenseService: jest.Mocked<Pick<ExpenseService, 'getByPeriod'>>;
   let revenueService: jest.Mocked<Pick<RevenueService, 'getByPeriod'>>;
+  let userService: jest.Mocked<Pick<UserService, 'find' | 'findByEmail'>>;
+  let eventEmitter: EventEmitter;
 
   beforeEach(async () => {
     familyGroupRepository = {
@@ -70,16 +77,21 @@ describe('FamilyGroupService', () => {
 
     expenseService = { getByPeriod: jest.fn().mockResolvedValue([]) };
     revenueService = { getByPeriod: jest.fn().mockResolvedValue([]) };
+    userService = {
+      find: jest.fn(),
+      findByEmail: jest.fn(),
+    };
+    eventEmitter = new EventEmitter();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FamilyGroupService,
         { provide: 'IFamilyGroupRepository', useValue: familyGroupRepository },
-        { provide: UserService, useValue: {} },
+        { provide: UserService, useValue: userService },
         { provide: ExpenseService, useValue: expenseService },
         { provide: RevenueService, useValue: revenueService },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
-        { provide: EVENT_EMITTER, useValue: new EventEmitter() },
+        { provide: EVENT_EMITTER, useValue: eventEmitter },
       ],
     }).compile();
 
@@ -328,6 +340,117 @@ describe('FamilyGroupService', () => {
 
       expect(expenseService.getByPeriod).not.toHaveBeenCalled();
       expect(revenueService.getByPeriod).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('inviteMember - notificação', () => {
+    const admin = {
+      ...makeUser('admin-id'),
+      name: 'Admin Nome',
+      email: 'admin@test.com',
+    } as User;
+    const invited = {
+      ...makeUser('invited-id'),
+      name: 'Convidado',
+      email: 'invited@test.com',
+    } as User;
+    const group = makeGroup([
+      makeMember(
+        'admin-id',
+        FAMILY_GROUP_ROLES.ADMIN,
+        FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+      ),
+    ]) as FamilyGroup;
+
+    beforeEach(() => {
+      familyGroupRepository.findGroupById.mockResolvedValue(group);
+      familyGroupRepository.findMemberByGroupAndUser.mockImplementation(
+        async (_groupId: string, uid: string) => {
+          if (uid === 'admin-id') {
+            return makeMember(
+              'admin-id',
+              FAMILY_GROUP_ROLES.ADMIN,
+              FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+            ) as FamilyGroupMember;
+          }
+          return null;
+        },
+      );
+      familyGroupRepository.findMemberByGroupAndEmail.mockResolvedValue(null);
+      userService.find.mockResolvedValue(admin);
+    });
+
+    it('emite family_group.member_invited quando convidado já tem conta', async () => {
+      const emitSpy = jest.spyOn(eventEmitter, 'emit');
+      userService.findByEmail.mockResolvedValue(invited);
+      familyGroupRepository.createMember.mockResolvedValue({
+        id: 'member-new',
+        createdAt: new Date('2026-08-07T12:00:00.000Z'),
+      } as FamilyGroupMember);
+
+      await service.inviteMember('group-1', 'admin-id', invited.email);
+
+      expect(emitSpy).toHaveBeenCalledWith(
+        FAMILY_GROUP_MEMBER_INVITED_EVENT,
+        expect.any(FamilyGroupMemberInvitedEvent),
+      );
+      const event = emitSpy.mock.calls.find(
+        (call) => call[0] === FAMILY_GROUP_MEMBER_INVITED_EVENT,
+      )?.[1] as FamilyGroupMemberInvitedEvent;
+      expect(event.recipientUserId).toBe('invited-id');
+      expect(event.actorName).toBe('Admin Nome');
+      expect(event.groupName).toBe('Test Group');
+    });
+
+    it('não emite evento quando convidado ainda não tem conta', async () => {
+      const emitSpy = jest.spyOn(eventEmitter, 'emit');
+      userService.findByEmail.mockResolvedValue(null);
+      familyGroupRepository.createMember.mockResolvedValue({
+        id: 'member-new',
+        createdAt: new Date(),
+      } as FamilyGroupMember);
+
+      await service.inviteMember('group-1', 'admin-id', 'new@test.com');
+
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        FAMILY_GROUP_MEMBER_INVITED_EVENT,
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('handleUserCreated - notificação', () => {
+    it('emite family_group.member_invited após vincular convite pendente', async () => {
+      const emitSpy = jest.spyOn(eventEmitter, 'emit');
+      const newUser = {
+        ...makeUser('new-user'),
+        name: 'Novo User',
+        email: 'new@test.com',
+      } as User;
+      const invitation = {
+        id: 'invite-1',
+        user: null,
+        createdAt: new Date('2026-08-01T10:00:00.000Z'),
+        invitedBy: { name: 'Admin Nome' } as User,
+        familyGroup: { id: 'group-1', name: 'Test Group' } as FamilyGroup,
+      } as FamilyGroupMember;
+
+      familyGroupRepository.findPendingInvitationsByEmail.mockResolvedValue([
+        invitation,
+      ]);
+      familyGroupRepository.linkUserToMember.mockResolvedValue({
+        ...invitation,
+        user: newUser,
+      });
+
+      eventEmitter.emit('user.created', new UserCreatedEvent(newUser));
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(familyGroupRepository.linkUserToMember).toHaveBeenCalled();
+      expect(emitSpy).toHaveBeenCalledWith(
+        FAMILY_GROUP_MEMBER_INVITED_EVENT,
+        expect.any(FamilyGroupMemberInvitedEvent),
+      );
     });
   });
 });
