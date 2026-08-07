@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, IsUUID, Matches } from 'class-validator';
 import {
   addTimeIfMissing,
   getFirstDayOfMonth,
@@ -32,4 +32,8 @@ export class BaseReportDateRangeDto {
     message: 'userId must be "all" or a valid UUID',
   })
   userId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  familyGroupId?: string;
 }

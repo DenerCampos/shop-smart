@@ -16,11 +16,13 @@ import { UpdateException } from 'src/exception/updateException';
 import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { NotExistException } from 'src/exception/notExistException';
 import { UserCreatedEvent } from './events/user-created.event';
+import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
 
 @Injectable()
 export class UserService {
   private readonly saltOrRounds: number;
   private readonly limitUsers: number = 15;
+  private readonly searchLimit = 10;
 
   constructor(
     @Inject('IUserRepository')
@@ -28,6 +30,7 @@ export class UserService {
     private readonly appConfig: AppConfig,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
+    private readonly familyMemberResolver: FamilyMemberResolverService,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
@@ -82,6 +85,25 @@ export class UserService {
 
   async findByEmail(email: string): Promise<User | null> {
     return await this.userRepository.findByEmail(email);
+  }
+
+  async searchByEmail(
+    requestingUserId: string,
+    emailPrefix: string,
+  ): Promise<Pick<User, 'id' | 'name' | 'email'>[]> {
+    const isAdmin =
+      await this.familyMemberResolver.isAdminOfAnyGroup(requestingUserId);
+
+    if (!isAdmin) {
+      throw new ForbiddenException(
+        'Apenas administradores de grupo familiar podem buscar usuários.',
+      );
+    }
+
+    return this.userRepository.searchByEmailPrefix(
+      emailPrefix,
+      this.searchLimit,
+    );
   }
 
   async saveToken(id: string, token: string): Promise<User | null> {

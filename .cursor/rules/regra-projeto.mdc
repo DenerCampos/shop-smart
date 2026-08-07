@@ -158,7 +158,7 @@ Prefixos atuais (atualizar ao criar controller):
 | Prefixo | Módulo |
 |---------|--------|
 | `auth` | auth |
-| `/user` | user |
+| `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min) |
 | `/expense` | expense |
 | `/revenue` | revenue |
 | `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |

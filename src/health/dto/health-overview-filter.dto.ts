@@ -1,9 +1,13 @@
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class HealthOverviewFilterDto {
   @IsOptional()
   @IsString()
   targetUserId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  familyGroupId?: string;
 
   @IsOptional()
   @IsDateString()

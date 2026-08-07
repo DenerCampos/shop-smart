@@ -187,7 +187,12 @@ export class ChatToolsService {
   private async listLatestRegistrations(args: Args, ctx: ChatAuthContext) {
     const page = Number(args.page) || 1;
     const limit = Number(args.limit) || 10;
-    return this.profileService.getLatestRegistrations(ctx.user, page, limit);
+    return this.profileService.getLatestRegistrations(
+      ctx.user,
+      page,
+      limit,
+      ctx.groupId ?? undefined,
+    );
   }
 
   private async resolveMemberUserId(
@@ -475,9 +480,7 @@ export class ChatToolsService {
         name: item.name,
         value: item.value,
         quantity: item.quantity,
-        group: item.group
-          ? { id: item.group.id, name: item.group.name }
-          : null,
+        group: item.group ? { id: item.group.id, name: item.group.name } : null,
       })),
       user: receipt.user
         ? { id: receipt.user.id, name: receipt.user.name }

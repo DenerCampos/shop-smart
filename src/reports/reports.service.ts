@@ -43,7 +43,11 @@ export class ReportsService {
     user: User,
     expenseByGroup: ExpenseByGroupDto,
   ): Promise<ExpenseByGroupModel[]> {
-    const userIds = await this.resolveUserIds(user, expenseByGroup.userId);
+    const userIds = await this.resolveUserIds(
+      user,
+      expenseByGroup.userId,
+      expenseByGroup.familyGroupId,
+    );
 
     const result = await this.reportsRepository.expenseByGroup(
       userIds,
@@ -60,7 +64,11 @@ export class ReportsService {
     user: User,
     expenseByStore: ExpenseByStoreDto,
   ): Promise<ExpenseByStoreModel[]> {
-    const userIds = await this.resolveUserIds(user, expenseByStore.userId);
+    const userIds = await this.resolveUserIds(
+      user,
+      expenseByStore.userId,
+      expenseByStore.familyGroupId,
+    );
 
     const result = await this.reportsRepository.expenseByStore(
       userIds,
@@ -77,7 +85,11 @@ export class ReportsService {
     user: User,
     expenseByDate: ExpenseByDateDto,
   ): Promise<ExpenseByDateModel[]> {
-    const userIds = await this.resolveUserIds(user, expenseByDate.userId);
+    const userIds = await this.resolveUserIds(
+      user,
+      expenseByDate.userId,
+      expenseByDate.familyGroupId,
+    );
 
     const result = await this.reportsRepository.expenseByDate(
       userIds,
@@ -94,7 +106,11 @@ export class ReportsService {
     user: User,
     mostPurchasedItems: MostPurchasedItemsDto,
   ): Promise<MostPurchasedItemsModel[]> {
-    const userIds = await this.resolveUserIds(user, mostPurchasedItems.userId);
+    const userIds = await this.resolveUserIds(
+      user,
+      mostPurchasedItems.userId,
+      mostPurchasedItems.familyGroupId,
+    );
 
     const result = await this.reportsRepository.mostPurchasedItems(
       userIds,
@@ -114,6 +130,7 @@ export class ReportsService {
     const userIds = await this.resolveUserIds(
       user,
       expensesIncomeComparison.userId,
+      expensesIncomeComparison.familyGroupId,
     );
 
     const year =
@@ -151,7 +168,11 @@ export class ReportsService {
     user: User,
     query: WarrantyItemsQueryDto,
   ): Promise<paginationData<WarrantyItemModel>> {
-    const userIds = await this.resolveUserIds(user, query.userId);
+    const userIds = await this.resolveUserIds(
+      user,
+      query.userId,
+      query.familyGroupId,
+    );
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
     const offset = this.pagination.getOffset(page, limit);
@@ -203,20 +224,26 @@ export class ReportsService {
   private async resolveUserIds(
     currentUser: User,
     userId?: string,
+    familyGroupId?: string | null,
   ): Promise<string[]> {
     let userIds: string[];
 
     if (!userId) {
       userIds = await this.familyGroupService.getAcceptedMemberUserIdsIfAdmin(
         currentUser.id,
+        familyGroupId,
       );
     } else if (userId === 'all') {
       userIds = await this.familyGroupService.getAcceptedMemberUserIds(
         currentUser.id,
+        familyGroupId,
       );
     } else {
       const familyMemberIds =
-        await this.familyGroupService.getAcceptedMemberUserIds(currentUser.id);
+        await this.familyGroupService.getAcceptedMemberUserIds(
+          currentUser.id,
+          familyGroupId,
+        );
 
       if (!familyMemberIds.includes(userId)) {
         throw new ForbiddenException(

@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -35,4 +36,8 @@ export class RevenueListDto {
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
   isInstallment?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  familyGroupId?: string;
 }

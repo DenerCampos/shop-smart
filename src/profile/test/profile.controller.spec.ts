@@ -86,7 +86,12 @@ describe('ProfileController', () => {
 
     await controller.getLatestRegistrations({ page: 2, limit: 5 } as never, u);
 
-    expect(profileService.getLatestRegistrations).toHaveBeenCalledWith(u, 2, 5);
+    expect(profileService.getLatestRegistrations).toHaveBeenCalledWith(
+      u,
+      2,
+      5,
+      undefined,
+    );
     expect(responseService.mapPaginatedToDto).toHaveBeenCalled();
   });
 

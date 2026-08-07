@@ -47,7 +47,6 @@ import type {
   HealthExamType,
   HealthFileType,
 } from './types/health.types';
-import { FAMILY_GROUP_ROLES } from 'src/family-group/types/family-group-role.type';
 import { parsePdfText } from 'src/common/pdf/pdf-parser.util';
 import { downloadUrlToBuffer } from 'src/common/http/download-url.util';
 import {
@@ -91,8 +90,9 @@ export class HealthService {
   // ─── Exames ──────────────────────────────────────────────────────────────
 
   async createExam(user: User, dto: CreateHealthExamDto): Promise<HealthExam> {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(
       user.id,
+      dto.targetUserId,
     );
 
     const targetUserId = await this.resolveTargetUserId(
@@ -123,8 +123,9 @@ export class HealthService {
   }
 
   async listExams(user: User, filter: HealthExamFilterDto) {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(
       user.id,
+      filter.userId,
     );
 
     if (filter.userId && filter.userId !== user.id) {
@@ -235,8 +236,9 @@ export class HealthService {
     files: Express.Multer.File[],
     targetUserId?: string,
   ): Promise<HealthExamProcessing[]> {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(
       user.id,
+      targetUserId,
     );
     const resolvedTargetId = await this.resolveTargetUserId(
       targetUserId,
@@ -280,9 +282,7 @@ export class HealthService {
   }
 
   async listProcessing(user: User): Promise<HealthExamProcessing[]> {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
-      user.id,
-    );
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(user.id);
     return this.processingRepo.findForUser(user.id, groupId, isAdmin);
   }
 
@@ -437,8 +437,9 @@ export class HealthService {
     user: User,
     dto: CreateHealthPrescriptionDto,
   ): Promise<HealthPrescription> {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(
       user.id,
+      dto.targetUserId,
     );
     const targetUserId = await this.resolveTargetUserId(
       dto.targetUserId,
@@ -465,7 +466,10 @@ export class HealthService {
   }
 
   async listPrescriptions(user: User, filter: HealthPrescriptionFilterDto) {
-    const { groupId } = await this.familyMemberResolver.resolve(user.id);
+    const { groupId } = await this.resolveHealthGroupContext(
+      user.id,
+      filter.userId,
+    );
 
     if (filter.userId && filter.userId !== user.id) {
       await this.assertCanView(filter.userId, user.id);
@@ -532,7 +536,10 @@ export class HealthService {
     user: User,
     targetUserId?: string,
   ): Promise<HealthPatientContext[]> {
-    const { groupId } = await this.familyMemberResolver.resolve(user.id);
+    const { groupId } = await this.resolveHealthGroupContext(
+      user.id,
+      targetUserId,
+    );
     const resolvedTargetId = targetUserId ?? user.id;
 
     if (targetUserId && targetUserId !== user.id) {
@@ -554,8 +561,9 @@ export class HealthService {
     user: User,
     dto: CreatePatientContextDto,
   ): Promise<HealthPatientContext> {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(
       user.id,
+      dto.targetUserId,
     );
     const targetUserId = await this.resolveTargetUserId(
       dto.targetUserId,
@@ -581,8 +589,9 @@ export class HealthService {
     user: User,
     dto: GenerateOverviewDto,
   ): Promise<HealthAiOverview> {
-    const { groupId, isAdmin } = await this.familyMemberResolver.resolve(
+    const { groupId, isAdmin } = await this.resolveHealthGroupContext(
       user.id,
+      dto.targetUserId,
     );
     const targetUserId = await this.resolveTargetUserId(
       dto.targetUserId,
@@ -706,7 +715,10 @@ export class HealthService {
     user: User,
     targetUserId?: string,
   ): Promise<HealthAiOverview | null> {
-    const { groupId } = await this.familyMemberResolver.resolve(user.id);
+    const { groupId } = await this.resolveHealthGroupContext(
+      user.id,
+      targetUserId,
+    );
     const resolvedTargetId = targetUserId ?? user.id;
 
     if (targetUserId && targetUserId !== user.id) {
@@ -720,18 +732,38 @@ export class HealthService {
     user: User,
     filter: HealthOverviewFilterDto,
   ): Promise<HealthAiOverview[]> {
-    const { groupId } = await this.familyMemberResolver.resolve(user.id);
-
+    let groupId: string | null;
     let userIds: string[];
+
     if (filter.targetUserId) {
+      const ctx = await this.resolveHealthGroupContext(
+        user.id,
+        filter.targetUserId,
+      );
+      groupId = ctx.groupId;
       if (filter.targetUserId !== user.id) {
         await this.assertCanView(filter.targetUserId, user.id);
       }
       userIds = [filter.targetUserId];
     } else {
-      userIds = await this.familyMemberResolver.getAcceptedMemberUserIds(
-        user.id,
-      );
+      const familyGroupId =
+        filter.familyGroupId ??
+        (await this.familyMemberResolver.getPrimaryFamilyGroupId(user.id));
+
+      if (!familyGroupId) {
+        groupId = null;
+        userIds = [user.id];
+      } else {
+        const resolved = await this.familyMemberResolver.resolve(
+          user.id,
+          familyGroupId,
+        );
+        groupId = resolved.groupId;
+        userIds = await this.familyMemberResolver.getAcceptedMemberUserIds(
+          user.id,
+          familyGroupId,
+        );
+      }
     }
 
     const startDate = filter.startDate
@@ -1088,21 +1120,62 @@ export class HealthService {
     if (!targetUserId || targetUserId === requestingUserId) {
       return requestingUserId;
     }
-    if (!isAdmin) {
+
+    const canManage = await this.familyMemberResolver.isAdminManagingTarget(
+      requestingUserId,
+      targetUserId,
+    );
+
+    if (!canManage && !isAdmin) {
       throw new ForbiddenException(
         'Apenas administradores podem gerenciar dados de outros membros.',
       );
     }
-    if (!groupId) return requestingUserId;
 
-    const inGroup = await this.memberRepo.isMemberOfGroup(
-      targetUserId,
-      groupId,
-    );
-    if (!inGroup) {
+    if (!canManage) {
       throw new ForbiddenException('Usuário não pertence ao grupo familiar.');
     }
+
+    if (groupId) {
+      const inGroup = await this.memberRepo.isMemberOfGroup(
+        targetUserId,
+        groupId,
+      );
+      if (!inGroup) {
+        throw new ForbiddenException('Usuário não pertence ao grupo familiar.');
+      }
+    }
+
     return targetUserId;
+  }
+
+  private async resolveHealthGroupContext(
+    requestingUserId: string,
+    targetUserId?: string,
+  ): Promise<{ groupId: string | null; isAdmin: boolean }> {
+    if (targetUserId && targetUserId !== requestingUserId) {
+      const adminGroupId =
+        await this.familyMemberResolver.findAdminGroupForTarget(
+          requestingUserId,
+          targetUserId,
+        );
+      if (!adminGroupId) {
+        return { groupId: null, isAdmin: false };
+      }
+      const resolved = await this.familyMemberResolver.resolve(
+        requestingUserId,
+        adminGroupId,
+      );
+      return { groupId: resolved.groupId, isAdmin: resolved.isAdmin };
+    }
+
+    const primaryGroupId =
+      await this.familyMemberResolver.getPrimaryFamilyGroupId(requestingUserId);
+    const resolved = await this.familyMemberResolver.resolve(
+      requestingUserId,
+      primaryGroupId,
+    );
+    return { groupId: resolved.groupId, isAdmin: resolved.isAdmin };
   }
 
   private resolveProcessingOwnerId(item: HealthExamProcessing): string {
@@ -1130,15 +1203,12 @@ export class HealthService {
   ): Promise<void> {
     if (resourceOwnerId === requestingUserId) return;
 
-    const ownerGroup =
-      await this.memberRepo.findMembershipWithGroup(resourceOwnerId);
-    const requesterGroup =
-      await this.memberRepo.findMembershipWithGroup(requestingUserId);
+    const share = await this.familyMemberResolver.shareAnyAcceptedGroup(
+      resourceOwnerId,
+      requestingUserId,
+    );
 
-    if (
-      ownerGroup?.familyGroup?.id &&
-      ownerGroup.familyGroup.id === requesterGroup?.familyGroup?.id
-    ) {
+    if (share) {
       return;
     }
 
@@ -1151,9 +1221,12 @@ export class HealthService {
   ): Promise<void> {
     if (resourceOwnerId === requestingUserId) return;
 
-    const membership = await this.memberRepo.findMembership(requestingUserId);
+    const canManage = await this.familyMemberResolver.isAdminManagingTarget(
+      requestingUserId,
+      resourceOwnerId,
+    );
 
-    if (membership?.role === FAMILY_GROUP_ROLES.ADMIN) return;
+    if (canManage) return;
 
     throw new ForbiddenException(
       'Apenas administradores podem editar dados de outros membros.',
