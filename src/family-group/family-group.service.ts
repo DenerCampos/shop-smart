@@ -22,6 +22,10 @@ import { NotExistException } from 'src/exception/notExistException';
 import { ExpenseService } from 'src/expense/expense.service';
 import { RevenueService } from 'src/revenue/revenue.service';
 import { UserCreatedEvent } from 'src/user/events/user-created.event';
+import {
+  FAMILY_GROUP_MEMBER_INVITED_EVENT,
+  FamilyGroupMemberInvitedEvent,
+} from './events/family-group-member-invited.event';
 import { FamilyGroupSummaryResponseDto } from './dto/family-group-summary-response.dto';
 import { FamilyGroupMemberDataResponseDto } from './dto/family-group-member-data-response.dto';
 import { sortFamilyGroupsByPriority } from './utils/family-group-priority';
@@ -203,7 +207,7 @@ export class FamilyGroupService {
       `[MOCK EMAIL] Convite enviado para ${email} para o grupo "${group.name}"`,
     );
 
-    return await this.familyGroupRepository.createMember(
+    const member = await this.familyGroupRepository.createMember(
       group,
       invitedUser || null,
       email,
@@ -211,6 +215,19 @@ export class FamilyGroupService {
       FAMILY_GROUP_MEMBER_STATUS.PENDING,
       inviter,
     );
+
+    if (invitedUser) {
+      this.emitMemberInvited({
+        recipientUserId: invitedUser.id,
+        actorName: inviter.name,
+        groupId: group.id,
+        groupName: group.name,
+        memberId: member.id,
+        createdAt: member.createdAt,
+      });
+    }
+
+    return member;
   }
 
   async getPendingInvitations(user: User): Promise<FamilyGroupMember[]> {
@@ -606,13 +623,21 @@ export class FamilyGroupService {
 
       for (const invitation of pendingInvitations) {
         if (!invitation.user) {
-          await this.familyGroupRepository.linkUserToMember(
+          const linked = await this.familyGroupRepository.linkUserToMember(
             invitation,
             event.user,
           );
           this.logger.log(
             `Convite vinculado ao novo usuário ${event.user.email} para o grupo ${invitation.familyGroup.name}`,
           );
+          this.emitMemberInvited({
+            recipientUserId: event.user.id,
+            actorName: invitation.invitedBy?.name ?? 'Alguém',
+            groupId: invitation.familyGroup.id,
+            groupName: invitation.familyGroup.name,
+            memberId: linked.id,
+            createdAt: linked.createdAt,
+          });
         }
       }
     } catch (error) {
@@ -621,6 +646,27 @@ export class FamilyGroupService {
         error.message,
       );
     }
+  }
+
+  private emitMemberInvited(payload: {
+    recipientUserId: string;
+    actorName: string;
+    groupId: string;
+    groupName: string;
+    memberId: string;
+    createdAt: Date;
+  }): void {
+    this.eventEmitter.emit(
+      FAMILY_GROUP_MEMBER_INVITED_EVENT,
+      new FamilyGroupMemberInvitedEvent(
+        payload.recipientUserId,
+        payload.actorName,
+        payload.groupId,
+        payload.groupName,
+        payload.memberId,
+        payload.createdAt,
+      ),
+    );
   }
 
   // ========================

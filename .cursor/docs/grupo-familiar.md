@@ -116,8 +116,9 @@ Endpoints afetados pela filtragem:
 1. Admin envia convite com email
 2. Sistema encontra User pelo email
 3. Cria `FamilyGroupMember` com `status: pending`, `userId` preenchido
-4. Usuário convidado vê convite pendente no front
-5. Aceita → `status: accepted`, `joinedAt` preenchido
+4. Emite `family_group.member_invited` → notificação interna (inbox / sino); ver [notificacoes.md](./notificacoes.md)
+5. Usuário convidado vê convite pendente no front
+6. Aceita → `status: accepted`, `joinedAt` preenchido
 
 ### Convite (Usuário Não Cadastrado)
 1. Admin envia convite com email
@@ -125,7 +126,8 @@ Endpoints afetados pela filtragem:
 3. Cria `FamilyGroupMember` com `status: pending`, `userId: null`
 4. Email mockado (preparado para envio real futuro)
 5. Quando o novo usuário se cadastrar, evento `user.created` vincula o `userId`
-6. Convite pendente aparece no front
+6. Após o vínculo, emite `family_group.member_invited` → notificação interna
+7. Convite pendente aparece no front
 
 ### Dashboard
 - Filtros: `month` e `year` (query params)

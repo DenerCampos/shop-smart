@@ -29,6 +29,7 @@ import { RecipeModule } from './recipe/recipe.module';
 import { MissionModule } from './mission/mission.module';
 import { HealthModule } from './health/health.module';
 import { ChatAgentModule } from './chat-agent/chat-agent.module';
+import { NotificationModule } from './notification/notification.module';
 import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from './common/logger/logger.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -76,6 +77,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
     MissionModule,
     HealthModule,
     ChatAgentModule,
+    NotificationModule,
   ],
   controllers: [],
   providers: [
