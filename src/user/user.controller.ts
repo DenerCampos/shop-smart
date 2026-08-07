@@ -14,6 +14,7 @@ import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { DenyDemoGuard } from '../auth/deny-demo.guard';
 import { UserResponseDto } from './dto/user-response.dto';
 import { ResponseService } from 'src/common/response/response';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
@@ -64,7 +65,7 @@ export class UserController {
     return this.responseService.mapToDto(UserResponseDto, user);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -78,7 +79,7 @@ export class UserController {
     return this.responseService.mapToDto(UserResponseDto, user);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, DenyDemoGuard)
   @Delete(':id')
   async delete(
     @Param('id') id: string,

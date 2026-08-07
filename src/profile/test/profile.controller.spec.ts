@@ -4,6 +4,7 @@ import { ProfileController } from '../profile.controller';
 import { ProfileService } from '../profile.service';
 import { ResponseService } from '../../common/response/response';
 import { AuthGuard } from '../../auth/auth.guard';
+import { DenyDemoGuard } from '../../auth/deny-demo.guard';
 import { createTestUser } from 'src/common/test/user.fixture';
 import { ProfileModel } from '../models/profile.models';
 
@@ -46,6 +47,8 @@ describe('ProfileController', () => {
       ],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(DenyDemoGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

@@ -3,6 +3,7 @@ import { UserController } from '../user.controller';
 import { UserService } from '../user.service';
 import { ResponseService } from '../../common/response/response';
 import { AuthGuard } from '../../auth/auth.guard';
+import { DenyDemoGuard } from '../../auth/deny-demo.guard';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -16,6 +17,8 @@ describe('UserController', () => {
       ],
     })
       .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(DenyDemoGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
