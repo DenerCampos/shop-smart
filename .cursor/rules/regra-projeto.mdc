@@ -57,7 +57,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
 | Módulo | Pasta | Responsabilidade resumida |
 |--------|-------|---------------------------|
-| auth | `auth/` | JWT, login, refresh, guards |
+| auth | `auth/` | JWT, login, refresh, guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
 | user | `user/` | Usuários |
 | expense | `expense/` | Despesas, recorrência, itens |
 | revenue | `revenue/` | Receitas |
@@ -271,7 +271,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
-- `demo-login.md` — login demo via link para portfólio (SP-118)
+- `demo-login.md` — login demo via link para portfólio (SP-118); bloqueio de mutações de perfil em sessão demo (SP-130)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
 - `notificacoes.md` — notificações internas, canais e evento de convite familiar (SP-101)

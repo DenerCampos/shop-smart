@@ -1,17 +1,19 @@
-# Demo Login — API (SP-118)
+# Demo Login — API (SP-118 / SP-130)
 
 ## Objetivo
 
-Endpoint para autenticação direta do usuário demo via chave secreta, usado pelo frontend de portfólio sem expor credenciais reais.
+Endpoint para autenticação direta do usuário demo via chave secreta, usado pelo frontend de portfólio sem expor credenciais reais. Em sessão demo, mutações de **perfil/conta** são bloqueadas (SP-130).
 
 ## Escopo
 
 **Entra:**
 - `POST /auth/demo` — valida chave, emite JWT reduzido (2h) para o usuário demo
+- Bloqueio de escrita de perfil quando JWT tem `isDemo: true` (`DenyDemoGuard`)
 
 **Fica de fora:**
 - Criação automática do usuário demo (deve ser cadastrado manualmente no banco)
 - Rotação automática da chave
+- Demo somente leitura do sistema inteiro (listas, despesas, etc. seguem liberados)
 
 ## Fluxo
 
@@ -23,6 +25,8 @@ Endpoint para autenticação direta do usuário demo via chave secreta, usado pe
 6. Busca usuário por `DEMO_USER_EMAIL`; se não existir → `NotFoundException`
 7. Emite JWT com `{ sub, username, isDemo: true }` e `expiresIn: '2h'`
 8. Salva token via `usersService.saveToken()` e retorna `{ accessToken }`
+9. Em rotas autenticadas, `AuthGuard` propaga `request.isDemo` a partir do payload
+10. Rotas de mutação de perfil usam `DenyDemoGuard` → `403` se `isDemo`
 
 ## Contrato HTTP
 
@@ -50,6 +54,18 @@ Endpoint para autenticação direta do usuário demo via chave secreta, usado pe
 | 404 | Usuário demo não encontrado no banco |
 | 429 | Rate limit excedido |
 
+### Mutações bloqueadas em sessão demo (403)
+
+| Método | Path |
+|--------|------|
+| `PATCH` | `/user/:id` |
+| `DELETE` | `/user/:id` |
+| `POST` | `/profile/complete-profile` |
+| `POST` | `/profile/upload-image` |
+| `POST` | `/profile/integrations/alexa/unlink` |
+
+Leitura (`GET /profile`, `GET /user/:id`, etc.) permanece permitida.
+
 ## Variáveis de ambiente
 
 | Variável | Padrão | Obrigatório em prod |
@@ -63,6 +79,10 @@ Endpoint para autenticação direta do usuário demo via chave secreta, usado pe
 - [`src/common/app-config/app.config.ts`](../src/common/app-config/app.config.ts) — `isDemoEnabled()`, `getDemoSecret()`, `getDemoUserEmail()`
 - [`src/auth/auth.service.ts`](../src/auth/auth.service.ts) — `demoLogin(key)`
 - [`src/auth/auth.controller.ts`](../src/auth/auth.controller.ts) — `POST /auth/demo`
+- [`src/auth/auth.guard.ts`](../src/auth/auth.guard.ts) — propaga `request.isDemo`
+- [`src/auth/deny-demo.guard.ts`](../src/auth/deny-demo.guard.ts) — bloqueia writes de perfil
+- [`src/user/user.controller.ts`](../src/user/user.controller.ts) — `PATCH`/`DELETE` com `DenyDemoGuard`
+- [`src/profile/profile.controller.ts`](../src/profile/profile.controller.ts) — mutações de perfil com `DenyDemoGuard`
 - [`.env-default`](../.env-default) — template de variáveis
 
 ## Segurança
@@ -72,10 +92,18 @@ Endpoint para autenticação direta do usuário demo via chave secreta, usado pe
 - JWT `expiresIn: '2h'` — janela menor que tokens normais
 - `DEMO_ENABLED` flag — kill switch imediato sem redeploy
 - Log `warn` a cada tentativa com chave inválida — rastreável via `{app="shop-smart-api"} | json | event="demo_login_failed"` no Loki
+- Log `warn` em mutação de perfil bloqueada — `{app="shop-smart-api"} | json | event="demo_profile_mutation_denied"` (`userId`, `method`, `path`)
+- Proteção de perfil no **servidor** via `isDemo` no JWT (não confiar só no frontend)
 
 ## Testes
 
 ```bash
+# Unitários do guard
+npm run test -- --testPathPattern=deny-demo.guard
+
+# E2E (sessão demo bloqueia PATCH /user e complete-profile)
+npm run test:e2e:low-mem -- --testPathPattern=auth.e2e-spec
+
 # Ativar e testar com chave correta
 curl -X POST http://localhost:3000/auth/demo \
   -H 'Content-Type: application/json' \
