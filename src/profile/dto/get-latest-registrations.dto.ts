@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, IsUUID, Min, Max } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class GetLatestRegistrationsDto {
@@ -14,4 +14,8 @@ export class GetLatestRegistrationsDto {
   @Min(1)
   @Max(50)
   limit?: number = 5;
+
+  @IsOptional()
+  @IsUUID()
+  familyGroupId?: string;
 }

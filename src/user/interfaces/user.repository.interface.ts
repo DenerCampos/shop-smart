@@ -9,6 +9,7 @@ export interface IUserRepository {
   remove(id: string): Promise<User>;
   delete(id: string): Promise<boolean>;
   findByEmail(email: string): Promise<User | null>;
+  searchByEmailPrefix(emailPrefix: string, limit: number): Promise<User[]>;
   saveToken(id: string, token: string): Promise<User>;
   countAll(): Promise<number>;
   exist(email: string, user: User): Promise<boolean>;

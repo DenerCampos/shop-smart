@@ -517,9 +517,16 @@ export class ShoppingListService {
       frequency: number;
     }[]
   > {
-    const userIds = await this.familyGroupService.getAcceptedMemberUserIds(
-      user.id,
-    );
+    const groups = await this.familyGroupService.findGroupsByUser(user.id);
+    const userIdSet = new Set<string>([user.id]);
+    for (const group of groups) {
+      const ids = await this.familyGroupService.getAcceptedMemberUserIds(
+        user.id,
+        group.id,
+      );
+      ids.forEach((id) => userIdSet.add(id));
+    }
+    const userIds = [...userIdSet];
 
     const suggestions = await this.repository.findSuggestions(userIds, search);
 

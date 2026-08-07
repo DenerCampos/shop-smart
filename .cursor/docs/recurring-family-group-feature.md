@@ -24,13 +24,17 @@ interface FamilyMemberResult {
 }
 ```
 
-**Lógica de resolução:**
+**Assinatura (SP-127):** `resolve(userId, familyGroupId?)`.
 
-| Cenário | userIds retornados |
+Sem `familyGroupId`: sempre `[userId]` (não promove visão familiar).
+
+Com `familyGroupId`:
+
+| Cenário | Resultado |
 |---|---|
-| Usuário não pertence a nenhum grupo | `[userId]` (apenas ele) |
-| Usuário é `member` do grupo | `[userId]` (apenas ele) |
-| Usuário é `admin` do grupo | `[userId, ...todosMembroAceitosIds]` (todos da família) |
+| Usuário não é membro `accepted` do grupo | **403 Forbidden** |
+| Usuário é `member` do grupo | `userIds = [userId]` |
+| Usuário é `admin` do grupo | `userIds` = todos os membros accepted do grupo |
 
 ### Novo DTO: `OwnerResponseDto`
 

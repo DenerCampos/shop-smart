@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, IsUUID, Matches } from 'class-validator';
 
 const UUID_OR_ALL_REGEX =
   /^(all|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
@@ -11,6 +11,10 @@ export class ExpensesIncomeComparisonDto {
     message: 'userId must be "all" or a valid UUID',
   })
   userId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  familyGroupId?: string;
 
   @IsOptional()
   @IsString()

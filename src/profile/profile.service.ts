@@ -47,8 +47,14 @@ export class ProfileService {
 
     const isFirstAccess = !user.family;
 
+    const displayFamily =
+      await this.familyMemberResolver.getPrimaryFamilyDisplayName(
+        user.id,
+        user.family ?? '',
+      );
+
     return new ProfileModel({
-      user,
+      user: { ...user, family: displayFamily } as User,
       income: revenues.value,
       expenses: expenses.value,
       coins: coins,
@@ -122,10 +128,14 @@ export class ProfileService {
     user: User,
     page: number,
     limit: number,
+    familyGroupId?: string,
   ): Promise<paginationData<RegistrationModel>> {
     const fetchLimit = page * limit;
 
-    const { userIds } = await this.familyMemberResolver.resolve(user.id);
+    const { userIds } = await this.familyMemberResolver.resolve(
+      user.id,
+      familyGroupId,
+    );
 
     const [expensesLatest, revenuesLatest, totalExpenses, totalRevenues] =
       await Promise.all([

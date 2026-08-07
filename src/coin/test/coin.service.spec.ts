@@ -229,7 +229,7 @@ describe('CoinService', () => {
 
     expect(
       familyMemberResolver.getAcceptedMemberUserIdsIfAdmin,
-    ).toHaveBeenCalledWith('user-1');
+    ).toHaveBeenCalledWith('user-1', undefined);
     expect(coinRepository.findStatementPage).toHaveBeenCalledWith(
       ['user-1'],
       '2024-06-01 00:00:00',
@@ -253,6 +253,7 @@ describe('CoinService', () => {
 
     expect(familyMemberResolver.getAcceptedMemberUserIds).toHaveBeenCalledWith(
       'user-1',
+      undefined,
     );
     expect(coinRepository.findStatementPage).toHaveBeenCalledWith(
       ['user-1', 'user-2'],

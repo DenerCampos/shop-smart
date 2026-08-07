@@ -141,9 +141,17 @@ Endpoints afetados pela filtragem:
 - Cada registro inclui o campo `user` (via `OwnerResponseDto`: id, name, profileImage) para identificar o dono
 - Métodos `getLatest` e `countByUser` nos services/repositórios de expense e revenue recebem `userIds: string[]` (array) em vez de um único userId
 
-## Restrições Atuais
-- Um usuário pode participar de apenas UM grupo familiar por vez (código preparado para múltiplos no futuro)
-- Email de convite é mockado (será implementado em tarefa futura)
+## Multi-família (SP-127)
+
+- Um usuário pode participar de **0..N** grupos familiares (`accepted`).
+- Role por membership: `admin` | `member`. Dono = `family_group.ownerId` (+ membership admin).
+- **Prioridade** (família ativa / display name no profile / OAuth primary): owner → admin → member (desempate `joinedAt`, depois nome).
+- `GET /family-group` retorna grupos já ordenados por essa prioridade.
+- Escopo familiar em listagens financeiras/relatórios/coin/profile exige `familyGroupId` query (UUID) quando a visão for familiar; sem param = só o próprio usuário.
+- `FamilyMemberResolverService.resolve(userId, familyGroupId?)`: sem `familyGroupId` não promove visão de admin; com `familyGroupId` **exige** membership `accepted` — caso contrário **403** (não degrada silenciosamente).
+- Autocomplete de convite: `GET /user/search?email=` (mín. 3 / máx. 255 chars, até 10 resultados, throttle 15/min, só admin de algum grupo).
+  - **Privacidade (tradeoff aceito):** a busca é em usuários da plataforma (não só do clã), para permitir convidar e-mails ainda não membros. Mitigações: AuthGuard, admin-only, prefixo ≥ 3, limite 10, throttle, DTO só `id/name/email`.
+- Email de convite continua mockado (envio real em tarefa futura).
 
 ## Profile Image
 - Campo `profileImage` na entidade `User` (VARCHAR, nullable)

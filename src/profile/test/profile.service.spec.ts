@@ -48,7 +48,7 @@ describe('ProfileService', () => {
   >;
   let userService: jest.Mocked<Pick<UserService, 'update'>>;
   let familyMemberResolver: jest.Mocked<
-    Pick<FamilyMemberResolverService, 'resolve'>
+    Pick<FamilyMemberResolverService, 'resolve' | 'getPrimaryFamilyDisplayName'>
   >;
   let authService: jest.Mocked<
     Pick<AuthService, 'getIntegrations' | 'unlinkIntegration'>
@@ -92,6 +92,9 @@ describe('ProfileService', () => {
     };
     familyMemberResolver = {
       resolve: jest.fn().mockResolvedValue({ userIds: ['user-test-1'] }),
+      getPrimaryFamilyDisplayName: jest
+        .fn()
+        .mockImplementation(async (_id: string, fallback: string) => fallback),
     };
     authService = {
       getIntegrations: jest.fn().mockResolvedValue({ alexa: 'linked' }),

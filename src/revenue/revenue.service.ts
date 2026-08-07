@@ -220,7 +220,10 @@ export class RevenueService {
   ): Promise<paginationData<Revenue>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
 
-    const { userIds } = await this.familyMemberResolver.resolve(user.id);
+    const { userIds } = await this.familyMemberResolver.resolve(
+      user.id,
+      userList.familyGroupId,
+    );
 
     const [revenues, total] = await this.revenueRepository.findAll(
       userIds,

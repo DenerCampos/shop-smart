@@ -190,9 +190,15 @@ export class ChatAgentService {
   }
 
   private async buildAuthContext(user: User): Promise<ChatAuthContext> {
-    const resolved = await this.familyMemberResolver.resolve(user.id);
+    const groupId = await this.familyMemberResolver.getPrimaryFamilyGroupId(
+      user.id,
+    );
+    const resolved = await this.familyMemberResolver.resolve(user.id, groupId);
     const groupMemberUserIds =
-      await this.familyMemberResolver.getAcceptedMemberUserIds(user.id);
+      await this.familyMemberResolver.getAcceptedMemberUserIds(
+        user.id,
+        groupId,
+      );
     return {
       user,
       isAdmin: resolved.isAdmin,

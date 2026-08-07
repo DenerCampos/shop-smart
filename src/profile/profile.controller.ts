@@ -59,6 +59,7 @@ export class ProfileController {
         user,
         query.page,
         query.limit,
+        query.familyGroupId,
       );
 
     return this.responseService.mapPaginatedToDto(

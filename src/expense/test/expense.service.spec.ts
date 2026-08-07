@@ -108,7 +108,10 @@ describe('ExpenseService', () => {
     it('usa userIds do FamilyMemberResolver e repassa ao repositório', async () => {
       await service.findAll({ page: 1, limit: 5, search: 'x' } as any, user());
 
-      expect(familyMemberResolver.resolve).toHaveBeenCalledWith('user-1');
+      expect(familyMemberResolver.resolve).toHaveBeenCalledWith(
+        'user-1',
+        undefined,
+      );
       expect(expenseRepository.findAll).toHaveBeenCalledWith(
         ['user-1'],
         expect.any(Number),

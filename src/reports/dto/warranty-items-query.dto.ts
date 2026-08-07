@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   Min,
@@ -19,6 +20,10 @@ export class WarrantyItemsQueryDto {
     message: 'userId must be "all" or a valid UUID',
   })
   userId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  familyGroupId?: string;
 
   @IsOptional()
   @IsString()

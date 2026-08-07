@@ -87,4 +87,72 @@ describe('User (e2e)', () => {
       expect.objectContaining({ id: userId, name: newName }),
     );
   });
+
+  describe('GET /user/search', () => {
+    it('401 sem Bearer', async () => {
+      const res = await request(app.getHttpServer()).get('/user/search').query({
+        email: 'tes',
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('400 quando email tem menos de 3 caracteres', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/user/search')
+        .query({ email: 'ab' })
+        .set(bearerAuth(token));
+      expectClientError(res);
+    });
+
+    it('403 quando usuário não é admin de nenhum grupo', async () => {
+      const email = `e2e-member-${Date.now()}@example.com`;
+      const password = 'Valid123';
+      await request(app.getHttpServer())
+        .post('/user')
+        .send({
+          name: 'E2e Member',
+          email,
+          password,
+          family: 'Solo',
+        })
+        .expect(201);
+
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get('/user/search')
+        .query({ email: 'tes' })
+        .set(bearerAuth(login.body.accessToken));
+
+      expect(res.status).toBe(403);
+    });
+
+    it('200 quando admin busca por prefixo de email', async () => {
+      await request(app.getHttpServer())
+        .post('/family-group')
+        .set(bearerAuth(token))
+        .send({ name: `Família search e2e ${Date.now()}` })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/user/search')
+        .query({ email: 'tes' })
+        .set(bearerAuth(token))
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0);
+      expect(res.body[0]).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          name: expect.any(String),
+          email: expect.any(String),
+        }),
+      );
+      expect(res.body[0].password).toBeUndefined();
+    });
+  });
 });
