@@ -41,6 +41,7 @@ CouponReaderService.read(url, user)
          │
          ├── StoreService.getAllNames() + findSimilarString()
          │       └── Cruza nome do estabelecimento com lojas cadastradas pelo usuário
+         │           (pulado quando o nome é genérico — ver "Nome do estabelecimento ausente")
          │
          └── Retorna CouponTextResult + { uri: url }
 ```
@@ -108,9 +109,27 @@ Exemplo: `"DETERGENTE LIMPOL 500ML"` é classificado como `Limpeza` pelo Gemini,
 
 Cada leitura de cupom consome 1 requisição da quota diária do `gemini-text` (configurada em `AppConfig.getGeminiTextDailyLimit()`), separada da quota de `image-recognition`. Consultar o uso via `GET /text-recognition/quota` (ou endpoint equivalente).
 
+## Nome do estabelecimento ausente (fallback)
+
+Cupons de alguns portais não trazem a razão social no texto, ou o Gemini devolve `name` vazio/`null`. Antes isso derrubava a leitura inteira com `TextRecognitionException: Resposta da IA sem nome de estabelecimento válido.`, mesmo com itens e valor corretos. Hoje o nome **nunca** volta vazio:
+
+1. `name` da IA; se vazio, usa `store.name`.
+2. Se ambos vazios, gera nome genérico pela **categoria predominante dos itens** — ex.: 3 itens de `Alimentação` e 1 de `Limpeza` → **"Compra de Alimentação"**. Só entram categorias da allowlist (grupos do usuário enviados ao Gemini, ou o default `Alimentação, Bebida, Limpeza, Higiene, Outros`). Categoria alucinada pela IA é ignorada. **Empate** de contagem: vence a categoria que aparece primeiro nos itens.
+3. Sem itens ou sem categoria válida na allowlist → **"Compra não identificada"**.
+
+Quando o nome é gerado, o resultado vem com `isNameFallback: true` e `confidence: 0.7` (em vez de `0.9`). O campo é interno (`CouponTextResult`) e **não** é exposto no `CouponReaderResponseDto` — serve para o service pular o casamento fuzzy de loja e fica registrado em `text_recognition.result` para diagnóstico.
+
+Arquivos: [`src/text-recognition/utils/coupon-store-name.util.ts`](../../src/text-recognition/utils/coupon-store-name.util.ts) (`pickCouponStoreName`, `buildFallbackCouponStoreName`) e `GeminiTextProvider.parseCoupon`.
+
+O prompt também instrui o modelo a devolver string vazia em vez de `null` e a **não inventar** nome de estabelecimento.
+
+Continuam sendo erro de leitura: `value` não numérico e `items` ausente/não-array.
+
 ## Casamento de Loja (findSimilarString)
 
 Após o Gemini extrair o nome do estabelecimento, o service aplica Jaro-Winkler (`findSimilarString`) contra as lojas já cadastradas pelo usuário. Se a similaridade for ≥ 70%, usa o nome da loja cadastrada — evitando duplicatas no cadastro de despesas.
+
+Quando o nome é genérico (`isNameFallback: true`), o casamento é **pulado**: um nome inventado não pode ser associado a uma loja real do usuário.
 
 ## Reutilização do DTO
 

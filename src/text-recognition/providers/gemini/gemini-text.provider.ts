@@ -25,6 +25,11 @@ import {
   buildShoppingListBulkPrompt,
   buildShoppingListItemPrompt,
 } from 'src/common/prompts/shopping-list.prompt';
+import {
+  DEFAULT_COUPON_GROUP_NAMES,
+  buildFallbackCouponStoreName,
+  pickCouponStoreName,
+} from '../../utils/coupon-store-name.util';
 
 /** Alinhado a shopping-list-item-unit (evita import do módulo shopping-list). */
 const ALLOWED_UNITS = ['un', 'kg', 'g', 'l', 'ml', 'pack', 'dz'] as const;
@@ -266,9 +271,10 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
             this.dailyLimit,
           );
 
-          const groups =
-            options?.groups?.filter(Boolean).join(', ') ||
-            'Alimentação, Bebida, Limpeza, Higiene, Outros';
+          const rawGroups = options?.groups?.filter(Boolean) ?? [];
+          const groupList =
+            rawGroups.length > 0 ? rawGroups : [...DEFAULT_COUPON_GROUP_NAMES];
+          const groups = groupList.join(', ');
           const payment = options?.defaultPayment || 'Cartão de crédito';
 
           const prompt = buildCouponTextPrompt(text, groups, payment);
@@ -278,11 +284,6 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
           const cleaned = this.cleanModelJson(responseText);
           const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-          if (typeof parsed.name !== 'string' || !parsed.name.trim()) {
-            throw new TextRecognitionException(
-              'Resposta da IA sem nome de estabelecimento válido.',
-            );
-          }
           if (typeof parsed.value !== 'number') {
             throw new TextRecognitionException(
               'Resposta da IA com valor total inválido.',
@@ -294,10 +295,19 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
             );
           }
 
+          const store = parsed.store as { name?: unknown } | undefined;
+          const aiName = pickCouponStoreName(parsed.name, store?.name);
+          const isNameFallback = aiName === null;
+          const name =
+            aiName ?? buildFallbackCouponStoreName(parsed.items, groupList);
+
           return {
             ...(parsed as unknown as CouponTextResult),
+            name,
+            store: { name },
+            isNameFallback,
             provider: this.name,
-            confidence: 0.9,
+            confidence: isNameFallback ? 0.7 : 0.9,
           };
         } catch (error) {
           if (

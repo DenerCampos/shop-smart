@@ -52,6 +52,8 @@ export interface CouponTextResult {
   payment: { name: string };
   confidence: number;
   provider: string;
+  /** `name` foi gerado a partir dos itens porque a IA não identificou o estabelecimento. */
+  isNameFallback?: boolean;
 }
 
 // ─── Tipos de saúde ──────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ export function buildCouponTextPrompt(
   payment: string,
 ): string {
   return `Analise o texto abaixo de um cupom fiscal ou nota fiscal eletrônica e extraia as seguintes informações em formato JSON:
-- name: nome do estabelecimento
+- name: nome do estabelecimento. Se não for possível identificar, retorne string vazia ('') — nunca null e nunca invente um nome
 - value: valor total da nota (número)
 - date: data da compra (formato: YYYY-MM-DD), se não for possível identificar, retorne a data atual no Brasil/America do Sul
 - repeat: sempre false
@@ -19,7 +19,7 @@ export function buildCouponTextPrompt(
   * value: valor unitário (número), se não for possível identificar, retorne 0
   * total: valor total do item (número), se não for possível identificar, retorne 0
   * group: objeto com a propriedade 'name' contendo o nome do grupo de classificação. Os grupos possíveis são: ${groups}
-- store: objeto com a propriedade 'name' contendo o nome do estabelecimento
+- store: objeto com a propriedade 'name' contendo o nome do estabelecimento (mesmo valor de 'name')
 - payment: objeto com a propriedade 'name' contendo o nome do método de pagamento. Se não for possível identificar, use '${payment}'
 
 IMPORTANTE: Todas as chaves devem estar em inglês (code, name, quantity, unit, value, total, group, store, payment).
