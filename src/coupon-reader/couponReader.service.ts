@@ -31,7 +31,9 @@ export class CouponReaderService {
       this.storeService.getAllNames(),
     ]);
 
-    const similarityName = findSimilarString(result.name, storesNames);
+    const similarityName = result.isNameFallback
+      ? null
+      : findSimilarString(result.name, storesNames);
 
     if (similarityName) {
       return {

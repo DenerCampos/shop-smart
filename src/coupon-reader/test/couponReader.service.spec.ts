@@ -68,4 +68,30 @@ describe('CouponReaderService', () => {
     expect(result.name).toBe('Mercado');
     expect(textRecognition.parseCoupon).toHaveBeenCalled();
   });
+
+  it('read mantém nome genérico e não casa com loja cadastrada', async () => {
+    (axios.get as jest.Mock).mockResolvedValue({
+      data: '<html><div class="container">conteudo cupom</div></html>',
+    });
+    storeService.getAllNames.mockResolvedValue(['Compra de Alimentação Ltda']);
+
+    const coupon: CouponTextResult = {
+      name: 'Compra de Alimentação',
+      value: 42.5,
+      date: '2024-06-01',
+      repeat: false,
+      items: [],
+      store: { name: 'Compra de Alimentação' },
+      payment: { name: 'Pix' },
+      confidence: 0.7,
+      provider: 'gemini',
+      isNameFallback: true,
+    };
+    textRecognition.parseCoupon.mockResolvedValue(coupon);
+
+    const result = await service.read('https://exemplo.local/nf', user());
+
+    expect(result.name).toBe('Compra de Alimentação');
+    expect(result.store.name).toBe('Compra de Alimentação');
+  });
 });
