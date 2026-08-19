@@ -15,6 +15,7 @@ export function createRepositoryMock<
     | 'create'
     | 'delete'
     | 'remove'
+    | 'restore'
     | 'createQueryBuilder'
   >
 > {
@@ -25,6 +26,7 @@ export function createRepositoryMock<
     create: jest.fn((e) => e as Entity),
     delete: jest.fn(),
     remove: jest.fn(),
+    restore: jest.fn(),
     createQueryBuilder: jest.fn(),
   } as unknown as jest.Mocked<
     Pick<
@@ -35,6 +37,7 @@ export function createRepositoryMock<
       | 'create'
       | 'delete'
       | 'remove'
+      | 'restore'
       | 'createQueryBuilder'
     >
   >;

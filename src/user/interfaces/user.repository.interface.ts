@@ -8,7 +8,9 @@ export interface IUserRepository {
   update(user: User, updateUser: UpdateUserDto): Promise<User>;
   remove(id: string): Promise<User>;
   delete(id: string): Promise<boolean>;
+  restore(id: string): Promise<boolean>;
   findByEmail(email: string): Promise<User | null>;
+  findByEmailWithDeleted(email: string): Promise<User | null>;
   searchByEmailPrefix(emailPrefix: string, limit: number): Promise<User[]>;
   saveToken(id: string, token: string): Promise<User>;
   countAll(): Promise<number>;

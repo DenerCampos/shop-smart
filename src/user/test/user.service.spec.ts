@@ -1,13 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter } from 'events';
+import { QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user.service';
 import { IUserRepository } from '../interfaces/user.repository.interface';
 import { AppConfig } from '../../common/app-config/app.config';
 import { EVENT_EMITTER } from '../../common/event-emitter/event-emitter.provider';
 import { User } from '../entities/user.entity';
-import { AlreadyExistsException } from '../../exception/alreadyExistsException';
+import {
+  AccountDeletedReactivationRequiredException,
+  EmailAlreadyExistsException,
+  UserLimitReachedException,
+} from '../../exception/authErrorException';
 import { NotExistException } from '../../exception/notExistException';
 import { UpdateException } from '../../exception/updateException';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
@@ -25,10 +30,12 @@ describe('UserService', () => {
       create: jest.fn(),
       find: jest.fn(),
       findByEmail: jest.fn(),
+      findByEmailWithDeleted: jest.fn().mockResolvedValue(null),
       searchByEmailPrefix: jest.fn(),
       saveToken: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      restore: jest.fn(),
       remove: jest.fn(),
       exist: jest.fn(),
       saveRefreshToken: jest.fn(),
@@ -59,23 +66,70 @@ describe('UserService', () => {
   });
 
   describe('create', () => {
-    it('lança ConflictException quando limite de usuários é atingido', async () => {
+    it('lança UserLimitReachedException quando limite de usuários é atingido', async () => {
       userRepository.countAll.mockResolvedValue(15);
 
       await expect(
         service.create({
           name: 'A',
           email: 'a@test.local',
-          password: 'secret',
+          password: 'secret12',
         } as any),
-      ).rejects.toBeInstanceOf(ConflictException);
+      ).rejects.toBeInstanceOf(UserLimitReachedException);
+    });
+
+    it('lança EmailAlreadyExistsException quando e-mail ativo já existe', async () => {
+      userRepository.countAll.mockResolvedValue(0);
+      const existing = new User();
+      existing.email = 'taken@test.local';
+      existing.deletedAt = undefined as any;
+      userRepository.findByEmailWithDeleted.mockResolvedValue(existing);
+
+      await expect(
+        service.create({
+          name: 'A',
+          email: 'taken@test.local',
+          password: 'secret12',
+        } as any),
+      ).rejects.toBeInstanceOf(EmailAlreadyExistsException);
+      expect(userRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('lança AccountDeletedReactivationRequiredException quando e-mail está soft-deleted', async () => {
+      userRepository.countAll.mockResolvedValue(0);
+      const existing = new User();
+      existing.email = 'gone@test.local';
+      existing.deletedAt = new Date();
+      userRepository.findByEmailWithDeleted.mockResolvedValue(existing);
+
+      await expect(
+        service.create({
+          name: 'A',
+          email: 'gone@test.local',
+          password: 'secret12',
+        } as any),
+      ).rejects.toBeInstanceOf(AccountDeletedReactivationRequiredException);
+      expect(userRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('converte ER_DUP_ENTRY (1062) em EmailAlreadyExistsException', async () => {
+      userRepository.countAll.mockResolvedValue(0);
+      userRepository.findByEmailWithDeleted.mockResolvedValue(null);
+      const dup = new QueryFailedError('INSERT', [], new Error('dup'));
+      (dup as any).driverError = { errno: 1062, code: 'ER_DUP_ENTRY' };
+      userRepository.create.mockRejectedValue(dup);
+
+      await expect(
+        service.create({
+          name: 'A',
+          email: 'race@test.local',
+          password: 'secret12',
+        } as any),
+      ).rejects.toBeInstanceOf(EmailAlreadyExistsException);
     });
 
     it('hasheia senha, define defaults e emite user.created', async () => {
       userRepository.countAll.mockResolvedValue(0);
-      const saved = new User();
-      saved.id = 'u1';
-      saved.email = 'new@test.local';
       userRepository.create.mockImplementation(async (dto: any) => {
         const u = new User();
         Object.assign(u, dto);
@@ -86,12 +140,12 @@ describe('UserService', () => {
       const result = await service.create({
         name: 'N',
         email: 'new@test.local',
-        password: 'plain',
+        password: 'plain123',
       } as any);
 
       expect(result.id).toBe('u1');
-      expect(result.password).not.toBe('plain');
-      const ok = await bcrypt.compare('plain', result.password);
+      expect(result.password).not.toBe('plain123');
+      const ok = await bcrypt.compare('plain123', result.password);
       expect(ok).toBe(true);
       expect(result.family).toBe('');
       expect(result.coatOfArms).toContain('brasao');
@@ -127,7 +181,7 @@ describe('UserService', () => {
       ).rejects.toBeInstanceOf(UpdateException);
     });
 
-    it('lança AlreadyExistsException quando email já usado', async () => {
+    it('lança EmailAlreadyExistsException quando email já usado', async () => {
       const u = new User();
       u.id = 'id1';
       userRepository.find.mockResolvedValue(u);
@@ -135,7 +189,7 @@ describe('UserService', () => {
 
       await expect(
         service.update('id1', { email: 'taken@test.local' } as any),
-      ).rejects.toBeInstanceOf(AlreadyExistsException);
+      ).rejects.toBeInstanceOf(EmailAlreadyExistsException);
     });
   });
 

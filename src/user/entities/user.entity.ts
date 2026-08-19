@@ -12,12 +12,14 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   OneToMany,
   OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
+@Index('IDX_user_email_unique', ['email'], { unique: true })
 export class User {
   @Column({
     type: 'varchar',

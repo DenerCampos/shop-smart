@@ -72,6 +72,94 @@ describe('Auth (e2e)', () => {
     expectClientError(res);
   });
 
+  it('POST /auth/login — 200 com e-mail em caixa diferente (case-insensitive)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: E2E_SEED_EMAIL.toUpperCase(),
+        password: E2E_SEED_PASSWORD,
+      })
+      .expect(200);
+    expect(res.body.accessToken).toEqual(expect.any(String));
+  });
+
+  describe('POST /auth/reactivate (SP-39)', () => {
+    it('200 restaura conta soft-deleted com senha correta', async () => {
+      const email = `reactivate-ok-${Date.now()}@example.com`;
+      const password = 'Valid123';
+
+      await request(app.getHttpServer())
+        .post('/user')
+        .send({ name: 'Reactivate Ok', email, password })
+        .expect(201);
+
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+
+      const profile = await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(login.body.accessToken))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .delete(`/user/${profile.body.user.id}`)
+        .set(bearerAuth(login.body.accessToken))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(401);
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/reactivate')
+        .send({ email, password })
+        .expect(200);
+
+      expect(res.body).toEqual(
+        expect.objectContaining({ accessToken: expect.any(String) }),
+      );
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+    });
+
+    it('401 com senha incorreta', async () => {
+      const email = `reactivate-bad-${Date.now()}@example.com`;
+      const password = 'Valid123';
+
+      await request(app.getHttpServer())
+        .post('/user')
+        .send({ name: 'Reactivate Bad', email, password })
+        .expect(201);
+
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+
+      const profile = await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(login.body.accessToken))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .delete(`/user/${profile.body.user.id}`)
+        .set(bearerAuth(login.body.accessToken))
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/reactivate')
+        .send({ email, password: 'WrongPass1' });
+
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('sessão demo — bloqueio de perfil (SP-130)', () => {
     async function demoTokenForSeedUser(): Promise<{
       token: string;

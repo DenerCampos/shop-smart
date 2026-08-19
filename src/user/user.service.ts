@@ -1,10 +1,6 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter } from 'events';
+import { QueryFailedError } from 'typeorm';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,7 +9,11 @@ import * as bcrypt from 'bcrypt';
 import { IUserRepository } from './interfaces/user.repository.interface';
 import { User } from './entities/user.entity';
 import { UpdateException } from 'src/exception/updateException';
-import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
+import {
+  AccountDeletedReactivationRequiredException,
+  EmailAlreadyExistsException,
+  UserLimitReachedException,
+} from 'src/exception/authErrorException';
 import { NotExistException } from 'src/exception/notExistException';
 import { UserCreatedEvent } from './events/user-created.event';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
@@ -39,7 +39,18 @@ export class UserService {
     const totalUsers = await this.userRepository.countAll();
 
     if (totalUsers >= this.limitUsers) {
-      throw new ConflictException('O limite de usuários foi atingido');
+      throw new UserLimitReachedException();
+    }
+
+    const existing = await this.userRepository.findByEmailWithDeleted(
+      createUserDto.email,
+    );
+
+    if (existing) {
+      if (existing.deletedAt) {
+        throw new AccountDeletedReactivationRequiredException();
+      }
+      throw new EmailAlreadyExistsException();
     }
 
     const hash = await bcrypt.hash(createUserDto.password, this.saltOrRounds);
@@ -54,12 +65,18 @@ export class UserService {
       createUserDto.coatOfArms = '/assets/images/brasao/brasao-1.png';
     }
 
-    const user = await this.userRepository.create(createUserDto);
+    try {
+      const user = await this.userRepository.create(createUserDto);
 
-    // Emite o evento de usuário criado
-    this.eventEmitter.emit('user.created', new UserCreatedEvent(user));
+      this.eventEmitter.emit('user.created', new UserCreatedEvent(user));
 
-    return user;
+      return user;
+    } catch (error) {
+      if (this.isDuplicateEmailError(error)) {
+        throw new EmailAlreadyExistsException();
+      }
+      throw error;
+    }
   }
 
   async findAndValidateOwnership(
@@ -85,6 +102,10 @@ export class UserService {
 
   async findByEmail(email: string): Promise<User | null> {
     return await this.userRepository.findByEmail(email);
+  }
+
+  async findByEmailWithDeleted(email: string): Promise<User | null> {
+    return await this.userRepository.findByEmailWithDeleted(email);
   }
 
   async searchByEmail(
@@ -122,20 +143,41 @@ export class UserService {
       throw new UpdateException();
     }
 
-    const existUser = await this.userRepository.exist(
-      updateUserDto.email,
-      updateUser,
-    );
+    if (updateUserDto.email) {
+      const existUser = await this.userRepository.exist(
+        updateUserDto.email,
+        updateUser,
+      );
 
-    if (existUser) {
-      throw new AlreadyExistsException();
+      if (existUser) {
+        throw new EmailAlreadyExistsException();
+      }
     }
 
-    return this.userRepository.update(updateUser, updateUserDto);
+    try {
+      return await this.userRepository.update(updateUser, updateUserDto);
+    } catch (error) {
+      if (this.isDuplicateEmailError(error)) {
+        throw new EmailAlreadyExistsException();
+      }
+      throw error;
+    }
   }
 
   async delete(userId: string): Promise<boolean> {
     return this.userRepository.delete(userId);
+  }
+
+  async restore(userId: string): Promise<boolean> {
+    return this.userRepository.restore(userId);
+  }
+
+  async countActiveUsers(): Promise<number> {
+    return this.userRepository.countAll();
+  }
+
+  getUserLimit(): number {
+    return this.limitUsers;
   }
 
   async saveRefreshToken(id: string, token: string): Promise<User> {
@@ -144,5 +186,17 @@ export class UserService {
 
   async findByRefreshToken(token: string): Promise<User | null> {
     return this.userRepository.findByRefreshToken(token);
+  }
+
+  private isDuplicateEmailError(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) {
+      return false;
+    }
+
+    const driverError = error.driverError as
+      | { errno?: number; code?: string }
+      | undefined;
+
+    return driverError?.errno === 1062 || driverError?.code === 'ER_DUP_ENTRY';
   }
 }
