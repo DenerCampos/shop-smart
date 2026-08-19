@@ -29,6 +29,7 @@ export class UserController {
     private readonly responseService: ResponseService,
   ) {}
 
+  @Throttle({ default: { limit: 5, ttl: seconds(60) } })
   @Post()
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     const createUser = await this.userService.create(createUserDto);

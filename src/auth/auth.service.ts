@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   UnauthorizedException,
@@ -18,6 +19,7 @@ import { RefreshTokenDto } from './dto/refreshToken.dto';
 import { OauthAuthorizeDto } from './dto/oauth-authorize.dto';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { OauthTokenDto } from './dto/oauth-token.dto';
+import { ReactivateAccountDto } from './dto/reactivate-account.dto';
 import { OauthClient } from './entities/oauth-client.entity';
 import { OauthCode } from './entities/oauth-code.entity';
 import { OauthConnection } from './entities/oauth-connection.entity';
@@ -28,6 +30,7 @@ import { AppConfig } from '../common/app-config/app.config';
 import { SecurityAuditLogService } from '../common/logging/security-audit-log.service';
 import { logJson } from '../common/logging/log-event.util';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
+import { UserLimitReachedException } from 'src/exception/authErrorException';
 import { v4 as uuidv4 } from 'uuid';
 
 interface OauthSession {
@@ -129,6 +132,50 @@ export class AuthService {
     });
 
     await this.usersService.saveToken(user.id, accessToken);
+
+    return { accessToken };
+  }
+
+  async reactivateAccount(dto: ReactivateAccountDto): Promise<jwtTokenType> {
+    const user = await this.usersService.findByEmailWithDeleted(dto.email);
+
+    if (!user || !user.deletedAt) {
+      this.securityAuditLog.authLoginFailed(dto.email);
+      throw new UnauthorizedException();
+    }
+
+    const isMatch = await bcrypt.compare(dto.password, user.password);
+
+    if (!isMatch) {
+      this.securityAuditLog.authLoginFailed(dto.email);
+      throw new UnauthorizedException();
+    }
+
+    const totalUsers = await this.usersService.countActiveUsers();
+    if (totalUsers >= this.usersService.getUserLimit()) {
+      throw new UserLimitReachedException();
+    }
+
+    const restored = await this.usersService.restore(user.id);
+    if (!restored) {
+      logJson(
+        this.logger,
+        {
+          event: 'auth_reactivate_restore_failed',
+          userId: user.id,
+        },
+        'error',
+      );
+      throw new InternalServerErrorException();
+    }
+
+    const payload = { sub: user.id, username: user.email };
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    await this.usersService.saveToken(user.id, accessToken);
+
+    this.eventEmitter.emit('auth.login_success', { userId: user.id });
+    this.eventEmitter.emit('user.reactivated', { userId: user.id });
 
     return { accessToken };
   }

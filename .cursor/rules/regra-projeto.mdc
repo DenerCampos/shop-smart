@@ -57,7 +57,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
 | Módulo | Pasta | Responsabilidade resumida |
 |--------|-------|---------------------------|
-| auth | `auth/` | JWT, login, refresh, guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
+| `auth` | `auth/` | JWT, login, refresh, reativação (`POST /auth/reactivate` SP-39), guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
 | user | `user/` | Usuários |
 | expense | `expense/` | Despesas, recorrência, itens |
 | revenue | `revenue/` | Receitas |
@@ -158,7 +158,7 @@ Prefixos atuais (atualizar ao criar controller):
 
 | Prefixo | Módulo |
 |---------|--------|
-| `auth` | auth |
+| `auth` | auth — `POST /login`, `PUT /refresh`, `POST /demo`, `POST /reactivate` (SP-39), OAuth Alexa |
 | `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min) |
 | `/expense` | expense |
 | `/revenue` | revenue |
@@ -272,6 +272,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 - `demo-login.md` — login demo via link para portfólio (SP-118); bloqueio de mutações de perfil em sessão demo (SP-130)
+- `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, reativação de conta (SP-39)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
 - `notificacoes.md` — notificações internas, canais e evento de convite familiar (SP-101)
