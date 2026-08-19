@@ -23,6 +23,12 @@ export class FamilyGroupResponseDto {
   name: string;
 
   @Expose()
+  coatOfArms: string;
+
+  @Expose()
+  groupImage: string | null;
+
+  @Expose()
   @Type(() => OwnerResponseDto)
   owner: OwnerResponseDto;
 

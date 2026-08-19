@@ -4,6 +4,7 @@ import { CommonModule } from 'src/common/common.module';
 import { UserModule } from 'src/user/user.module';
 import { ExpenseModule } from 'src/expense/expense.module';
 import { RevenueModule } from 'src/revenue/revenue.module';
+import { FileStorageModule } from 'src/file-storage/file-storage.module';
 import { FamilyGroupController } from './family-group.controller';
 import { FamilyGroupService } from './family-group.service';
 import { FamilyGroupRepository } from './repositories/family-group.repository';
@@ -16,6 +17,7 @@ import { FamilyGroupMember } from './entities/family-group-member.entity';
     UserModule,
     ExpenseModule,
     RevenueModule,
+    FileStorageModule,
     TypeOrmModule.forFeature([FamilyGroup, FamilyGroupMember]),
   ],
   controllers: [FamilyGroupController],

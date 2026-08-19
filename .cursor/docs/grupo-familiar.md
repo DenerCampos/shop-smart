@@ -12,6 +12,8 @@ Funcionalidade de grupo familiar que permite usuários criarem um grupo, convida
 |-----------|----------------|--------------------------------|
 | id        | VARCHAR(36) PK | UUID gerado automaticamente    |
 | name      | VARCHAR(255)   | Nome do grupo                  |
+| coatOfArms | VARCHAR(255)  | Brasão do grupo (asset estático). Default `/assets/images/brasao/brasao-1.png` |
+| groupImage | VARCHAR(255) NULLABLE | Foto do grupo (URL do storage). Tem prioridade sobre `coatOfArms` na exibição |
 | ownerId   | VARCHAR(36) FK | Criador/dono do grupo → User   |
 | createdAt | DATETIME       | Data de criação                |
 | updatedAt | DATETIME       | Data de atualização            |
@@ -39,13 +41,14 @@ Todas as rotas são protegidas com `@UseGuards(AuthGuard)`.
 
 ### Grupo Familiar (CRUD)
 
-| Método | Rota                | Descrição                               |
-|--------|---------------------|-----------------------------------------|
-| POST   | /family-group       | Criar grupo (criador vira admin/owner)  |
-| GET    | /family-group       | Listar grupos do usuário                |
-| GET    | /family-group/:id   | Detalhes do grupo                       |
-| PUT    | /family-group/:id   | Atualizar grupo (admin)                 |
-| DELETE | /family-group/:id   | Deletar grupo (apenas owner)            |
+| Método | Rota                | Body                                    | Descrição                               |
+|--------|---------------------|-----------------------------------------|-----------------------------------------|
+| POST   | /family-group       | `{ name, coatOfArms? }`                 | Criar grupo (criador vira admin/owner)  |
+| GET    | /family-group       | —                                       | Listar grupos do usuário                |
+| GET    | /family-group/:id   | —                                       | Detalhes do grupo                       |
+| PUT    | /family-group/:id   | `{ name, coatOfArms? }`                 | Atualizar nome/brasão (admin)           |
+| POST   | /family-group/:id/upload-image | multipart, campo `image`      | Enviar foto do grupo (admin, bloqueado na conta demo) |
+| DELETE | /family-group/:id   | —                                       | Deletar grupo (apenas owner)            |
 
 ### Membros e Convites
 
@@ -108,9 +111,10 @@ Endpoints afetados pela filtragem:
 ## Fluxos
 
 ### Criação do Grupo
-1. Usuário cria grupo com nome
-2. Sistema cria `FamilyGroup` com `ownerId = user.id`
+1. Usuário cria grupo com nome e, opcionalmente, o brasão escolhido
+2. Sistema cria `FamilyGroup` com `ownerId = user.id` e `coatOfArms` (default `brasao-1.png`)
 3. Sistema cria `FamilyGroupMember` automático com `role: admin`, `status: accepted`
+4. Se o usuário escolheu uma foto, o app envia em seguida `POST /family-group/:id/upload-image`
 
 ### Convite (Usuário Existente)
 1. Admin envia convite com email
@@ -154,6 +158,18 @@ Endpoints afetados pela filtragem:
 - Autocomplete de convite: `GET /user/search?email=` (mín. 3 / máx. 255 chars, até 10 resultados, throttle 15/min, só admin de algum grupo).
   - **Privacidade (tradeoff aceito):** a busca é em usuários da plataforma (não só do clã), para permitir convidar e-mails ainda não membros. Mitigações: AuthGuard, admin-only, prefixo ≥ 3, limite 10, throttle, DTO só `id/name/email`.
 - Email de convite continua mockado (envio real em tarefa futura).
+
+## Identidade visual do grupo (SP-131)
+
+Antes o brasão exibido para a família vinha de `User.coatOfArms` do owner, o que não funcionava para quem é dono de vários grupos. Agora a identidade visual pertence ao **grupo**:
+
+- `family_group.coatOfArms` — brasão escolhido entre os assets estáticos do app. Validado por regex (`/assets/images/brasao/brasao-N.png`) nos DTOs de criação e atualização; qualquer outra string é rejeitada com 400.
+- `family_group.groupImage` — foto enviada via multipart, armazenada pelo `FILE_STORAGE` (Supabase/Drive) na subpasta `family-group`. Ver [file-storage.md](./file-storage.md).
+- **Brasão e foto são alternativas.** Ao salvar `coatOfArms` no `PUT`, a foto atual é removida do storage e `groupImage` volta para `null`. Enquanto existir `groupImage`, ele tem prioridade na exibição.
+- Permissão: criar é livre para qualquer usuário autenticado; alterar nome/brasão e enviar foto exigem **admin** (owner é admin por definição). `POST /family-group/:id/upload-image` também usa `DenyDemoGuard`.
+- Limites do upload: 1 identidade por requisição, 1,5 MB no Multer, mimetypes `jpg|jpeg|png|gif|webp`.
+- Migration `1776100000000-AddFamilyGroupImage`: cria as colunas e faz backfill copiando `user.coatOfArms` do owner para os grupos já existentes.
+- `User.coatOfArms` continua existindo e é usado apenas no perfil/avatar do usuário — não foi removido.
 
 ## Profile Image
 - Campo `profileImage` na entidade `User` (VARCHAR, nullable)
