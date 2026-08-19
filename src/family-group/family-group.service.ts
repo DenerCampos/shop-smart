@@ -8,7 +8,13 @@ import {
 import { DataSource } from 'typeorm';
 import { EventEmitter } from 'events';
 import { EVENT_EMITTER } from 'src/common/event-emitter/event-emitter.provider';
-import { IFamilyGroupRepository } from './interfaces/family-group.repository.interface';
+import { v4 as uuidv4 } from 'uuid';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.constants';
+import { IFileStorageService } from 'src/file-storage/interfaces/file-storage.interface';
+import {
+  FamilyGroupUpdateData,
+  IFamilyGroupRepository,
+} from './interfaces/family-group.repository.interface';
 import { User } from 'src/user/entities/user.entity';
 import { UserService } from 'src/user/user.service';
 import { FamilyGroup } from './entities/family-group.entity';
@@ -29,6 +35,10 @@ import {
 import { FamilyGroupSummaryResponseDto } from './dto/family-group-summary-response.dto';
 import { FamilyGroupMemberDataResponseDto } from './dto/family-group-member-data-response.dto';
 import { sortFamilyGroupsByPriority } from './utils/family-group-priority';
+import {
+  DEFAULT_FAMILY_GROUP_COAT_OF_ARMS,
+  FAMILY_GROUP_IMAGE_FOLDER,
+} from './constants/family-group-image.constant';
 
 @Injectable()
 export class FamilyGroupService {
@@ -41,6 +51,8 @@ export class FamilyGroupService {
     private readonly expenseService: ExpenseService,
     private readonly revenueService: RevenueService,
     private readonly dataSource: DataSource,
+    @Inject(FILE_STORAGE)
+    private readonly fileStorage: IFileStorageService,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {
@@ -51,12 +63,20 @@ export class FamilyGroupService {
   // CRUD do Grupo
   // ========================
 
-  async create(user: User, name: string): Promise<FamilyGroup> {
+  async create(
+    user: User,
+    name: string,
+    coatOfArms?: string,
+  ): Promise<FamilyGroup> {
     const group = await this.dataSource.transaction(async (manager) => {
       const groupRepo = manager.getRepository(FamilyGroup);
       const memberRepo = manager.getRepository(FamilyGroupMember);
 
-      const newGroup = groupRepo.create({ name, owner: user });
+      const newGroup = groupRepo.create({
+        name,
+        owner: user,
+        coatOfArms: coatOfArms ?? DEFAULT_FAMILY_GROUP_COAT_OF_ARMS,
+      });
       const savedGroup = await groupRepo.save(newGroup);
 
       const member = memberRepo.create({
@@ -122,6 +142,7 @@ export class FamilyGroupService {
     groupId: string,
     userId: string,
     name: string,
+    coatOfArms?: string,
   ): Promise<FamilyGroup> {
     const group = await this.familyGroupRepository.findGroupById(groupId);
 
@@ -131,7 +152,51 @@ export class FamilyGroupService {
 
     await this.validateAdmin(groupId, userId);
 
-    return await this.familyGroupRepository.updateGroup(group, name);
+    const data: FamilyGroupUpdateData = { name };
+
+    // Brasão e foto são alternativas: escolher um brasão descarta a foto atual.
+    if (coatOfArms) {
+      data.coatOfArms = coatOfArms;
+      if (group.groupImage) {
+        await this.removeStoredImage(group.groupImage);
+        data.groupImage = null;
+      }
+    }
+
+    return await this.familyGroupRepository.updateGroup(group, data);
+  }
+
+  async uploadGroupImage(
+    groupId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<FamilyGroup> {
+    const group = await this.familyGroupRepository.findGroupById(groupId);
+
+    if (!group) {
+      throw new NotExistException();
+    }
+
+    await this.validateAdmin(groupId, userId);
+
+    if (group.groupImage) {
+      await this.removeStoredImage(group.groupImage);
+    }
+
+    const fileName = `family_group_${groupId}_${uuidv4()}${this.getExtension(
+      file.originalname,
+    )}`;
+
+    const uploadResult = await this.fileStorage.uploadFile(
+      file.buffer,
+      fileName,
+      file.mimetype,
+      FAMILY_GROUP_IMAGE_FOLDER,
+    );
+
+    return await this.familyGroupRepository.updateGroup(group, {
+      groupImage: uploadResult.webContentLink,
+    });
   }
 
   async deleteGroup(groupId: string, userId: string): Promise<boolean> {
@@ -797,6 +862,27 @@ export class FamilyGroupService {
           m.status === FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
       ),
     } as FamilyGroup;
+  }
+
+  private async removeStoredImage(imageUrl: string): Promise<void> {
+    const fileId = this.fileStorage.extractFileIdFromUrl(imageUrl);
+
+    if (!fileId) {
+      return;
+    }
+
+    try {
+      await this.fileStorage.deleteFile(fileId);
+    } catch (error) {
+      this.logger.warn(
+        `Falha ao remover imagem antiga do grupo (${imageUrl}): ${error.message}`,
+      );
+    }
+  }
+
+  private getExtension(filename: string): string {
+    const lastDot = filename.lastIndexOf('.');
+    return lastDot !== -1 ? filename.substring(lastDot) : '.jpg';
   }
 
   private buildDateRange(

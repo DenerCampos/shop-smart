@@ -4,11 +4,24 @@ import { FamilyGroupMember } from '../entities/family-group-member.entity';
 import { FamilyGroupRole } from '../types/family-group-role.type';
 import { FamilyGroupMemberStatus } from '../types/family-group-member-status.type';
 
+export type FamilyGroupUpdateData = {
+  name?: string;
+  coatOfArms?: string;
+  groupImage?: string | null;
+};
+
 export interface IFamilyGroupRepository {
-  createGroup(name: string, owner: User): Promise<FamilyGroup>;
+  createGroup(
+    name: string,
+    owner: User,
+    coatOfArms?: string,
+  ): Promise<FamilyGroup>;
   findGroupById(id: string): Promise<FamilyGroup | null>;
   findGroupsByUserId(userId: string): Promise<FamilyGroup[]>;
-  updateGroup(group: FamilyGroup, name: string): Promise<FamilyGroup>;
+  updateGroup(
+    group: FamilyGroup,
+    data: FamilyGroupUpdateData,
+  ): Promise<FamilyGroup>;
   deleteGroup(id: string): Promise<boolean>;
 
   createMember(

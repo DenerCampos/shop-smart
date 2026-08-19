@@ -169,7 +169,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/group`, `/payment`, `/store` | resources |
 | `/coupon-reader` | coupon-reader |
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
-| `/family-group` | family-group |
+| `/family-group` | family-group — incl. `POST /:id/upload-image` (foto do grupo, admin + DenyDemo, SP-131) |
 | `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
 | `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113), `POST .../occurrences/:id/return-for-adjustment` (SP-115) |
 | `/recipes` | recipe |

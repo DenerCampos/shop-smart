@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { FamilyGroupMember } from './family-group-member.entity';
+import { DEFAULT_FAMILY_GROUP_COAT_OF_ARMS } from '../constants/family-group-image.constant';
 
 @Entity()
 export class FamilyGroup {
@@ -23,6 +24,12 @@ export class FamilyGroup {
 
   @Column()
   name: string;
+
+  @Column({ default: DEFAULT_FAMILY_GROUP_COAT_OF_ARMS })
+  coatOfArms: string;
+
+  @Column({ nullable: true })
+  groupImage: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'ownerId' })

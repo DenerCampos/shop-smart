@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FamilyGroup } from '../entities/family-group.entity';
 import { FamilyGroupMember } from '../entities/family-group-member.entity';
-import { IFamilyGroupRepository } from '../interfaces/family-group.repository.interface';
+import {
+  FamilyGroupUpdateData,
+  IFamilyGroupRepository,
+} from '../interfaces/family-group.repository.interface';
 import { User } from 'src/user/entities/user.entity';
 import { FamilyGroupRole } from '../types/family-group-role.type';
 import { FamilyGroupMemberStatus } from '../types/family-group-member-status.type';
@@ -17,8 +20,16 @@ export class FamilyGroupRepository implements IFamilyGroupRepository {
     private readonly memberEntity: Repository<FamilyGroupMember>,
   ) {}
 
-  async createGroup(name: string, owner: User): Promise<FamilyGroup> {
-    const group = this.familyGroupEntity.create({ name, owner });
+  async createGroup(
+    name: string,
+    owner: User,
+    coatOfArms?: string,
+  ): Promise<FamilyGroup> {
+    const group = this.familyGroupEntity.create({
+      name,
+      owner,
+      ...(coatOfArms ? { coatOfArms } : {}),
+    });
     return await this.familyGroupEntity.save(group);
   }
 
@@ -41,8 +52,11 @@ export class FamilyGroupRepository implements IFamilyGroupRepository {
       .getMany();
   }
 
-  async updateGroup(group: FamilyGroup, name: string): Promise<FamilyGroup> {
-    return await this.familyGroupEntity.save({ ...group, name });
+  async updateGroup(
+    group: FamilyGroup,
+    data: FamilyGroupUpdateData,
+  ): Promise<FamilyGroup> {
+    return await this.familyGroupEntity.save({ ...group, ...data });
   }
 
   async deleteGroup(id: string): Promise<boolean> {
