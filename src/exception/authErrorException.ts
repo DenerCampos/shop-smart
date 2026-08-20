@@ -1,10 +1,11 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 
 export const AUTH_ERROR_CODES = {
   EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
   ACCOUNT_DELETED_REACTIVATION_REQUIRED:
     'ACCOUNT_DELETED_REACTIVATION_REQUIRED',
   USER_LIMIT_REACHED: 'USER_LIMIT_REACHED',
+  INVALID_OR_EXPIRED_RESET_TOKEN: 'INVALID_OR_EXPIRED_RESET_TOKEN',
 } as const;
 
 export class EmailAlreadyExistsException extends HttpException {
@@ -43,5 +44,15 @@ export class UserLimitReachedException extends HttpException {
       },
       HttpStatus.CONFLICT,
     );
+  }
+}
+
+export class InvalidOrExpiredResetTokenException extends BadRequestException {
+  constructor() {
+    super({
+      statusCode: HttpStatus.BAD_REQUEST,
+      code: AUTH_ERROR_CODES.INVALID_OR_EXPIRED_RESET_TOKEN,
+      message: 'Token inválido ou expirado.',
+    });
   }
 }

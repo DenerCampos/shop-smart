@@ -11,6 +11,7 @@ import { ForbiddenException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from 'src/auth/constants';
+import { isAccessTokenStale, JwtAccessPayload } from 'src/auth/jwt-access.util';
 import { UserService } from 'src/user/user.service';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ShoppingListService } from './shopping-list.service';
@@ -55,13 +56,16 @@ export class ShoppingListGateway
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: jwtConstants.secret,
-      });
+      const payload = await this.jwtService.verifyAsync<JwtAccessPayload>(
+        token,
+        {
+          secret: jwtConstants.secret,
+        },
+      );
 
       const user = await this.userService.find(payload.sub);
 
-      if (!user) {
+      if (!user || isAccessTokenStale(payload, user)) {
         this.logger.warn(`Client ${client.id} rejected: user not found`);
         client.disconnect();
         return;

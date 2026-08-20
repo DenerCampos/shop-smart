@@ -54,7 +54,7 @@ Todas as rotas são protegidas com `@UseGuards(AuthGuard)`.
 
 | Método | Rota                                          | Descrição                    |
 |--------|-----------------------------------------------|------------------------------|
-| POST   | /family-group/:id/invite                      | Convidar membro por email    |
+| POST   | /family-group/:id/invite                      | Convidar membro por email (throttle 10/min) |
 | GET    | /family-group/:id/members                     | Listar membros               |
 | PATCH  | /family-group/:id/members/:memberId/role      | Alterar role (admin↔member)  |
 | DELETE | /family-group/:id/members/:memberId           | Remover membro               |
@@ -120,7 +120,7 @@ Endpoints afetados pela filtragem:
 1. Admin envia convite com email
 2. Sistema encontra User pelo email
 3. Cria `FamilyGroupMember` com `status: pending`, `userId` preenchido
-4. Emite `family_group.member_invited` → notificação interna (inbox / sino); ver [notificacoes.md](./notificacoes.md)
+4. Emite `family_group.member_invited` → inbox + e-mail; ver [notificacoes.md](./notificacoes.md) e [email.md](./email.md)
 5. Usuário convidado vê convite pendente no front
 6. Aceita → `status: accepted`, `joinedAt` preenchido
 
@@ -128,9 +128,9 @@ Endpoints afetados pela filtragem:
 1. Admin envia convite com email
 2. Sistema NÃO encontra User
 3. Cria `FamilyGroupMember` com `status: pending`, `userId: null`
-4. Email mockado (preparado para envio real futuro)
+4. Emite `family_group.member_invited` (sem `userId`) → e-mail com link de cadastro (`/register?email=`)
 5. Quando o novo usuário se cadastrar, evento `user.created` vincula o `userId`
-6. Após o vínculo, emite `family_group.member_invited` → notificação interna
+6. Após o vínculo, emite de novo com `origin: signup_link` → só notificação in-app (não reenvia e-mail)
 7. Convite pendente aparece no front
 
 ### Dashboard
@@ -157,7 +157,7 @@ Endpoints afetados pela filtragem:
 - `FamilyMemberResolverService.resolve(userId, familyGroupId?)`: sem `familyGroupId` não promove visão de admin; com `familyGroupId` **exige** membership `accepted` — caso contrário **403** (não degrada silenciosamente).
 - Autocomplete de convite: `GET /user/search?email=` (mín. 3 / máx. 255 chars, até 10 resultados, throttle 15/min, só admin de algum grupo).
   - **Privacidade (tradeoff aceito):** a busca é em usuários da plataforma (não só do clã), para permitir convidar e-mails ainda não membros. Mitigações: AuthGuard, admin-only, prefixo ≥ 3, limite 10, throttle, DTO só `id/name/email`.
-- Email de convite continua mockado (envio real em tarefa futura).
+- E-mail de convite: canal `email` (Brevo/noop). `POST /family-group/:id/invite` tem throttle 10/min para proteger a cota.
 
 ## Identidade visual do grupo (SP-131)
 

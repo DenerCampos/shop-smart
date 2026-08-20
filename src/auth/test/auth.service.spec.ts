@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { DataSource } from 'typeorm';
 import {
   BadRequestException,
   InternalServerErrorException,
@@ -15,6 +16,8 @@ import { SecurityAuditLogService } from '../../common/logging/security-audit-log
 import { OauthClient } from '../entities/oauth-client.entity';
 import { OauthCode } from '../entities/oauth-code.entity';
 import { OauthConnection } from '../entities/oauth-connection.entity';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
+import { EmailService } from '../../email/email.service';
 import { User } from '../../user/entities/user.entity';
 import { createRepositoryMock } from '../../common/test/typeorm-repository.mock';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
@@ -44,17 +47,31 @@ describe('AuthService', () => {
       | 'restore'
       | 'countActiveUsers'
       | 'getUserLimit'
+      | 'update'
+      | 'clearAuthTokens'
     >
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let securityAuditLog: jest.Mocked<
-    Pick<SecurityAuditLogService, 'authLoginFailed' | 'authRefreshFailed'>
+    Pick<
+      SecurityAuditLogService,
+      | 'authLoginFailed'
+      | 'authRefreshFailed'
+      | 'passwordResetRequested'
+      | 'passwordResetFailed'
+      | 'passwordResetCompleted'
+    >
   >;
   let oauthClientRepo: ReturnType<typeof createRepositoryMock<OauthClient>>;
   let oauthCodeRepo: ReturnType<typeof createRepositoryMock<OauthCode>>;
   let oauthConnectionRepo: ReturnType<
     typeof createRepositoryMock<OauthConnection>
   >;
+  let passwordResetRepo: ReturnType<
+    typeof createRepositoryMock<PasswordResetToken>
+  >;
+  let userRepoInTx: { update: jest.Mock; findOne: jest.Mock };
+  let emailService: jest.Mocked<Pick<EmailService, 'sendPasswordReset'>>;
   let familyGroupService: jest.Mocked<
     Pick<FamilyGroupService, 'findGroupsByUser'>
   >;
@@ -72,18 +89,43 @@ describe('AuthService', () => {
       restore: jest.fn().mockResolvedValue(true),
       countActiveUsers: jest.fn().mockResolvedValue(1),
       getUserLimit: jest.fn().mockReturnValue(15),
+      update: jest.fn(),
+      clearAuthTokens: jest.fn(),
     };
     jwtService = { signAsync: jest.fn().mockResolvedValue('jwt-access-token') };
     securityAuditLog = {
       authLoginFailed: jest.fn(),
       authRefreshFailed: jest.fn(),
+      passwordResetRequested: jest.fn(),
+      passwordResetFailed: jest.fn(),
+      passwordResetCompleted: jest.fn(),
     };
     oauthClientRepo = createRepositoryMock<OauthClient>();
     oauthCodeRepo = createRepositoryMock<OauthCode>();
     oauthConnectionRepo = createRepositoryMock<OauthConnection>();
+    passwordResetRepo = createRepositoryMock<PasswordResetToken>();
+    passwordResetRepo.find.mockResolvedValue([]);
+    userRepoInTx = {
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    emailService = {
+      sendPasswordReset: jest.fn().mockResolvedValue({ success: true }),
+    };
     familyGroupService = { findGroupsByUser: jest.fn().mockResolvedValue([]) };
 
     const appConfig = createAppConfigMock();
+    const dataSource = {
+      transaction: jest.fn(async (cb: (manager: unknown) => Promise<void>) =>
+        cb({
+          getRepository: (entity: unknown) => {
+            if (entity === PasswordResetToken) return passwordResetRepo;
+            if (entity === User) return userRepoInTx;
+            throw new Error('unexpected entity');
+          },
+        }),
+      ),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,6 +135,7 @@ describe('AuthService', () => {
         { provide: AppConfig, useValue: appConfig },
         { provide: SecurityAuditLogService, useValue: securityAuditLog },
         { provide: FamilyGroupService, useValue: familyGroupService },
+        { provide: EmailService, useValue: emailService },
         {
           provide: getRepositoryToken(OauthClient),
           useValue: oauthClientRepo,
@@ -102,6 +145,11 @@ describe('AuthService', () => {
           provide: getRepositoryToken(OauthConnection),
           useValue: oauthConnectionRepo,
         },
+        {
+          provide: getRepositoryToken(PasswordResetToken),
+          useValue: passwordResetRepo,
+        },
+        { provide: DataSource, useValue: dataSource },
         provideEventEmitterMock(),
       ],
     }).compile();
@@ -136,6 +184,7 @@ describe('AuthService', () => {
       expect(jwtService.signAsync).toHaveBeenCalledWith({
         sub: user.id,
         username: user.email,
+        ver: 0,
       });
       expect(usersService.saveToken).toHaveBeenCalledWith(
         user.id,
@@ -362,6 +411,183 @@ describe('AuthService', () => {
 
       expect(result.alexa).toEqual({ connected: true, linkedAt });
       expect(result.other).toEqual({ connected: false });
+    });
+  });
+
+  describe('forgotPassword', () => {
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+    it('envia e-mail com token e grava apenas o hash', async () => {
+      const user = await userWithPassword();
+      usersService.findByEmail.mockResolvedValue(user);
+      passwordResetRepo.findOne.mockResolvedValue(null);
+
+      await service.forgotPassword({ email: testEmail });
+      await flush();
+
+      const saved = passwordResetRepo.save.mock
+        .calls[0][0] as PasswordResetToken;
+      const sentToken = emailService.sendPasswordReset.mock.calls[0][0].token;
+
+      expect(sentToken).toHaveLength(64);
+      expect(saved.tokenHash).not.toBe(sentToken);
+      expect(saved.tokenHash).toHaveLength(64);
+      expect(saved.expiresAt.getTime()).toBeGreaterThan(Date.now());
+      expect(securityAuditLog.passwordResetRequested).toHaveBeenCalledWith(
+        testEmail,
+        'sent',
+      );
+    });
+
+    it('registra send_failed quando o provider não envia', async () => {
+      const user = await userWithPassword();
+      usersService.findByEmail.mockResolvedValue(user);
+      passwordResetRepo.findOne.mockResolvedValue(null);
+      emailService.sendPasswordReset.mockResolvedValue({
+        success: false,
+        error: 'brevo_http_401',
+      });
+
+      await service.forgotPassword({ email: testEmail });
+      await flush();
+
+      expect(securityAuditLog.passwordResetRequested).toHaveBeenCalledWith(
+        testEmail,
+        'send_failed',
+      );
+    });
+
+    it('responde igual e não envia e-mail quando a conta não existe', async () => {
+      usersService.findByEmail.mockResolvedValue(null);
+
+      const result = await service.forgotPassword({
+        email: 'desconhecido@test.local',
+      });
+
+      expect(result.message).toContain('Se este e-mail estiver cadastrado');
+      expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
+      expect(passwordResetRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('não reenvia dentro do cooldown', async () => {
+      const user = await userWithPassword();
+      usersService.findByEmail.mockResolvedValue(user);
+      passwordResetRepo.findOne.mockResolvedValue({
+        id: 'recent',
+      } as PasswordResetToken);
+
+      await service.forgotPassword({ email: testEmail });
+
+      expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
+      expect(securityAuditLog.passwordResetRequested).toHaveBeenCalledWith(
+        testEmail,
+        'cooldown',
+      );
+    });
+
+    it('descarta tokens anteriores não usados', async () => {
+      const user = await userWithPassword();
+      usersService.findByEmail.mockResolvedValue(user);
+      passwordResetRepo.findOne.mockResolvedValue(null);
+      passwordResetRepo.find.mockResolvedValue([
+        { id: 'old-1' },
+        { id: 'old-2' },
+      ] as PasswordResetToken[]);
+
+      await service.forgotPassword({ email: testEmail });
+
+      expect(passwordResetRepo.delete).toHaveBeenCalledWith(['old-1', 'old-2']);
+    });
+  });
+
+  describe('resetPassword', () => {
+    const rawToken = 'a'.repeat(64);
+
+    function validRecord(user: User): PasswordResetToken {
+      return {
+        id: 'token-1',
+        tokenHash: 'hash',
+        userId: user.id,
+        user,
+        expiresAt: new Date(Date.now() + 60_000),
+        usedAt: null,
+        createdAt: new Date(),
+      };
+    }
+
+    it('troca a senha, marca o token como usado e incrementa tokenVersion', async () => {
+      const user = await userWithPassword();
+      user.tokenVersion = 0;
+      const record = validRecord(user);
+      passwordResetRepo.findOne.mockResolvedValue(record);
+      userRepoInTx.findOne.mockResolvedValue(user);
+
+      await service.resetPassword({
+        token: rawToken,
+        password: 'nova-senha-1',
+      });
+
+      expect(userRepoInTx.update).toHaveBeenCalledWith(
+        user.id,
+        expect.objectContaining({
+          tokenVersion: 1,
+          token: null,
+          refreshtoken: null,
+        }),
+      );
+      expect(passwordResetRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'token-1', usedAt: expect.any(Date) }),
+      );
+      expect(securityAuditLog.passwordResetCompleted).toHaveBeenCalledWith(
+        user.id,
+      );
+    });
+
+    it('rejeita token inexistente', async () => {
+      passwordResetRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword({ token: rawToken, password: 'nova-senha-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(userRepoInTx.update).not.toHaveBeenCalled();
+    });
+
+    it('rejeita token expirado', async () => {
+      const user = await userWithPassword();
+      passwordResetRepo.findOne.mockResolvedValue({
+        ...validRecord(user),
+        expiresAt: new Date(Date.now() - 1000),
+      });
+
+      await expect(
+        service.resetPassword({ token: rawToken, password: 'nova-senha-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejeita token já usado', async () => {
+      const user = await userWithPassword();
+      passwordResetRepo.findOne.mockResolvedValue({
+        ...validRecord(user),
+        usedAt: new Date(),
+      });
+
+      await expect(
+        service.resetPassword({ token: rawToken, password: 'nova-senha-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejeita quando a conta está soft-deleted', async () => {
+      const user = await userWithPassword();
+      user.deletedAt = new Date();
+      passwordResetRepo.findOne.mockResolvedValue(validRecord(user));
+      userRepoInTx.findOne.mockResolvedValue(user);
+
+      await expect(
+        service.resetPassword({ token: rawToken, password: 'nova-senha-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(securityAuditLog.passwordResetFailed).toHaveBeenCalledWith(
+        'inactive_user',
+      );
     });
   });
 });

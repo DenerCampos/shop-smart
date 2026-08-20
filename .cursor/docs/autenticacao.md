@@ -1,21 +1,22 @@
-# Autenticação e cadastro (SP-39)
+# Autenticação e cadastro (SP-39 / SP-91)
 
 ## Objetivo
 
-Garantir validação consistente de e-mail, senha e nome no login e no cadastro, unicidade real de e-mail no MySQL e reativação de contas soft-deleted mediante senha.
+Garantir validação consistente de e-mail, senha e nome no login e no cadastro, unicidade real de e-mail no MySQL, reativação de contas soft-deleted mediante senha e recuperação de senha por e-mail.
 
 ## Escopo
 
-- Entra: DTOs de `POST /user`, `POST /auth/login`, `PUT /auth/refresh`, `POST /auth/reactivate`; índice `UNIQUE(email)`; códigos de erro 409.
-- Fora: reset/recuperação de senha (tarefa futura), complexidade de senha, verificação de e-mail por link, OAuth/Alexa.
+- Entra: DTOs de `POST /user`, `POST /auth/login`, `PUT /auth/refresh`, `POST /auth/reactivate`, `POST /auth/forgot-password`, `POST /auth/reset-password`; índice `UNIQUE(email)`; códigos de erro 409/400; invalidação de JWT após troca de senha (`tokenVersion`).
+- Fora: complexidade extra de senha (além de 8–64), verificação de e-mail por link, OAuth/Alexa (ver [oauth2.md](./oauth2.md)).
 
 ## Regras de validação
 
-| Campo | Cadastro (`CreateUserDto`) | Login (`SignInDto`) |
-|-------|----------------------------|---------------------|
-| name | obrigatório, 3–255, trim | — |
-| email | obrigatório, `@IsEmail`, max 255, `trim` + `toLowerCase` | igual (normalização) |
-| password | obrigatório, 8–64, trim | obrigatória, max 64, trim (sem mínimo, para não quebrar contas antigas) |
+| Campo | Cadastro (`CreateUserDto`) | Login (`SignInDto`) | Reset (`ResetPasswordDto`) |
+|-------|----------------------------|---------------------|----------------------------|
+| name | obrigatório, 3–255, trim | — | — |
+| email | obrigatório, `@IsEmail`, max 255, `trim` + `toLowerCase` | igual (normalização) | — |
+| password | obrigatório, 8–64, trim | obrigatória, max 64, trim (sem mínimo, para não quebrar contas antigas) | obrigatória, 8–64, trim |
+| token | — | — | hex de 64 chars (32 bytes em claro) |
 
 ## Unicidade de e-mail
 
@@ -41,6 +42,8 @@ SELECT LOWER(email), COUNT(*) FROM `user` GROUP BY LOWER(email) HAVING COUNT(*) 
 | POST | `/auth/login` | público | 5/min | 200 `{ accessToken }`; 401 genérico |
 | POST | `/auth/reactivate` | público | 3/min | 200 `{ accessToken }`; 401 genérico; 409 limite; 500 se `restore` falhar |
 | PUT | `/auth/refresh` | público | 10/min | e-mail normalizado |
+| POST | `/auth/forgot-password` | público | 3/min | 200 mensagem genérica (anti-oráculo); cooldown 2 min por conta |
+| POST | `/auth/reset-password` | público | 5/min | 200 `{ message }`; 400 `INVALID_OR_EXPIRED_RESET_TOKEN` |
 
 ### Body de conflito (409)
 
@@ -52,7 +55,7 @@ SELECT LOWER(email), COUNT(*) FROM `user` GROUP BY LOWER(email) HAVING COUNT(*) 
 }
 ```
 
-Códigos: `EMAIL_ALREADY_EXISTS`, `ACCOUNT_DELETED_REACTIVATION_REQUIRED`, `USER_LIMIT_REACHED`.
+Códigos: `EMAIL_ALREADY_EXISTS`, `ACCOUNT_DELETED_REACTIVATION_REQUIRED`, `USER_LIMIT_REACHED`, `INVALID_OR_EXPIRED_RESET_TOKEN`.
 
 `AlreadyExistsException` (400) permanece para group/store/payment — não alterar.
 
@@ -66,17 +69,30 @@ Códigos: `EMAIL_ALREADY_EXISTS`, `ACCOUNT_DELETED_REACTIVATION_REQUIRED`, `USER
 
 ### Limitação
 
-Sem reset de senha, conta deletada com senha esquecida fica inacessível e o e-mail permanece bloqueado pelo UNIQUE. Tratar na tarefa de recuperação de senha.
+Conta soft-deleted **não** usa forgot-password (`findByEmail` ignora deletados). Sem a senha antiga, o e-mail permanece bloqueado pelo UNIQUE.
+
+## Recuperação de senha (SP-91)
+
+1. `POST /auth/forgot-password` `{ email }` — resposta **idêntica** exista ou não a conta.
+2. Conta ativa: invalida tokens anteriores não usados, grava SHA-256 de 32 bytes aleatórios (TTL `PASSWORD_RESET_TOKEN_TTL_MINUTES`, default 30), responde imediatamente e envia o e-mail em background (Brevo ou noop).
+3. Cooldown de 2 minutos por usuário; falha de envio loga `outcome: send_failed` (não `sent`).
+4. `POST /auth/reset-password` `{ token, password }` — transação com lock pessimista: marca `usedAt`, troca o hash, incrementa `tokenVersion`, zera `token`/`refreshtoken`.
+5. JWT de acesso carrega `ver`; `AuthGuard` (e WebSocket/Alexa) rejeita token com `ver` diferente. Access tokens emitidos antes do reset param de funcionar na hora.
+6. Contas demo: o reset de senha da conta demo é possível na API; o `DenyDemoGuard` só bloqueia mutações autenticadas com `isDemo` no JWT.
+
+Link no e-mail: `{FRONTEND_URL}/reset-password?token=...`. Ver [email.md](./email.md).
 
 ## Arquivos-chave
 
 - `src/user/dto/create-user.dto.ts`, `update-user.dto.ts`
-- `src/auth/dto/signIn.dto.ts`, `reactivate-account.dto.ts`
+- `src/auth/dto/signIn.dto.ts`, `reactivate-account.dto.ts`, `forgot-password.dto.ts`, `reset-password.dto.ts`
+- `src/auth/entities/password-reset-token.entity.ts`
 - `src/user/repositories/user.repository.ts`, `user.service.ts`
-- `src/auth/auth.service.ts`, `auth.controller.ts`
+- `src/auth/auth.service.ts`, `auth.controller.ts`, `auth.guard.ts`, `jwt-access.util.ts`
 - `src/exception/authErrorException.ts`
 - `src/common/utils/transformString.util.ts` (`normalizeEmail`)
 - `db/migrations/1776200000000-AddUniqueEmailToUser.ts`
+- `db/migrations/1776300000000-AddPasswordResetToken.ts`
 
 ## Testes
 
@@ -84,6 +100,7 @@ Sem reset de senha, conta deletada com senha esquecida fica inacessível e o e-m
 npm run test -- --testPathPattern=user.service.spec
 npm run test -- --testPathPattern=user.repository.spec
 npm run test -- --testPathPattern=auth.service.spec
+npm run test -- --testPathPattern=auth.guard.spec
 npm run test:e2e:low-mem -- --testPathPattern=user.e2e-spec
 npm run test:e2e:low-mem -- --testPathPattern=auth.e2e-spec
 ```

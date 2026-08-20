@@ -20,6 +20,18 @@ export class NotificationService {
   ) {}
 
   async notify(input: NotifyInput): Promise<DeliveryResult[]> {
+    if (!input.userId && !input.recipientEmail) {
+      logJson(
+        this.logger,
+        {
+          event: 'notification_without_recipient',
+          type: input.type,
+        },
+        'warn',
+      );
+      return [];
+    }
+
     const channels = this.channelRegistry.resolve(
       input.channels?.length
         ? input.channels
@@ -27,7 +39,9 @@ export class NotificationService {
     );
 
     const payload: NotificationPayload = {
-      userId: input.userId,
+      userId: input.userId ?? null,
+      recipientEmail: input.recipientEmail ?? null,
+      recipientName: input.recipientName ?? null,
       type: input.type,
       title: input.title,
       body: input.body,
@@ -43,7 +57,7 @@ export class NotificationService {
         const result = await channel.send(payload);
         results.push(result);
 
-        if (!result.success) {
+        if (!result.success && !result.skipped) {
           logJson(this.logger, {
             event: 'notification_channel_failed',
             channel: channel.name,

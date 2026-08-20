@@ -75,6 +75,37 @@ describe('NotificationService', () => {
     ]);
   });
 
+  it('notify sem userId envia recipientEmail no payload dos canais', async () => {
+    await service.notify({
+      recipientEmail: 'novo@test.com',
+      type: NOTIFICATION_TYPES.FAMILY_GROUP_INVITE,
+      title: 'Título',
+      body: 'Corpo',
+      actorName: 'Admin',
+      actionUrl: '/register?email=novo%40test.com',
+    });
+
+    expect(inAppChannel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: null,
+        recipientEmail: 'novo@test.com',
+      }),
+    );
+  });
+
+  it('notify sem nenhum destinatário não aciona canais', async () => {
+    const results = await service.notify({
+      type: NOTIFICATION_TYPES.FAMILY_GROUP_INVITE,
+      title: 'Título',
+      body: 'Corpo',
+      actorName: 'Admin',
+      actionUrl: null,
+    });
+
+    expect(results).toEqual([]);
+    expect(inAppChannel.send).not.toHaveBeenCalled();
+  });
+
   it('listForUser delega ao repositório com limit', async () => {
     repository.findByUserId.mockResolvedValue([]);
     await service.listForUser('user-1', 10);

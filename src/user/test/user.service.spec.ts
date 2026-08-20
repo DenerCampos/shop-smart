@@ -33,6 +33,7 @@ describe('UserService', () => {
       findByEmailWithDeleted: jest.fn().mockResolvedValue(null),
       searchByEmailPrefix: jest.fn(),
       saveToken: jest.fn(),
+      clearAuthTokens: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       restore: jest.fn(),
@@ -179,6 +180,25 @@ describe('UserService', () => {
       await expect(
         service.update('id', { email: 'x@test.local' } as any),
       ).rejects.toBeInstanceOf(UpdateException);
+    });
+
+    it('incrementa tokenVersion e limpa tokens ao trocar a senha', async () => {
+      const u = new User();
+      u.id = 'id1';
+      u.tokenVersion = 2;
+      u.token = 'access';
+      u.refreshtoken = 'refresh';
+      userRepository.find.mockResolvedValue(u);
+      userRepository.update.mockImplementation(async (user, dto) =>
+        Object.assign(user, dto),
+      );
+
+      await service.update('id1', { password: 'nova-senha-1' });
+
+      expect(u.tokenVersion).toBe(3);
+      expect(u.token).toBeNull();
+      expect(u.refreshtoken).toBeNull();
+      expect(userRepository.update).toHaveBeenCalled();
     });
 
     it('lança EmailAlreadyExistsException quando email já usado', async () => {

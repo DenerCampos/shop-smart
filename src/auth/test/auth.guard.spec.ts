@@ -33,7 +33,7 @@ describe('AuthGuard', () => {
   }
 
   it('propaga isDemo=true a partir do payload JWT', async () => {
-    const user = { id: 'u1' } as User;
+    const user = { id: 'u1', tokenVersion: 0 } as User;
     jwtService.verifyAsync.mockResolvedValue({
       sub: 'u1',
       username: 'demo@test.local',
@@ -48,7 +48,7 @@ describe('AuthGuard', () => {
   });
 
   it('propaga isDemo=false quando flag ausente no payload', async () => {
-    const user = { id: 'u1' } as User;
+    const user = { id: 'u1', tokenVersion: 0 } as User;
     jwtService.verifyAsync.mockResolvedValue({
       sub: 'u1',
       username: 'user@test.local',
@@ -58,6 +58,20 @@ describe('AuthGuard', () => {
     const { request, context } = mockContext('Bearer normal-token');
     await expect(guard.canActivate(context as never)).resolves.toBe(true);
     expect(request.isDemo).toBe(false);
+  });
+
+  it('rejeita JWT emitido com ver anterior à troca de senha', async () => {
+    jwtService.verifyAsync.mockResolvedValue({
+      sub: 'u1',
+      username: 'user@test.local',
+      ver: 0,
+    });
+    userService.find.mockResolvedValue({ id: 'u1', tokenVersion: 1 } as User);
+
+    const { context } = mockContext('Bearer stale-token');
+    await expect(guard.canActivate(context as never)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('lança UnauthorizedException sem token', async () => {
