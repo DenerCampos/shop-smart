@@ -131,16 +131,24 @@ export class UserService {
     return this.userRepository.saveToken(id, token);
   }
 
-  async update(userId: string, updateUserDto: UpdateUserDto): Promise<User> {
-    if (updateUserDto.password) {
-      const hash = await bcrypt.hash(updateUserDto.password, this.saltOrRounds);
-      updateUserDto.password = hash;
-    }
+  /** Invalida o fluxo de refresh (app e OAuth) após redefinição de senha. */
+  async clearAuthTokens(id: string): Promise<void> {
+    return this.userRepository.clearAuthTokens(id);
+  }
 
+  async update(userId: string, updateUserDto: UpdateUserDto): Promise<User> {
     const updateUser = await this.userRepository.find(userId);
 
     if (!updateUser) {
       throw new UpdateException();
+    }
+
+    if (updateUserDto.password) {
+      const hash = await bcrypt.hash(updateUserDto.password, this.saltOrRounds);
+      updateUserDto.password = hash;
+      updateUser.tokenVersion = (updateUser.tokenVersion ?? 0) + 1;
+      updateUser.token = null;
+      updateUser.refreshtoken = null;
     }
 
     if (updateUserDto.email) {

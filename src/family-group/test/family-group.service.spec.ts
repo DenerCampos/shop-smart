@@ -413,11 +413,14 @@ describe('FamilyGroupService', () => {
         (call) => call[0] === FAMILY_GROUP_MEMBER_INVITED_EVENT,
       )?.[1] as FamilyGroupMemberInvitedEvent;
       expect(event.recipientUserId).toBe('invited-id');
+      expect(event.recipientEmail).toBe(invited.email);
+      expect(event.recipientName).toBe('Convidado');
       expect(event.actorName).toBe('Admin Nome');
       expect(event.groupName).toBe('Test Group');
+      expect(event.origin).toBe('invite');
     });
 
-    it('não emite evento quando convidado ainda não tem conta', async () => {
+    it('emite evento sem userId quando convidado ainda não tem conta', async () => {
       const emitSpy = jest.spyOn(eventEmitter, 'emit');
       userService.findByEmail.mockResolvedValue(null);
       familyGroupRepository.createMember.mockResolvedValue({
@@ -427,10 +430,14 @@ describe('FamilyGroupService', () => {
 
       await service.inviteMember('group-1', 'admin-id', 'new@test.com');
 
-      expect(emitSpy).not.toHaveBeenCalledWith(
-        FAMILY_GROUP_MEMBER_INVITED_EVENT,
-        expect.anything(),
-      );
+      const event = emitSpy.mock.calls.find(
+        (call) => call[0] === FAMILY_GROUP_MEMBER_INVITED_EVENT,
+      )?.[1] as FamilyGroupMemberInvitedEvent;
+
+      expect(event).toBeInstanceOf(FamilyGroupMemberInvitedEvent);
+      expect(event.recipientUserId).toBeNull();
+      expect(event.recipientEmail).toBe('new@test.com');
+      expect(event.recipientName).toBeNull();
     });
   });
 

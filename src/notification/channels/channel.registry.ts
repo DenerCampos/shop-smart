@@ -3,6 +3,7 @@ import {
   NOTIFICATION_CHANNELS,
   NotificationChannelName,
 } from '../types/notification-channel.type';
+import { EmailChannel } from './email.channel';
 import { InAppChannel } from './in-app.channel';
 import { INotificationChannel } from './notification-channel.interface';
 
@@ -13,8 +14,9 @@ export class NotificationChannelRegistry {
     INotificationChannel
   >();
 
-  constructor(inAppChannel: InAppChannel) {
+  constructor(inAppChannel: InAppChannel, emailChannel: EmailChannel) {
     this.channels.set(NOTIFICATION_CHANNELS.IN_APP, inAppChannel);
+    this.channels.set(NOTIFICATION_CHANNELS.EMAIL, emailChannel);
   }
 
   resolve(names: NotificationChannelName[]): INotificationChannel[] {

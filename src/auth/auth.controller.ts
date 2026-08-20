@@ -18,6 +18,8 @@ import { OauthLoginDto } from './dto/oauth-login.dto';
 import { OauthTokenDto } from './dto/oauth-token.dto';
 import { DemoLoginDto } from './dto/demo-login.dto';
 import { ReactivateAccountDto } from './dto/reactivate-account.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { jwtTokenType } from './types/jwtTokenType';
 
 @Controller('auth')
@@ -76,5 +78,25 @@ export class AuthController {
   @Post('reactivate')
   async reactivate(@Body() dto: ReactivateAccountDto): Promise<jwtTokenType> {
     return this.authService.reactivateAccount(dto);
+  }
+
+  // Rota pública e não autenticada: throttle baixo, e o service ainda aplica
+  // cooldown por e-mail para não encher a caixa do usuário nem a cota do Brevo.
+  @Throttle({ default: { limit: 3, ttl: seconds(60) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Throttle({ default: { limit: 5, ttl: seconds(60) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.resetPassword(dto);
   }
 }

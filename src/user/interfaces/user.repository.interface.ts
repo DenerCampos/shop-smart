@@ -13,6 +13,7 @@ export interface IUserRepository {
   findByEmailWithDeleted(email: string): Promise<User | null>;
   searchByEmailPrefix(emailPrefix: string, limit: number): Promise<User[]>;
   saveToken(id: string, token: string): Promise<User>;
+  clearAuthTokens(id: string): Promise<void>;
   countAll(): Promise<number>;
   exist(email: string, user: User): Promise<boolean>;
   saveRefreshToken(id: string, token: string): Promise<User>;

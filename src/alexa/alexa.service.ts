@@ -5,6 +5,7 @@ import { UserService } from 'src/user/user.service';
 import { ShoppingListService } from 'src/shopping-list/shopping-list.service';
 import { AlexaIntentRequestDto } from './dto/alexa-intent-request.dto';
 import { jwtConstants } from 'src/auth/constants';
+import { isAccessTokenStale, JwtAccessPayload } from 'src/auth/jwt-access.util';
 
 export interface AlexaResponse {
   version: string;
@@ -51,9 +52,9 @@ export class AlexaService {
       throw new UnauthorizedException('accessToken não encontrado no payload');
     }
 
-    let payload: { sub: string };
+    let payload: JwtAccessPayload;
     try {
-      payload = await this.jwtService.verifyAsync(token, {
+      payload = await this.jwtService.verifyAsync<JwtAccessPayload>(token, {
         secret: jwtConstants.secret,
       });
     } catch {
@@ -61,7 +62,7 @@ export class AlexaService {
     }
 
     const user = await this.userService.find(payload.sub);
-    if (!user) {
+    if (!user || isAccessTokenStale(payload, user)) {
       throw new UnauthorizedException('Usuário não encontrado');
     }
 

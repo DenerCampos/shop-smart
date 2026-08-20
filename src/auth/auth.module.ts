@@ -9,6 +9,8 @@ import { CommonModule } from 'src/common/common.module';
 import { OauthClient } from './entities/oauth-client.entity';
 import { OauthCode } from './entities/oauth-code.entity';
 import { OauthConnection } from './entities/oauth-connection.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { EmailModule } from 'src/email/email.module';
 import { jwtConstants } from './constants';
 
 @Module({
@@ -16,12 +18,18 @@ import { jwtConstants } from './constants';
     UserModule,
     FamilyGroupModule,
     CommonModule,
+    EmailModule,
     JwtModule.register({
       global: true,
       secret: jwtConstants.secret,
       signOptions: { expiresIn: '10h' },
     }),
-    TypeOrmModule.forFeature([OauthClient, OauthCode, OauthConnection]),
+    TypeOrmModule.forFeature([
+      OauthClient,
+      OauthCode,
+      OauthConnection,
+      PasswordResetToken,
+    ]),
   ],
   controllers: [AuthController],
   providers: [AuthService],

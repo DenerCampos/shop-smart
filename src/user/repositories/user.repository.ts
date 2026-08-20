@@ -72,6 +72,10 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
+  async clearAuthTokens(id: string): Promise<void> {
+    await this.userEntity.update({ id }, { token: null, refreshtoken: null });
+  }
+
   async exist(email: string, user: User): Promise<boolean> {
     if (!email) {
       return false;

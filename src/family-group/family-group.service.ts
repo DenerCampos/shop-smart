@@ -30,6 +30,7 @@ import { RevenueService } from 'src/revenue/revenue.service';
 import { UserCreatedEvent } from 'src/user/events/user-created.event';
 import {
   FAMILY_GROUP_MEMBER_INVITED_EVENT,
+  FamilyGroupInviteOrigin,
   FamilyGroupMemberInvitedEvent,
 } from './events/family-group-member-invited.event';
 import { FamilyGroupSummaryResponseDto } from './dto/family-group-summary-response.dto';
@@ -267,11 +268,6 @@ export class FamilyGroupService {
       }
     }
 
-    // TODO: Enviar email de convite (mockado por enquanto)
-    this.logger.log(
-      `[MOCK EMAIL] Convite enviado para ${email} para o grupo "${group.name}"`,
-    );
-
     const member = await this.familyGroupRepository.createMember(
       group,
       invitedUser || null,
@@ -281,16 +277,18 @@ export class FamilyGroupService {
       inviter,
     );
 
-    if (invitedUser) {
-      this.emitMemberInvited({
-        recipientUserId: invitedUser.id,
-        actorName: inviter.name,
-        groupId: group.id,
-        groupName: group.name,
-        memberId: member.id,
-        createdAt: member.createdAt,
-      });
-    }
+    // Emite também sem conta: nesse caso o e-mail leva para o cadastro, e o
+    // convite é vinculado automaticamente no `user.created`.
+    this.emitMemberInvited({
+      recipientUserId: invitedUser?.id ?? null,
+      recipientEmail: email,
+      recipientName: invitedUser?.name ?? null,
+      actorName: inviter.name,
+      groupId: group.id,
+      groupName: group.name,
+      memberId: member.id,
+      createdAt: member.createdAt,
+    });
 
     return member;
   }
@@ -697,11 +695,14 @@ export class FamilyGroupService {
           );
           this.emitMemberInvited({
             recipientUserId: event.user.id,
+            recipientEmail: event.user.email,
+            recipientName: event.user.name,
             actorName: invitation.invitedBy?.name ?? 'Alguém',
             groupId: invitation.familyGroup.id,
             groupName: invitation.familyGroup.name,
             memberId: linked.id,
             createdAt: linked.createdAt,
+            origin: 'signup_link',
           });
         }
       }
@@ -714,22 +715,28 @@ export class FamilyGroupService {
   }
 
   private emitMemberInvited(payload: {
-    recipientUserId: string;
+    recipientUserId: string | null;
+    recipientEmail: string;
+    recipientName?: string | null;
     actorName: string;
     groupId: string;
     groupName: string;
     memberId: string;
     createdAt: Date;
+    origin?: FamilyGroupInviteOrigin;
   }): void {
     this.eventEmitter.emit(
       FAMILY_GROUP_MEMBER_INVITED_EVENT,
       new FamilyGroupMemberInvitedEvent(
         payload.recipientUserId,
+        payload.recipientEmail,
         payload.actorName,
         payload.groupId,
         payload.groupName,
         payload.memberId,
         payload.createdAt,
+        payload.origin ?? 'invite',
+        payload.recipientName ?? null,
       ),
     );
   }

@@ -45,10 +45,14 @@ export class User {
   password: string;
 
   @Column({ nullable: true })
-  token: string;
+  token: string | null;
 
   @Column({ nullable: true })
-  refreshtoken: string;
+  refreshtoken: string | null;
+
+  /** Incrementado a cada troca de senha; o JWT carrega `ver` e o AuthGuard compara. */
+  @Column({ type: 'int', default: 0 })
+  tokenVersion: number;
 
   @Column({ nullable: true })
   profileImage: string;

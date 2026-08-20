@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { seconds, Throttle } from '@nestjs/throttler';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { DenyDemoGuard } from 'src/auth/deny-demo.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
@@ -164,6 +165,7 @@ export class FamilyGroupController {
   // Membros e Convites
   // ========================
 
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @Post(':id/invite')
   async inviteMember(
     @Param('id') id: string,
