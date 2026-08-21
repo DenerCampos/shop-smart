@@ -57,7 +57,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
 | Módulo | Pasta | Responsabilidade resumida |
 |--------|-------|---------------------------|
-| `auth` | `auth/` | JWT, login, refresh, reativação (`POST /auth/reactivate` SP-39), recuperação de senha (`POST /auth/forgot-password`, `POST /auth/reset-password` SP-91), guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
+| `auth` | `auth/` | JWT, login, refresh, recuperação de conta (`POST /auth/recover-account` SP-136), recuperação de senha (`POST /auth/forgot-password`, `POST /auth/reset-password` SP-91), guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
 | user | `user/` | Usuários |
 | expense | `expense/` | Despesas, recorrência, itens |
 | revenue | `revenue/` | Receitas |
@@ -159,8 +159,8 @@ Prefixos atuais (atualizar ao criar controller):
 
 | Prefixo | Módulo |
 |---------|--------|
-| `auth` | auth — `POST /login`, `PUT /refresh`, `POST /demo`, `POST /reactivate` (SP-39), `POST /forgot-password`, `POST /reset-password` (SP-91), OAuth Alexa |
-| `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min) |
+| `auth` | auth — `POST /login`, `PUT /refresh`, `POST /demo`, `POST /recover-account` (SP-136), `POST /forgot-password`, `POST /reset-password` (SP-91), OAuth Alexa |
+| `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min); `DELETE /user/:id` com senha (SP-136; 400 `INVALID_PASSWORD`; 409 `FAMILY_GROUP_OWNER` / `LAST_FAMILY_GROUP_ADMIN`) |
 | `/expense` | expense |
 | `/revenue` | revenue |
 | `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |
@@ -273,8 +273,8 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 - `demo-login.md` — login demo via link para portfólio (SP-118); bloqueio de mutações de perfil em sessão demo (SP-130)
-- `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, reativação de conta (SP-39), recuperação de senha (SP-91)
-- `email.md` — e-mail transacional (Brevo/noop, templates, reset/boas-vindas/convite; SP-91)
+- `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, exclusão e recuperação de conta (SP-136), recuperação de senha (SP-91)
+- `email.md` — e-mail transacional (Brevo/noop, templates, reset/recuperação de conta/boas-vindas/convite; SP-91 / SP-136)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
 - `notificacoes.md` — notificações internas, canais in-app + e-mail e evento de convite familiar (SP-101 / SP-91)

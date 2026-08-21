@@ -60,6 +60,26 @@ describe('EmailService', () => {
     });
   });
 
+  describe('sendAccountRecovery', () => {
+    it('monta o link de recuperação com o token na query', async () => {
+      await service.sendAccountRecovery({
+        to: 'dener@test.com',
+        name: 'Dener',
+        token: 'abc123',
+      });
+
+      const sent = lastSent();
+      expect(sent.to).toBe('dener@test.com');
+      expect(sent.subject).toContain('Recuperação de conta');
+      expect(sent.html).toContain(
+        'http://localhost:5173/reset-password?token=abc123',
+      );
+      expect(sent.text).toContain(
+        'http://localhost:5173/reset-password?token=abc123',
+      );
+    });
+  });
+
   describe('sendNotification', () => {
     it('transforma actionUrl relativa em absoluta', async () => {
       await service.sendNotification({

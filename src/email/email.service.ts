@@ -6,12 +6,17 @@ import {
   IEmailProvider,
   SendEmailResult,
 } from './interfaces/email-provider.interface';
+import { buildAccountRecoveryEmail } from './templates/account-recovery.template';
 import { EmailContent, toAbsoluteUrl } from './templates/email-layout.template';
 import { buildNotificationEmail } from './templates/notification.template';
 import { buildPasswordResetEmail } from './templates/password-reset.template';
 import { buildWelcomeEmail } from './templates/welcome.template';
 
-export type EmailKind = 'password_reset' | 'welcome' | 'notification';
+export type EmailKind =
+  | 'password_reset'
+  | 'account_recovery'
+  | 'welcome'
+  | 'notification';
 
 @Injectable()
 export class EmailService {
@@ -36,6 +41,26 @@ export class EmailService {
       input.to,
       input.name,
       buildPasswordResetEmail({ name: input.name, resetUrl, ttlMinutes }),
+    );
+  }
+
+  async sendAccountRecovery(input: {
+    to: string;
+    name: string;
+    token: string;
+  }): Promise<SendEmailResult> {
+    const ttlMinutes = this.appConfig.getPasswordResetTokenTtlMinutes();
+    const recoverUrl = `${this.frontendUrl()}/reset-password?token=${encodeURIComponent(input.token)}`;
+
+    return await this.dispatch(
+      'account_recovery',
+      input.to,
+      input.name,
+      buildAccountRecoveryEmail({
+        name: input.name,
+        recoverUrl,
+        ttlMinutes,
+      }),
     );
   }
 

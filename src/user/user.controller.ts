@@ -21,6 +21,7 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
 import { SearchUsersQueryDto } from './dto/search-users-query.dto';
 import { UserSearchItemResponseDto } from './dto/user-search-item-response.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @Controller('/user')
 export class UserController {
@@ -84,11 +85,12 @@ export class UserController {
   @Delete(':id')
   async delete(
     @Param('id') id: string,
+    @Body() dto: DeleteAccountDto,
     @CurrentUser() currentUser: User,
   ): Promise<object> {
     await this.userService.findAndValidateOwnership(id, currentUser.id);
 
-    const deleted = await this.userService.delete(id);
+    const deleted = await this.userService.delete(id, dto.password);
 
     return { deleted };
   }

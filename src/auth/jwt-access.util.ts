@@ -12,7 +12,7 @@ export function accessTokenVersion(user: {
   return user.tokenVersion ?? 0;
 }
 
-/** JWT emitido antes da troca de senha (reset ou update) fica inválido. */
+/** JWT emitido antes da troca de senha (reset ou update) ou da exclusão da conta fica inválido. */
 export function isAccessTokenStale(
   payload: Pick<JwtAccessPayload, 'ver'>,
   user: { tokenVersion?: number | null },

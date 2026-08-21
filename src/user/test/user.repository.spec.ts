@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRepository } from '../repositories/user.repository';
 import { User } from '../entities/user.entity';
 import { createRepositoryMock } from '../../common/test/typeorm-repository.mock';
+import { UpdateException } from '../../exception/updateException';
 
 describe('UserRepository', () => {
   let repository: UserRepository;
@@ -112,6 +113,59 @@ describe('UserRepository', () => {
 
       expect(entityRepo.restore).toHaveBeenCalledWith({ id: 'u1' });
       expect(result).toBe(true);
+    });
+  });
+
+  describe('invalidateSession', () => {
+    it('incrementa tokenVersion e limpa tokens via update', async () => {
+      const qb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      entityRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await repository.invalidateSession('u1');
+
+      expect(qb.update).toHaveBeenCalledWith(User);
+      expect(qb.set).toHaveBeenCalledWith({
+        tokenVersion: expect.any(Function),
+        token: null,
+        refreshtoken: null,
+      });
+      expect(qb.where).toHaveBeenCalledWith('id = :id', { id: 'u1' });
+      expect(entityRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('usa o EntityManager da transação quando informado', async () => {
+      const qb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const txRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
+      const manager = { getRepository: jest.fn().mockReturnValue(txRepo) };
+
+      await repository.invalidateSession('u1', manager as never);
+
+      expect(manager.getRepository).toHaveBeenCalledWith(User);
+      expect(entityRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('lança UpdateException quando nenhuma linha é afetada', async () => {
+      const qb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+      entityRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await expect(
+        repository.invalidateSession('missing'),
+      ).rejects.toBeInstanceOf(UpdateException);
     });
   });
 });

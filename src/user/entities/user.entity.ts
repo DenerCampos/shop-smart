@@ -50,7 +50,7 @@ export class User {
   @Column({ nullable: true })
   refreshtoken: string | null;
 
-  /** Incrementado a cada troca de senha; o JWT carrega `ver` e o AuthGuard compara. */
+  /** Incrementado a cada troca de senha ou exclusão de conta; o JWT carrega `ver` e o AuthGuard compara. */
   @Column({ type: 'int', default: 0 })
   tokenVersion: number;
 
@@ -64,7 +64,7 @@ export class User {
   updatedAt: Date;
 
   @DeleteDateColumn()
-  deletedAt: Date;
+  deletedAt: Date | null;
 
   @OneToMany(() => Revenue, (revenue) => revenue.user)
   revenues: Revenue[];
