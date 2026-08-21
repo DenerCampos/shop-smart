@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { EventEmitter } from 'events';
-import { QueryFailedError } from 'typeorm';
+import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -12,11 +12,15 @@ import { UpdateException } from 'src/exception/updateException';
 import {
   AccountDeletedReactivationRequiredException,
   EmailAlreadyExistsException,
+  FamilyGroupOwnerCannotDeleteException,
+  InvalidPasswordException,
+  LastFamilyGroupAdminException,
   UserLimitReachedException,
 } from 'src/exception/authErrorException';
 import { NotExistException } from 'src/exception/notExistException';
 import { UserCreatedEvent } from './events/user-created.event';
 import { FamilyMemberResolverService } from 'src/common/family-member-resolver/family-member-resolver.service';
+import { PasswordResetToken } from 'src/auth/entities/password-reset-token.entity';
 
 @Injectable()
 export class UserService {
@@ -31,6 +35,7 @@ export class UserService {
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
     private readonly familyMemberResolver: FamilyMemberResolverService,
+    private readonly dataSource: DataSource,
   ) {
     this.saltOrRounds = this.appConfig.getSaltEncryption();
   }
@@ -172,8 +177,63 @@ export class UserService {
     }
   }
 
-  async delete(userId: string): Promise<boolean> {
-    return this.userRepository.delete(userId);
+  async delete(userId: string, password: string): Promise<boolean> {
+    const user = await this.userRepository.find(userId);
+
+    if (!user) {
+      throw new NotExistException();
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      throw new InvalidPasswordException();
+    }
+
+    const isOwner =
+      await this.familyMemberResolver.isOwnerOfAnyActiveGroup(userId);
+
+    if (isOwner) {
+      throw new FamilyGroupOwnerCannotDeleteException();
+    }
+
+    const isSoleAdmin =
+      await this.familyMemberResolver.isSoleAcceptedAdminOfAnyGroup(userId);
+
+    if (isSoleAdmin) {
+      throw new LastFamilyGroupAdminException();
+    }
+
+    const deleted = await this.dataSource.transaction(async (manager) => {
+      await this.userRepository.invalidateSession(userId, manager);
+      await this.invalidateUnusedPasswordResetTokens(userId, manager);
+      await this.familyMemberResolver.softDeleteMembershipsForUser(
+        userId,
+        manager,
+      );
+
+      return this.userRepository.delete(userId, manager);
+    });
+
+    if (deleted) {
+      this.eventEmitter.emit('user.deleted', { userId });
+    }
+
+    return deleted;
+  }
+
+  private async invalidateUnusedPasswordResetTokens(
+    userId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    await manager
+      .getRepository(PasswordResetToken)
+      .createQueryBuilder()
+      .delete()
+      .from(PasswordResetToken)
+      .where('userId = :userId', { userId })
+      .andWhere('usedAt IS NULL')
+      .execute();
   }
 
   async restore(userId: string): Promise<boolean> {

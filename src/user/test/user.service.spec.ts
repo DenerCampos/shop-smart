@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter } from 'events';
-import { QueryFailedError } from 'typeorm';
+import { DataSource, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user.service';
 import { IUserRepository } from '../interfaces/user.repository.interface';
@@ -11,18 +11,31 @@ import { User } from '../entities/user.entity';
 import {
   AccountDeletedReactivationRequiredException,
   EmailAlreadyExistsException,
+  FamilyGroupOwnerCannotDeleteException,
+  InvalidPasswordException,
+  LastFamilyGroupAdminException,
   UserLimitReachedException,
 } from '../../exception/authErrorException';
 import { NotExistException } from '../../exception/notExistException';
 import { UpdateException } from '../../exception/updateException';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
 import { FamilyMemberResolverService } from '../../common/family-member-resolver/family-member-resolver.service';
+import { PasswordResetToken } from '../../auth/entities/password-reset-token.entity';
 
 describe('UserService', () => {
   let service: UserService;
   let userRepository: jest.Mocked<IUserRepository>;
   let eventEmitter: EventEmitter;
-  let familyMemberResolver: { isAdminOfAnyGroup: jest.Mock };
+  let familyMemberResolver: {
+    isAdminOfAnyGroup: jest.Mock;
+    isOwnerOfAnyActiveGroup: jest.Mock;
+    isSoleAcceptedAdminOfAnyGroup: jest.Mock;
+    softDeleteMembershipsForUser: jest.Mock;
+  };
+  let dataSource: { transaction: jest.Mock };
+  let txManager: {
+    getRepository: jest.Mock;
+  };
 
   beforeEach(async () => {
     userRepository = {
@@ -37,6 +50,7 @@ describe('UserService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       restore: jest.fn(),
+      invalidateSession: jest.fn(),
       remove: jest.fn(),
       exist: jest.fn(),
       saveRefreshToken: jest.fn(),
@@ -44,6 +58,26 @@ describe('UserService', () => {
     };
     familyMemberResolver = {
       isAdminOfAnyGroup: jest.fn().mockResolvedValue(true),
+      isOwnerOfAnyActiveGroup: jest.fn().mockResolvedValue(false),
+      isSoleAcceptedAdminOfAnyGroup: jest.fn().mockResolvedValue(false),
+      softDeleteMembershipsForUser: jest.fn().mockResolvedValue(undefined),
+    };
+    const resetTokenQb = {
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    txManager = {
+      getRepository: jest.fn().mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(resetTokenQb),
+      }),
+    };
+    dataSource = {
+      transaction: jest.fn(async (cb: (manager: unknown) => Promise<unknown>) =>
+        cb(txManager),
+      ),
     };
     eventEmitter = new EventEmitter();
     jest.spyOn(eventEmitter, 'emit');
@@ -60,6 +94,7 @@ describe('UserService', () => {
           provide: FamilyMemberResolverService,
           useValue: familyMemberResolver,
         },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -239,6 +274,78 @@ describe('UserService', () => {
         10,
       );
       expect(result).toEqual(users);
+    });
+  });
+
+  describe('delete', () => {
+    async function userWithPassword(password: string): Promise<User> {
+      const u = new User();
+      u.id = 'u1';
+      u.password = await bcrypt.hash(password, 4);
+      u.tokenVersion = 1;
+      u.token = 'access';
+      u.refreshtoken = 'refresh';
+      return u;
+    }
+
+    it('exige senha correta, invalida sessão e faz soft-delete', async () => {
+      const user = await userWithPassword('secret12');
+      userRepository.find.mockResolvedValue(user);
+      userRepository.delete.mockResolvedValue(true);
+
+      const result = await service.delete('u1', 'secret12');
+
+      expect(result).toBe(true);
+      expect(dataSource.transaction).toHaveBeenCalled();
+      expect(userRepository.invalidateSession).toHaveBeenCalledWith(
+        'u1',
+        txManager,
+      );
+      expect(txManager.getRepository).toHaveBeenCalledWith(PasswordResetToken);
+      expect(
+        familyMemberResolver.softDeleteMembershipsForUser,
+      ).toHaveBeenCalledWith('u1', txManager);
+      expect(userRepository.delete).toHaveBeenCalledWith('u1', txManager);
+      expect(eventEmitter.emit).toHaveBeenCalledWith('user.deleted', {
+        userId: 'u1',
+      });
+    });
+
+    it('lança InvalidPasswordException quando a senha está incorreta', async () => {
+      const user = await userWithPassword('secret12');
+      userRepository.find.mockResolvedValue(user);
+
+      await expect(service.delete('u1', 'wrong')).rejects.toBeInstanceOf(
+        InvalidPasswordException,
+      );
+      expect(userRepository.delete).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('lança FamilyGroupOwnerCannotDeleteException quando é o criador do grupo', async () => {
+      const user = await userWithPassword('secret12');
+      userRepository.find.mockResolvedValue(user);
+      familyMemberResolver.isOwnerOfAnyActiveGroup.mockResolvedValue(true);
+
+      await expect(service.delete('u1', 'secret12')).rejects.toBeInstanceOf(
+        FamilyGroupOwnerCannotDeleteException,
+      );
+      expect(userRepository.delete).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('lança LastFamilyGroupAdminException quando é o único admin', async () => {
+      const user = await userWithPassword('secret12');
+      userRepository.find.mockResolvedValue(user);
+      familyMemberResolver.isSoleAcceptedAdminOfAnyGroup.mockResolvedValue(
+        true,
+      );
+
+      await expect(service.delete('u1', 'secret12')).rejects.toBeInstanceOf(
+        LastFamilyGroupAdminException,
+      );
+      expect(userRepository.delete).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
   });
 });

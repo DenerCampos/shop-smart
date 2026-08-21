@@ -97,6 +97,8 @@ Todas as rotas são protegidas com `@UseGuards(AuthGuard)`.
 - Possui todas as permissões de admin
 - Não pode ser removido por outros admins
 - Único que pode deletar o grupo
+- **Não pode excluir a própria conta** enquanto o grupo existir (`FAMILY_GROUP_OWNER`, SP-136) — precisa fechar o grupo; promover outro admin não transfere o `ownerId`
+- Único admin accepted que **não** é o criador também não pode excluir a conta até promover outro admin (`LAST_FAMILY_GROUP_ADMIN`, SP-136)
 
 ### Filtragem por Role (Backend)
 A API filtra automaticamente os membros retornados com base na role do usuário logado. **O frontend NÃO precisa filtrar membros manualmente** — basta renderizar o que a API retorna.

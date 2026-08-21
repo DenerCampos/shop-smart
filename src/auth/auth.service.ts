@@ -19,8 +19,8 @@ import { RefreshTokenDto } from './dto/refreshToken.dto';
 import { OauthAuthorizeDto } from './dto/oauth-authorize.dto';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { OauthTokenDto } from './dto/oauth-token.dto';
-import { ReactivateAccountDto } from './dto/reactivate-account.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { RecoverAccountDto } from './dto/recover-account.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OauthClient } from './entities/oauth-client.entity';
 import { OauthCode } from './entities/oauth-code.entity';
@@ -36,6 +36,7 @@ import { SecurityAuditLogService } from '../common/logging/security-audit-log.se
 import { logJson } from '../common/logging/log-event.util';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
 import {
+  AccountDeletedReactivationRequiredException,
   InvalidOrExpiredResetTokenException,
   UserLimitReachedException,
 } from 'src/exception/authErrorException';
@@ -85,7 +86,9 @@ export class AuthService {
   ) {}
 
   async signIn(signInDto: SignInDto): Promise<jwtTokenType> {
-    const user = await this.usersService.findByEmail(signInDto.email);
+    const user = await this.usersService.findByEmailWithDeleted(
+      signInDto.email,
+    );
 
     if (!user) {
       this.securityAuditLog.authLoginFailed(signInDto.email);
@@ -97,6 +100,10 @@ export class AuthService {
     if (!isMatch) {
       this.securityAuditLog.authLoginFailed(signInDto.email);
       throw new UnauthorizedException();
+    }
+
+    if (user.deletedAt) {
+      throw new AccountDeletedReactivationRequiredException();
     }
 
     const payload = this.buildAccessPayload(user);
@@ -151,61 +158,13 @@ export class AuthService {
     return { accessToken };
   }
 
-  async reactivateAccount(dto: ReactivateAccountDto): Promise<jwtTokenType> {
-    const user = await this.usersService.findByEmailWithDeleted(dto.email);
-
-    if (!user || !user.deletedAt) {
-      this.securityAuditLog.authLoginFailed(dto.email);
-      throw new UnauthorizedException();
-    }
-
-    const isMatch = await bcrypt.compare(dto.password, user.password);
-
-    if (!isMatch) {
-      this.securityAuditLog.authLoginFailed(dto.email);
-      throw new UnauthorizedException();
-    }
-
-    const totalUsers = await this.usersService.countActiveUsers();
-    if (totalUsers >= this.usersService.getUserLimit()) {
-      throw new UserLimitReachedException();
-    }
-
-    const restored = await this.usersService.restore(user.id);
-    if (!restored) {
-      logJson(
-        this.logger,
-        {
-          event: 'auth_reactivate_restore_failed',
-          userId: user.id,
-        },
-        'error',
-      );
-      throw new InternalServerErrorException();
-    }
-
-    const payload = this.buildAccessPayload(user);
-    const accessToken = await this.jwtService.signAsync(payload);
-
-    await this.usersService.saveToken(user.id, accessToken);
-
-    this.eventEmitter.emit('auth.login_success', { userId: user.id });
-    this.eventEmitter.emit('user.reactivated', { userId: user.id });
-
-    return { accessToken };
-  }
-
   /**
    * A resposta é idêntica exista ou não a conta: qualquer diferença
    * transformaria a rota em um oráculo de e-mails cadastrados.
    */
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    const genericResponse = {
-      message:
-        'Se este e-mail estiver cadastrado, enviaremos as instruções de redefinição em instantes.',
-    };
+    const genericResponse = this.passwordResetGenericResponse();
 
-    // findByEmail ignora contas soft-deleted: elas usam /auth/reactivate.
     const user = await this.usersService.findByEmail(dto.email);
 
     if (!user) {
@@ -213,71 +172,41 @@ export class AuthService {
       return genericResponse;
     }
 
-    const cooldownStart = new Date(
-      Date.now() - this.PASSWORD_RESET_COOLDOWN_MS,
-    );
-    const recentRequest = await this.passwordResetTokenRepository.findOne({
-      where: { user: { id: user.id }, createdAt: MoreThan(cooldownStart) },
-    });
-
-    if (recentRequest) {
-      this.securityAuditLog.passwordResetRequested(dto.email, 'cooldown');
-      return genericResponse;
-    }
-
-    const staleTokens = await this.passwordResetTokenRepository.find({
-      where: { user: { id: user.id }, usedAt: IsNull() },
-      select: ['id'],
-    });
-
-    if (staleTokens.length > 0) {
-      await this.passwordResetTokenRepository.delete(
-        staleTokens.map((token) => token.id),
-      );
-    }
-
-    const token = randomBytes(32).toString('hex');
-    const ttlMinutes = this.appConfig.getPasswordResetTokenTtlMinutes();
-
-    await this.passwordResetTokenRepository.save(
-      this.passwordResetTokenRepository.create({
-        tokenHash: this.hashResetToken(token),
-        user,
-        userId: user.id,
-        expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
-        usedAt: null,
-      }),
-    );
-
-    // Persiste o token e responde; o Brevo não pode prender a request nem
-    // virar oráculo de timing (conta existente vs. e-mail desconhecido).
-    void this.emailService
-      .sendPasswordReset({
-        to: user.email,
-        name: user.name,
-        token,
-      })
-      .then((result) => {
-        this.securityAuditLog.passwordResetRequested(
-          dto.email,
-          result.success ? 'sent' : 'send_failed',
-        );
-      })
-      .catch(() => {
-        this.securityAuditLog.passwordResetRequested(dto.email, 'send_failed');
-      });
+    await this.issuePasswordResetToken(user, dto.email, 'password_reset');
 
     return genericResponse;
   }
 
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+  /**
+   * Mesma resposta genérica do forgot-password. Só envia e-mail quando a
+   * conta está soft-deleted (anti-oráculo para quem chama a rota direto).
+   */
+  async recoverAccount(dto: RecoverAccountDto): Promise<{ message: string }> {
+    const genericResponse = this.passwordResetGenericResponse();
+    const user = await this.usersService.findByEmailWithDeleted(dto.email);
+
+    if (!user || !user.deletedAt) {
+      this.securityAuditLog.accountRecoveryRequested(
+        dto.email,
+        user ? 'active_account' : 'unknown_email',
+      );
+      return genericResponse;
+    }
+
+    await this.issuePasswordResetToken(user, dto.email, 'account_recovery');
+
+    return genericResponse;
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<jwtTokenType> {
     const tokenHash = this.hashResetToken(dto.token);
     const passwordHash = await bcrypt.hash(
       dto.password,
       this.appConfig.getSaltEncryption(),
     );
 
-    let userId: string | null = null;
+    let sessionUser: User | null = null;
+    let wasDeleted = false;
 
     await this.dataSource.transaction(async (manager) => {
       const tokenRepo = manager.getRepository(PasswordResetToken);
@@ -301,27 +230,67 @@ export class AuthService {
         withDeleted: true,
       });
 
-      if (!user || user.deletedAt) {
+      if (!user) {
         this.securityAuditLog.passwordResetFailed('inactive_user');
         throw new InvalidOrExpiredResetTokenException();
       }
 
-      userId = user.id;
+      if (user.deletedAt) {
+        const totalUsers = await this.usersService.countActiveUsers();
+        if (totalUsers >= this.usersService.getUserLimit()) {
+          throw new UserLimitReachedException();
+        }
 
-      await userRepo.update(userId, {
+        const restored = await userRepo.restore(user.id);
+        if (!restored.affected) {
+          logJson(
+            this.logger,
+            {
+              event: 'auth_reactivate_restore_failed',
+              userId: user.id,
+            },
+            'error',
+          );
+          throw new InternalServerErrorException();
+        }
+
+        user.deletedAt = null;
+        wasDeleted = true;
+      }
+
+      const nextVersion = accessTokenVersion(user) + 1;
+
+      await userRepo.update(user.id, {
         password: passwordHash,
-        tokenVersion: accessTokenVersion(user) + 1,
+        tokenVersion: nextVersion,
         token: null,
         refreshtoken: null,
       });
+
+      user.tokenVersion = nextVersion;
+      sessionUser = user;
 
       record.usedAt = new Date();
       await tokenRepo.save(record);
     });
 
-    this.securityAuditLog.passwordResetCompleted(userId as string);
+    if (!sessionUser) {
+      throw new InternalServerErrorException();
+    }
 
-    return { message: 'Senha redefinida com sucesso.' };
+    const payload = this.buildAccessPayload(sessionUser);
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    await this.usersService.saveToken(sessionUser.id, accessToken);
+
+    this.securityAuditLog.passwordResetCompleted(sessionUser.id);
+    this.eventEmitter.emit('auth.login_success', { userId: sessionUser.id });
+
+    if (wasDeleted) {
+      this.eventEmitter.emit('user.reactivated', { userId: sessionUser.id });
+    }
+
+    return { accessToken };
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<jwtTokenType> {
@@ -625,6 +594,89 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  private passwordResetGenericResponse(): { message: string } {
+    return {
+      message:
+        'Se este e-mail estiver cadastrado, enviaremos as instruções de redefinição em instantes.',
+    };
+  }
+
+  private async issuePasswordResetToken(
+    user: User,
+    email: string,
+    kind: 'password_reset' | 'account_recovery',
+  ): Promise<void> {
+    const cooldownStart = new Date(
+      Date.now() - this.PASSWORD_RESET_COOLDOWN_MS,
+    );
+    const recentRequest = await this.passwordResetTokenRepository.findOne({
+      where: { user: { id: user.id }, createdAt: MoreThan(cooldownStart) },
+    });
+
+    if (recentRequest) {
+      if (kind === 'account_recovery') {
+        this.securityAuditLog.accountRecoveryRequested(email, 'cooldown');
+      } else {
+        this.securityAuditLog.passwordResetRequested(email, 'cooldown');
+      }
+      return;
+    }
+
+    const staleTokens = await this.passwordResetTokenRepository.find({
+      where: { user: { id: user.id }, usedAt: IsNull() },
+      select: ['id'],
+    });
+
+    if (staleTokens.length > 0) {
+      await this.passwordResetTokenRepository.delete(
+        staleTokens.map((token) => token.id),
+      );
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const ttlMinutes = this.appConfig.getPasswordResetTokenTtlMinutes();
+
+    await this.passwordResetTokenRepository.save(
+      this.passwordResetTokenRepository.create({
+        tokenHash: this.hashResetToken(token),
+        user,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+        usedAt: null,
+      }),
+    );
+
+    const send =
+      kind === 'account_recovery'
+        ? this.emailService.sendAccountRecovery({
+            to: user.email,
+            name: user.name,
+            token,
+          })
+        : this.emailService.sendPasswordReset({
+            to: user.email,
+            name: user.name,
+            token,
+          });
+
+    void send
+      .then((result) => {
+        const outcome = result.success ? 'sent' : 'send_failed';
+        if (kind === 'account_recovery') {
+          this.securityAuditLog.accountRecoveryRequested(email, outcome);
+        } else {
+          this.securityAuditLog.passwordResetRequested(email, outcome);
+        }
+      })
+      .catch(() => {
+        if (kind === 'account_recovery') {
+          this.securityAuditLog.accountRecoveryRequested(email, 'send_failed');
+        } else {
+          this.securityAuditLog.passwordResetRequested(email, 'send_failed');
+        }
+      });
   }
 
   private hashResetToken(token: string): string {

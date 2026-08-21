@@ -19,13 +19,27 @@ function mockQb(extras: Record<string, jest.Mock> = {}) {
     take: jest.fn(),
     getOne: jest.fn().mockResolvedValue(null),
     getMany: jest.fn().mockResolvedValue([]),
+    getRawOne: jest.fn().mockResolvedValue(null),
     getRawMany: jest.fn().mockResolvedValue([]),
     getCount: jest.fn().mockResolvedValue(0),
+    subQuery: jest.fn(),
+    from: jest.fn(),
+    softDelete: jest.fn(),
+    execute: jest.fn().mockResolvedValue({ affected: 0 }),
     ...extras,
   };
+  qb.subQuery.mockReturnValue(qb);
+  qb.from.mockReturnValue(qb);
   for (const [k, v] of Object.entries(qb)) {
     if (
-      !['getOne', 'getMany', 'getRawMany', 'getCount'].includes(k) &&
+      ![
+        'getOne',
+        'getMany',
+        'getRawOne',
+        'getRawMany',
+        'getCount',
+        'execute',
+      ].includes(k) &&
       typeof v.mockReturnValue === 'function'
     ) {
       v.mockReturnValue(qb);
@@ -185,13 +199,58 @@ describe('FamilyMemberResolverService', () => {
       mockQb({ getCount: jest.fn().mockResolvedValue(2) }),
     );
 
-    await expect(
-      service.shareAnyAcceptedGroup('a', 'b'),
-    ).resolves.toBe(true);
+    await expect(service.shareAnyAcceptedGroup('a', 'b')).resolves.toBe(true);
   });
 
   it('shareAnyAcceptedGroup retorna true para o mesmo userId sem query', async () => {
     await expect(service.shareAnyAcceptedGroup('a', 'a')).resolves.toBe(true);
     expect(memberRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('isOwnerOfAnyActiveGroup retorna true quando o usuário é owner de grupo ativo', async () => {
+    memberRepo.createQueryBuilder.mockReturnValue(
+      mockQb({ getCount: jest.fn().mockResolvedValue(1) }),
+    );
+
+    await expect(service.isOwnerOfAnyActiveGroup('u1')).resolves.toBe(true);
+  });
+
+  it('isOwnerOfAnyActiveGroup retorna false sem grupo ativo', async () => {
+    memberRepo.createQueryBuilder.mockReturnValue(
+      mockQb({ getCount: jest.fn().mockResolvedValue(0) }),
+    );
+
+    await expect(service.isOwnerOfAnyActiveGroup('u1')).resolves.toBe(false);
+  });
+
+  it('isSoleAcceptedAdminOfAnyGroup retorna true quando o usuário é o único admin', async () => {
+    memberRepo.createQueryBuilder.mockReturnValue(
+      mockQb({ getRawOne: jest.fn().mockResolvedValue({ id: 'm1' }) }),
+    );
+
+    await expect(service.isSoleAcceptedAdminOfAnyGroup('u1')).resolves.toBe(
+      true,
+    );
+  });
+
+  it('isSoleAcceptedAdminOfAnyGroup retorna false quando não é único admin', async () => {
+    memberRepo.createQueryBuilder.mockReturnValue(
+      mockQb({ getRawOne: jest.fn().mockResolvedValue(null) }),
+    );
+
+    await expect(service.isSoleAcceptedAdminOfAnyGroup('u1')).resolves.toBe(
+      false,
+    );
+  });
+
+  it('softDeleteMembershipsForUser aplica soft delete nas memberships do usuário', async () => {
+    const qb = mockQb();
+    memberRepo.createQueryBuilder.mockReturnValue(qb);
+
+    await service.softDeleteMembershipsForUser('u1');
+
+    expect(qb.softDelete).toHaveBeenCalled();
+    expect(qb.where).toHaveBeenCalledWith('userId = :userId', { userId: 'u1' });
+    expect(qb.execute).toHaveBeenCalled();
   });
 });

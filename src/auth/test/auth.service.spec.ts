@@ -2,11 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
-import {
-  BadRequestException,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from '../auth.service';
 import { UserService } from '../../user/user.service';
@@ -60,6 +56,7 @@ describe('AuthService', () => {
       | 'passwordResetRequested'
       | 'passwordResetFailed'
       | 'passwordResetCompleted'
+      | 'accountRecoveryRequested'
     >
   >;
   let oauthClientRepo: ReturnType<typeof createRepositoryMock<OauthClient>>;
@@ -70,8 +67,14 @@ describe('AuthService', () => {
   let passwordResetRepo: ReturnType<
     typeof createRepositoryMock<PasswordResetToken>
   >;
-  let userRepoInTx: { update: jest.Mock; findOne: jest.Mock };
-  let emailService: jest.Mocked<Pick<EmailService, 'sendPasswordReset'>>;
+  let userRepoInTx: {
+    update: jest.Mock;
+    findOne: jest.Mock;
+    restore: jest.Mock;
+  };
+  let emailService: jest.Mocked<
+    Pick<EmailService, 'sendPasswordReset' | 'sendAccountRecovery'>
+  >;
   let familyGroupService: jest.Mocked<
     Pick<FamilyGroupService, 'findGroupsByUser'>
   >;
@@ -99,6 +102,7 @@ describe('AuthService', () => {
       passwordResetRequested: jest.fn(),
       passwordResetFailed: jest.fn(),
       passwordResetCompleted: jest.fn(),
+      accountRecoveryRequested: jest.fn(),
     };
     oauthClientRepo = createRepositoryMock<OauthClient>();
     oauthCodeRepo = createRepositoryMock<OauthCode>();
@@ -108,9 +112,11 @@ describe('AuthService', () => {
     userRepoInTx = {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
       findOne: jest.fn().mockResolvedValue(null),
+      restore: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     emailService = {
       sendPasswordReset: jest.fn().mockResolvedValue({ success: true }),
+      sendAccountRecovery: jest.fn().mockResolvedValue({ success: true }),
     };
     familyGroupService = { findGroupsByUser: jest.fn().mockResolvedValue([]) };
 
@@ -173,7 +179,7 @@ describe('AuthService', () => {
   describe('signIn', () => {
     it('retorna accessToken quando credenciais são válidas', async () => {
       const user = await userWithPassword();
-      usersService.findByEmail.mockResolvedValue(user);
+      usersService.findByEmailWithDeleted.mockResolvedValue(user);
 
       const result = await service.signIn({
         email: testEmail,
@@ -194,7 +200,7 @@ describe('AuthService', () => {
     });
 
     it('lança Unauthorized e audita quando usuário não existe', async () => {
-      usersService.findByEmail.mockResolvedValue(null);
+      usersService.findByEmailWithDeleted.mockResolvedValue(null);
 
       await expect(
         service.signIn({ email: testEmail, password: plainPassword }),
@@ -205,12 +211,38 @@ describe('AuthService', () => {
 
     it('lança Unauthorized e audita quando senha é inválida', async () => {
       const user = await userWithPassword();
-      usersService.findByEmail.mockResolvedValue(user);
+      usersService.findByEmailWithDeleted.mockResolvedValue(user);
 
       await expect(
         service.signIn({ email: testEmail, password: 'wrong' }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
 
+      expect(securityAuditLog.authLoginFailed).toHaveBeenCalledWith(testEmail);
+    });
+
+    it('lança ACCOUNT_DELETED_REACTIVATION_REQUIRED quando senha está correta e a conta está soft-deleted', async () => {
+      const user = await userWithPassword();
+      user.deletedAt = new Date();
+      usersService.findByEmailWithDeleted.mockResolvedValue(user);
+
+      await expect(
+        service.signIn({ email: testEmail, password: plainPassword }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'ACCOUNT_DELETED_REACTIVATION_REQUIRED',
+        }),
+      });
+      expect(usersService.saveToken).not.toHaveBeenCalled();
+    });
+
+    it('lança Unauthorized quando a senha está errada mesmo com conta soft-deleted', async () => {
+      const user = await userWithPassword();
+      user.deletedAt = new Date();
+      usersService.findByEmailWithDeleted.mockResolvedValue(user);
+
+      await expect(
+        service.signIn({ email: testEmail, password: 'wrong' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
       expect(securityAuditLog.authLoginFailed).toHaveBeenCalledWith(testEmail);
     });
   });
@@ -262,101 +294,50 @@ describe('AuthService', () => {
     });
   });
 
-  describe('reactivateAccount', () => {
-    it('restaura conta e retorna accessToken com senha correta', async () => {
+  describe('recoverAccount', () => {
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+    it('envia e-mail de recuperação quando a conta está soft-deleted', async () => {
       const user = await userWithPassword();
       user.deletedAt = new Date();
       usersService.findByEmailWithDeleted.mockResolvedValue(user);
+      passwordResetRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.reactivateAccount({
-        email: testEmail,
-        password: plainPassword,
-      });
+      const result = await service.recoverAccount({ email: testEmail });
+      await flush();
 
-      expect(usersService.restore).toHaveBeenCalledWith(user.id);
-      expect(result.accessToken).toBe('jwt-access-token');
-      expect(usersService.saveToken).toHaveBeenCalledWith(
-        user.id,
-        'jwt-access-token',
+      expect(result.message).toContain('Se este e-mail estiver cadastrado');
+      expect(emailService.sendAccountRecovery).toHaveBeenCalled();
+      expect(securityAuditLog.accountRecoveryRequested).toHaveBeenCalledWith(
+        testEmail,
+        'sent',
       );
     });
 
-    it('lança Unauthorized quando e-mail não existe', async () => {
+    it('responde igual e não envia quando a conta não existe', async () => {
       usersService.findByEmailWithDeleted.mockResolvedValue(null);
 
-      await expect(
-        service.reactivateAccount({
-          email: testEmail,
-          password: plainPassword,
-        }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      const result = await service.recoverAccount({ email: testEmail });
 
-      expect(securityAuditLog.authLoginFailed).toHaveBeenCalledWith(testEmail);
-      expect(usersService.restore).not.toHaveBeenCalled();
+      expect(result.message).toContain('Se este e-mail estiver cadastrado');
+      expect(emailService.sendAccountRecovery).not.toHaveBeenCalled();
+      expect(securityAuditLog.accountRecoveryRequested).toHaveBeenCalledWith(
+        testEmail,
+        'unknown_email',
+      );
     });
 
-    it('lança Unauthorized quando a conta está ativa (não deletada)', async () => {
+    it('responde igual e não envia quando a conta está ativa', async () => {
       const user = await userWithPassword();
-      user.deletedAt = null as unknown as Date;
       usersService.findByEmailWithDeleted.mockResolvedValue(user);
 
-      await expect(
-        service.reactivateAccount({
-          email: testEmail,
-          password: plainPassword,
-        }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      await service.recoverAccount({ email: testEmail });
 
-      expect(securityAuditLog.authLoginFailed).toHaveBeenCalledWith(testEmail);
-      expect(usersService.restore).not.toHaveBeenCalled();
-    });
-
-    it('lança Unauthorized quando senha é inválida', async () => {
-      const user = await userWithPassword();
-      user.deletedAt = new Date();
-      usersService.findByEmailWithDeleted.mockResolvedValue(user);
-
-      await expect(
-        service.reactivateAccount({
-          email: testEmail,
-          password: 'wrong-password',
-        }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
-
-      expect(usersService.restore).not.toHaveBeenCalled();
-    });
-
-    it('lança UserLimitReachedException quando limite de ativos foi atingido', async () => {
-      const user = await userWithPassword();
-      user.deletedAt = new Date();
-      usersService.findByEmailWithDeleted.mockResolvedValue(user);
-      usersService.countActiveUsers.mockResolvedValue(15);
-
-      await expect(
-        service.reactivateAccount({
-          email: testEmail,
-          password: plainPassword,
-        }),
-      ).rejects.toBeInstanceOf(UserLimitReachedException);
-
-      expect(usersService.restore).not.toHaveBeenCalled();
-    });
-
-    it('lança InternalServerErrorException quando restore não afeta nenhuma linha', async () => {
-      const user = await userWithPassword();
-      user.deletedAt = new Date();
-      usersService.findByEmailWithDeleted.mockResolvedValue(user);
-      usersService.restore.mockResolvedValue(false);
-
-      await expect(
-        service.reactivateAccount({
-          email: testEmail,
-          password: plainPassword,
-        }),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
-
-      expect(usersService.restore).toHaveBeenCalledWith(user.id);
-      expect(usersService.saveToken).not.toHaveBeenCalled();
+      expect(emailService.sendAccountRecovery).not.toHaveBeenCalled();
+      expect(securityAuditLog.accountRecoveryRequested).toHaveBeenCalledWith(
+        testEmail,
+        'active_account',
+      );
     });
   });
 
@@ -515,18 +496,19 @@ describe('AuthService', () => {
       };
     }
 
-    it('troca a senha, marca o token como usado e incrementa tokenVersion', async () => {
+    it('troca a senha, marca o token como usado, incrementa tokenVersion e autentica', async () => {
       const user = await userWithPassword();
       user.tokenVersion = 0;
       const record = validRecord(user);
       passwordResetRepo.findOne.mockResolvedValue(record);
       userRepoInTx.findOne.mockResolvedValue(user);
 
-      await service.resetPassword({
+      const result = await service.resetPassword({
         token: rawToken,
         password: 'nova-senha-1',
       });
 
+      expect(result.accessToken).toBe('jwt-access-token');
       expect(userRepoInTx.update).toHaveBeenCalledWith(
         user.id,
         expect.objectContaining({
@@ -537,6 +519,10 @@ describe('AuthService', () => {
       );
       expect(passwordResetRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'token-1', usedAt: expect.any(Date) }),
+      );
+      expect(usersService.saveToken).toHaveBeenCalledWith(
+        user.id,
+        'jwt-access-token',
       );
       expect(securityAuditLog.passwordResetCompleted).toHaveBeenCalledWith(
         user.id,
@@ -576,18 +562,37 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('rejeita quando a conta está soft-deleted', async () => {
+    it('restaura conta soft-deleted, define senha e retorna accessToken', async () => {
+      const user = await userWithPassword();
+      user.deletedAt = new Date();
+      user.tokenVersion = 0;
+      passwordResetRepo.findOne.mockResolvedValue(validRecord(user));
+      userRepoInTx.findOne.mockResolvedValue(user);
+
+      const result = await service.resetPassword({
+        token: rawToken,
+        password: 'nova-senha-1',
+      });
+
+      expect(userRepoInTx.restore).toHaveBeenCalledWith(user.id);
+      expect(result.accessToken).toBe('jwt-access-token');
+      expect(usersService.saveToken).toHaveBeenCalledWith(
+        user.id,
+        'jwt-access-token',
+      );
+    });
+
+    it('lança UserLimitReachedException ao reativar quando o limite de ativos foi atingido', async () => {
       const user = await userWithPassword();
       user.deletedAt = new Date();
       passwordResetRepo.findOne.mockResolvedValue(validRecord(user));
       userRepoInTx.findOne.mockResolvedValue(user);
+      usersService.countActiveUsers.mockResolvedValue(15);
 
       await expect(
         service.resetPassword({ token: rawToken, password: 'nova-senha-1' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(securityAuditLog.passwordResetFailed).toHaveBeenCalledWith(
-        'inactive_user',
-      );
+      ).rejects.toBeInstanceOf(UserLimitReachedException);
+      expect(userRepoInTx.update).not.toHaveBeenCalled();
     });
   });
 });

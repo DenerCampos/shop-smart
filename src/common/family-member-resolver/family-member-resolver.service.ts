@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { FamilyGroupMember } from 'src/family-group/entities/family-group-member.entity';
 import { FAMILY_GROUP_ROLES } from 'src/family-group/types/family-group-role.type';
 import { FAMILY_GROUP_MEMBER_STATUS } from 'src/family-group/types/family-group-member-status.type';
@@ -144,6 +144,61 @@ export class FamilyMemberResolverService {
       .getCount();
 
     return count > 0;
+  }
+
+  async isOwnerOfAnyActiveGroup(userId: string): Promise<boolean> {
+    const count = await this.memberEntity
+      .createQueryBuilder('member')
+      .innerJoin('member.familyGroup', 'familyGroup')
+      .where('familyGroup.ownerId = :userId', { userId })
+      .andWhere('familyGroup.deletedAt IS NULL')
+      .getCount();
+
+    return count > 0;
+  }
+
+  async isSoleAcceptedAdminOfAnyGroup(userId: string): Promise<boolean> {
+    const row = await this.memberEntity
+      .createQueryBuilder('member')
+      .innerJoin('member.familyGroup', 'familyGroup')
+      .select('member.id', 'id')
+      .where('member.userId = :userId', { userId })
+      .andWhere('member.role = :role', { role: FAMILY_GROUP_ROLES.ADMIN })
+      .andWhere('member.status = :status', {
+        status: FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+      })
+      .andWhere('member.deletedAt IS NULL')
+      .andWhere('familyGroup.deletedAt IS NULL')
+      .andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('COUNT(other.id)')
+          .from(FamilyGroupMember, 'other')
+          .where('other.familyGroupId = familyGroup.id')
+          .andWhere('other.role = :role')
+          .andWhere('other.status = :status')
+          .andWhere('other.deletedAt IS NULL')
+          .getQuery();
+
+        return `${subQuery} = 1`;
+      })
+      .getRawOne();
+
+    return Boolean(row);
+  }
+
+  async softDeleteMembershipsForUser(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager?.getRepository(FamilyGroupMember) ?? this.memberEntity;
+
+    await repo
+      .createQueryBuilder()
+      .softDelete()
+      .where('userId = :userId', { userId })
+      .andWhere('deletedAt IS NULL')
+      .execute();
   }
 
   /** Grupo em que o ator é admin e o alvo é membro accepted (primeiro por prioridade). */

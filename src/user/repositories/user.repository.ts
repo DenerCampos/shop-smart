@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { User } from '../entities/user.entity';
-import { Equal, Not, Repository } from 'typeorm';
+import { EntityManager, Equal, Not, Repository } from 'typeorm';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { UpdateException } from 'src/exception/updateException';
@@ -111,8 +111,27 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
-  async delete(id: string): Promise<boolean> {
-    const result = await this.userEntity.softDelete({ id });
+  async invalidateSession(id: string, manager?: EntityManager): Promise<void> {
+    const repo = manager?.getRepository(User) ?? this.userEntity;
+    const result = await repo
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        tokenVersion: () => 'tokenVersion + 1',
+        token: null,
+        refreshtoken: null,
+      })
+      .where('id = :id', { id })
+      .execute();
+
+    if (!result.affected) {
+      throw new UpdateException();
+    }
+  }
+
+  async delete(id: string, manager?: EntityManager): Promise<boolean> {
+    const repo = manager?.getRepository(User) ?? this.userEntity;
+    const result = await repo.softDelete({ id });
 
     return result.affected === 1 ? true : false;
   }

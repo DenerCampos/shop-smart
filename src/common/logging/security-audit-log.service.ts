@@ -62,4 +62,20 @@ export class SecurityAuditLogService {
       userId,
     });
   }
+
+  accountRecoveryRequested(
+    email: string,
+    outcome:
+      | 'sent'
+      | 'unknown_email'
+      | 'active_account'
+      | 'cooldown'
+      | 'send_failed',
+  ): void {
+    logJson(this.logger, {
+      event: 'account_recovery_requested',
+      email,
+      outcome,
+    });
+  }
 }

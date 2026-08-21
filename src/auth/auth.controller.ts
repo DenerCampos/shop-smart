@@ -17,7 +17,7 @@ import { OauthAuthorizeDto } from './dto/oauth-authorize.dto';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { OauthTokenDto } from './dto/oauth-token.dto';
 import { DemoLoginDto } from './dto/demo-login.dto';
-import { ReactivateAccountDto } from './dto/reactivate-account.dto';
+import { RecoverAccountDto } from './dto/recover-account.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { jwtTokenType } from './types/jwtTokenType';
@@ -75,9 +75,11 @@ export class AuthController {
 
   @Throttle({ default: { limit: 3, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
-  @Post('reactivate')
-  async reactivate(@Body() dto: ReactivateAccountDto): Promise<jwtTokenType> {
-    return this.authService.reactivateAccount(dto);
+  @Post('recover-account')
+  async recoverAccount(
+    @Body() dto: RecoverAccountDto,
+  ): Promise<{ message: string }> {
+    return this.authService.recoverAccount(dto);
   }
 
   // Rota pública e não autenticada: throttle baixo, e o service ainda aplica
@@ -94,9 +96,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: seconds(60) } })
   @HttpCode(HttpStatus.OK)
   @Post('reset-password')
-  async resetPassword(
-    @Body() dto: ResetPasswordDto,
-  ): Promise<{ message: string }> {
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<jwtTokenType> {
     return this.authService.resetPassword(dto);
   }
 }
