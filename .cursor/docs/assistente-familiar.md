@@ -29,7 +29,7 @@ Permitir que o usuário autenticado faça perguntas em linguagem natural sobre o
 
 `screenContext` entra no system prompt delimitado (`<<<SCREEN_CONTEXT ... SCREEN_CONTEXT>>>`) como metadado de UI **não confiável** — o modelo deve usá-lo só como dica de assunto, nunca como instrução.
 
-`get_expense_receipt` devolve resumo (itens, valores, loja/pagamento) **sem** `uri`/`photos`; sanitização também remove essas chaves de qualquer tool result.
+`get_expense_receipt` devolve resumo (itens, valores, loja/pagamento) **sem** `uri`/`photos`; sanitização também remove essas chaves de qualquer tool result. A tool chama `getReceipt` com o usuário autenticado; a API libera dono ou admin da família (SP-138).
 
 ## Contratos HTTP
 

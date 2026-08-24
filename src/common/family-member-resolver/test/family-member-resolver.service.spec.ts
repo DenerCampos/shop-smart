@@ -207,6 +207,35 @@ describe('FamilyMemberResolverService', () => {
     expect(memberRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
+  it('isAdminManagingTarget retorna true para o próprio usuário sem query', async () => {
+    await expect(service.isAdminManagingTarget('u1', 'u1')).resolves.toBe(true);
+    expect(memberRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('assertAdminManagingTarget no-op para o próprio usuário sem query', async () => {
+    await expect(
+      service.assertAdminManagingTarget('u1', 'u1'),
+    ).resolves.toBeUndefined();
+    expect(memberRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('assertAdminManagingTarget lança Forbidden sem ownerUserId', async () => {
+    await expect(
+      service.assertAdminManagingTarget('u1', undefined),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(memberRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('assertAdminManagingTarget lança Forbidden quando não é admin do alvo', async () => {
+    memberRepo.createQueryBuilder.mockReturnValue(
+      mockQb({ getRawMany: jest.fn().mockResolvedValue([]) }),
+    );
+
+    await expect(
+      service.assertAdminManagingTarget('admin-1', 'target-1'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('isOwnerOfAnyActiveGroup retorna true quando o usuário é owner de grupo ativo', async () => {
     memberRepo.createQueryBuilder.mockReturnValue(
       mockQb({ getCount: jest.fn().mockResolvedValue(1) }),

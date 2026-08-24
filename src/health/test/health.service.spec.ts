@@ -803,7 +803,9 @@ describe('HealthService', () => {
         familyGroupId: 'group-2',
       });
 
-      expect(familyMemberResolver.getPrimaryFamilyGroupId).not.toHaveBeenCalled();
+      expect(
+        familyMemberResolver.getPrimaryFamilyGroupId,
+      ).not.toHaveBeenCalled();
       expect(
         familyMemberResolver.getAcceptedMemberUserIds,
       ).toHaveBeenCalledWith('user-1', 'group-2');

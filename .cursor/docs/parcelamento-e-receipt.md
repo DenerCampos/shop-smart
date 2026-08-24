@@ -32,6 +32,10 @@ Suportar parcelamento finito e infinito em despesas e receitas, garantia por ite
 
 `GET /expense/:id/receipt` ou `GET /revenue/:id/receipt` retorna payload para UI tipo cupom (itens, pagamento, fotos, parcela, garantias).
 
+**Permissão (SP-138):** dono do lançamento **ou** admin de um grupo familiar em que o dono é membro `accepted` (`FamilyMemberResolverService.assertAdminManagingTarget`). Membro comum só vê o próprio cupom. Upload/exclusão de fotos continua só do dono.
+
+A resposta HTTP passa por `responseService.mapToDto()` (`ExpenseReceiptDto` / `RevenueReceiptDto`): `user` é `OwnerResponseDto` (`id`, `name`, `profileImage`) — sem senha, token ou e-mail.
+
 ### Fotos
 
 - `POST /expense|revenue/:id/photos` — multipart, máx. 5
@@ -137,11 +141,16 @@ Datas persistidas em meio-dia UTC (`parseCalendarDateInput`) para evitar off-by-
 - `src/common/installment/installment-planner.service.ts`
 - `src/expense/expense.service.ts`, `expense.controller.ts`, `expense.repository.ts`
 - `src/revenue/revenue.service.ts`, `revenue.controller.ts`, `revenue.repository.ts`
+- `src/common/family-member-resolver/family-member-resolver.service.ts` (`assertAdminManagingTarget`)
 - `db/migrations/1775200000000-AddFinancialInstallmentFields.ts`
 
 ## Testes
 
+Unitários: `src/expense/test/expense.service.spec.ts`, `src/revenue/test/revenue.service.spec.ts` (`getReceipt`).
+
+E2E ACL do cupom (dono 200, admin 200 sem PII, membro 403, 401, 404):
+
 ```bash
-npm run test:e2e:low-mem -- --testPathPattern=expense
-npm run test:e2e:low-mem -- --testPathPattern=revenue
+npm run test:e2e:low-mem -- --testPathPattern=financial-receipt
+npm run test:e2e:low-mem -- --testPathPattern=expense-revenue-reports
 ```
