@@ -30,6 +30,8 @@ export interface IExpenseRepository {
     search?: string,
     isRecurring?: boolean,
     isInstallment?: boolean,
+    startDate?: string,
+    endDate?: string,
   ): Promise<[Expense[], number]>;
   find(id: string): Promise<Expense | null>;
   update(
@@ -55,6 +57,28 @@ export interface IExpenseRepository {
     endDate: string,
     limit?: number,
   ): Promise<Expense[]>;
+  searchItems(filter: {
+    userIds: string[];
+    name?: string;
+    category?: string;
+    store?: string;
+    from?: string | null;
+    to?: string | null;
+    limit: number;
+  }): Promise<
+    Array<{
+      expenseId: string;
+      expenseName: string;
+      date: Date;
+      store: string | null;
+      itemName: string;
+      quantity: number;
+      unit: string;
+      total: number;
+      category: string | null;
+      userId: string;
+    }>
+  >;
   findByMonth(userId: string, month: number): Promise<Expense[] | []>;
   exist(userId: string): Promise<boolean>;
   getLatest(userIds: string[], limit: number): Promise<Expense[] | []>;

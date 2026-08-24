@@ -12,6 +12,11 @@ import { Store } from 'src/store/entities/store.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { CreateItemEntityDto } from '../dto/create-item-entity.dto';
 import { UpdateItemEntityDto } from '../dto/update-item-entity.dto';
+import { nextCalendarDateString } from 'src/common/utils/dates.util';
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
 
 @Injectable()
 export class ExpenseRepository implements IExpenseRepository {
@@ -67,6 +72,8 @@ export class ExpenseRepository implements IExpenseRepository {
     search?: string,
     isRecurring?: boolean,
     isInstallment?: boolean,
+    startDate?: string,
+    endDate?: string,
   ): Promise<[Expense[], number]> {
     const queryBuilder = this.expenseEntity
       .createQueryBuilder('expense')
@@ -98,6 +105,13 @@ export class ExpenseRepository implements IExpenseRepository {
       queryBuilder.andWhere('expense.isInstallment = :isInstallment', {
         isInstallment,
       });
+    }
+
+    if (startDate && endDate) {
+      queryBuilder.andWhere(
+        'expense.date >= :startDate AND expense.date < :endDateExclusive',
+        { startDate, endDateExclusive: nextCalendarDateString(endDate) },
+      );
     }
 
     if (page !== undefined && limit !== undefined) {
@@ -265,6 +279,103 @@ export class ExpenseRepository implements IExpenseRepository {
       .addOrderBy('item.createdAt', 'ASC')
       .take(take)
       .getMany();
+  }
+
+  /**
+   * Busca itens de despesa com filtros no SQL (uso do Assistente Familiar).
+   * Sem from/to = toda a base; com intervalo = date >= from AND date < dia seguinte a to.
+   */
+  async searchItems(filter: {
+    userIds: string[];
+    name?: string;
+    category?: string;
+    store?: string;
+    from?: string | null;
+    to?: string | null;
+    limit: number;
+  }): Promise<
+    Array<{
+      expenseId: string;
+      expenseName: string;
+      date: Date;
+      store: string | null;
+      itemName: string;
+      quantity: number;
+      unit: string;
+      total: number;
+      category: string | null;
+      userId: string;
+    }>
+  > {
+    if (!filter.userIds.length) return [];
+
+    const take = Math.max(1, Math.min(filter.limit, 100));
+    const qb = this.expenseEntity
+      .createQueryBuilder('expense')
+      .innerJoin('expense.items', 'item', 'item.deletedAt IS NULL')
+      .leftJoin('item.group', 'grp')
+      .leftJoin('expense.store', 'store')
+      .leftJoin('expense.user', 'user')
+      .select([
+        'expense.id AS expenseId',
+        'expense.name AS expenseName',
+        'expense.date AS date',
+        'store.name AS store',
+        'item.name AS itemName',
+        'item.quantity AS quantity',
+        'item.unit AS unit',
+        'item.total AS total',
+        'grp.name AS category',
+        'user.id AS userId',
+      ])
+      .where('expense.user IN (:...userIds)', { userIds: filter.userIds })
+      .andWhere('expense.deletedAt IS NULL');
+
+    if (filter.from && filter.to) {
+      qb.andWhere(
+        'expense.date >= :from AND expense.date < :toExclusive',
+        {
+          from: filter.from,
+          toExclusive: nextCalendarDateString(filter.to),
+        },
+      );
+    }
+
+    if (filter.name) {
+      qb.andWhere("LOWER(item.name) LIKE :name ESCAPE '\\\\'", {
+        name: `%${escapeLikePattern(filter.name.toLowerCase())}%`,
+      });
+    }
+
+    if (filter.category) {
+      qb.andWhere("LOWER(grp.name) LIKE :category ESCAPE '\\\\'", {
+        category: `%${escapeLikePattern(filter.category.toLowerCase())}%`,
+      });
+    }
+
+    if (filter.store) {
+      qb.andWhere("LOWER(store.name) LIKE :store ESCAPE '\\\\'", {
+        store: `%${escapeLikePattern(filter.store.toLowerCase())}%`,
+      });
+    }
+
+    qb.orderBy('expense.date', 'DESC')
+      .addOrderBy('item.createdAt', 'ASC')
+      .limit(take);
+
+    const rows = await qb.getRawMany();
+    return rows.map((row) => ({
+      expenseId: row.expenseId ?? row.expenseid,
+      expenseName: row.expenseName ?? row.expensename,
+      date: row.date,
+      store: row.store ?? null,
+      itemName: row.itemName ?? row.itemname,
+      quantity: Number(row.quantity),
+      unit: row.unit,
+      total: Number(row.total),
+      category: row.category ?? null,
+      userId: row.userId ?? row.userid,
+    }));
   }
 
   async findByMonth(userId: string, month: number): Promise<Expense[] | []> {

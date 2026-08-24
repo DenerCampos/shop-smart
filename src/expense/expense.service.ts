@@ -320,7 +320,10 @@ export class ExpenseService {
   }
 
   async findAll(
-    expenseList: ExpenseListDto,
+    expenseList: ExpenseListDto & {
+      startDate?: string;
+      endDate?: string;
+    },
     user: User,
   ): Promise<paginationData<Expense>> {
     const offset = this.pagination.getOffset(
@@ -340,6 +343,8 @@ export class ExpenseService {
       expenseList.search,
       expenseList.isRecurring,
       expenseList.isInstallment,
+      expenseList.startDate,
+      expenseList.endDate,
     );
 
     const paginateData = this.pagination.paginateData<Expense>(
@@ -1070,6 +1075,18 @@ export class ExpenseService {
       endDate,
       limit,
     );
+  }
+
+  async searchItems(filter: {
+    userIds: string[];
+    name?: string;
+    category?: string;
+    store?: string;
+    from?: string | null;
+    to?: string | null;
+    limit: number;
+  }) {
+    return this.expenseRepository.searchItems(filter);
   }
 
   async getAllByCurrentMonth(user: User): Promise<Expense[] | []> {

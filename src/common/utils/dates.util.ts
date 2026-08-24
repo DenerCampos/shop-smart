@@ -60,6 +60,42 @@ function toDateString(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+/** Hoje no calendário do fuso (YYYY-MM-DD), sem UTC de `toISOString()`. */
+export function getTodayDateString(
+  now = new Date(),
+  timeZone = APP_TIMEZONE,
+): string {
+  const { year, month, day } = getZonedDateParts(now, timeZone);
+  return toDateString(year, month, day);
+}
+
+/**
+ * Dia seguinte a YYYY-MM-DD, para filtro exclusivo:
+ * `date >= from AND date < nextCalendarDateString(to)`.
+ */
+export function nextCalendarDateString(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const next = calendarDateAtUtcNoon(year, month, day);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return toDateString(
+    next.getUTCFullYear(),
+    next.getUTCMonth() + 1,
+    next.getUTCDate(),
+  );
+}
+
+/** YYYY-MM-DD de calendário real (rejeita 2026-13-99, 2026-02-31). */
+export function isValidIsoDate(isoDate: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return false;
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const utc = calendarDateAtUtcNoon(year, month, day);
+  return (
+    utc.getUTCFullYear() === year &&
+    utc.getUTCMonth() + 1 === month &&
+    utc.getUTCDate() === day
+  );
+}
+
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
@@ -172,6 +208,64 @@ export const getCurrentMonthDates = (): DateRange => {
     startYear: startDate.getFullYear(),
     endYear: endDate.getFullYear(),
     totalDays: endDate.getDate(),
+  };
+};
+
+/**
+ * Últimos 12 meses corridos (calendário inclusivo) em APP_TIMEZONE:
+ * do 1º dia do mês de 11 meses atrás até a data de hoje.
+ * Ex.: em 24/08/2026 → 2025-09-01 … 2026-08-24.
+ */
+export const getLast12MonthsDates = (
+  now = new Date(),
+  timeZone = APP_TIMEZONE,
+): DateRange => {
+  const { year, month, day } = getZonedDateParts(now, timeZone);
+
+  let startYear = year;
+  let startMonth = month - 11;
+  while (startMonth < 1) {
+    startMonth += 12;
+    startYear -= 1;
+  }
+
+  const startDateString = toDateString(startYear, startMonth, 1);
+  const endDateString = toDateString(year, month, day);
+  const startDate = calendarDateAtUtcNoon(startYear, startMonth, 1);
+  const endDate = calendarDateAtUtcNoon(year, month, day);
+
+  const dateFormatterBR = new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const monthNameFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    month: 'long',
+  });
+
+  return {
+    startDate,
+    endDate,
+    startDateString,
+    endDateString,
+    startDateBR: dateFormatterBR.format(startDate),
+    endDateBR: dateFormatterBR.format(endDate),
+    monthName: monthNameFormatter.format(endDate),
+    periodDescription: 'Últimos 12 meses',
+    startMonthName: monthNameFormatter.format(startDate),
+    endMonthName: monthNameFormatter.format(endDate),
+    year,
+    month,
+    startYear,
+    endYear: year,
+    totalDays: Math.max(
+      1,
+      Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1,
+    ),
+    crossesMonths: true,
+    crossesYears: startYear !== year,
   };
 };
 

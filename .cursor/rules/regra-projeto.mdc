@@ -76,7 +76,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | recipe | `recipe/` | Receitas |
 | mission | `mission/` | Missões dinâmicas (SP-78) |
 | health | `health/` | Módulo de Saúde — exames, processamento IA, receituário, visão geral (SP-123) |
-| chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117) |
+| chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117); recorte de período 12 meses / lastN / `period.label` (SP-139) |
 | notification | `notification/` | Notificações internas (canais in-app + e-mail; SP-101 / SP-91) |
 | alexa | `alexa/` | Integração Alexa |
 
@@ -212,7 +212,7 @@ Todos os textos de prompt enviados ao Gemini ficam em **`src/common/prompts/`**,
 | `coupon-text.prompt.ts` | Cupom fiscal / NF-e (texto) |
 | `image-finance.prompt.ts` | Despesa/receita por imagem |
 | `audio-finance.prompt.ts` | Despesa/receita por áudio |
-| `chat-agent.prompt.ts` | Assistente Familiar — system prompt (SP-117) |
+| `chat-agent.prompt.ts` | Assistente Familiar — system prompt (SP-117); regras de período / `period.label` (SP-139) |
 
 **Regras:**
 
@@ -277,7 +277,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, exclusão e recuperação de conta (SP-136), recuperação de senha (SP-91)
 - `email.md` — e-mail transacional (Brevo/noop, templates, reset/recuperação de conta/boas-vindas/convite; SP-91 / SP-136)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
-- `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
+- `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL, recorte de período (SP-117 / SP-139) e obrigação de tools em novos módulos
 - `notificacoes.md` — notificações internas, canais in-app + e-mail e evento de convite familiar (SP-101 / SP-91)
 - `deploy.md` — deploy VPS (`deploy.sh` / `ci_deploy.sh`), prune de imagens após containers no ar (SP-132)
 
