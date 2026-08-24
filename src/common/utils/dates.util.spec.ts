@@ -1,7 +1,11 @@
 import {
   APP_TIMEZONE,
+  getLast12MonthsDates,
   getPreviousMonthDates,
+  getTodayDateString,
   getZonedDateParts,
+  isValidIsoDate,
+  nextCalendarDateString,
 } from './dates.util';
 
 describe('dates.util — timezone America/Sao_Paulo', () => {
@@ -63,6 +67,45 @@ describe('dates.util — timezone America/Sao_Paulo', () => {
 
       expect(range.startDateString).toBe('2026-02-01');
       expect(range.endDateString).toBe('2026-02-28');
+    });
+  });
+
+  describe('getLast12MonthsDates', () => {
+    it('covers 12 inclusive months ending today', () => {
+      const range = getLast12MonthsDates(
+        new Date('2026-08-24T15:00:00.000Z'),
+        APP_TIMEZONE,
+      );
+
+      expect(range.startDateString).toBe('2025-09-01');
+      expect(range.endDateString).toBe('2026-08-24');
+      expect(range.periodDescription).toBe('Últimos 12 meses');
+      expect(range.crossesYears).toBe(true);
+    });
+  });
+
+  describe('getTodayDateString', () => {
+    it('uses São Paulo calendar near UTC midnight', () => {
+      expect(
+        getTodayDateString(new Date('2026-08-25T02:30:00.000Z'), APP_TIMEZONE),
+      ).toBe('2026-08-24');
+    });
+  });
+
+  describe('nextCalendarDateString', () => {
+    it('advances to the next day and month/year boundaries', () => {
+      expect(nextCalendarDateString('2026-08-24')).toBe('2026-08-25');
+      expect(nextCalendarDateString('2026-08-31')).toBe('2026-09-01');
+      expect(nextCalendarDateString('2026-12-31')).toBe('2027-01-01');
+    });
+  });
+
+  describe('isValidIsoDate', () => {
+    it('accepts real calendar dates and rejects invalid ones', () => {
+      expect(isValidIsoDate('2026-02-28')).toBe(true);
+      expect(isValidIsoDate('2026-13-99')).toBe(false);
+      expect(isValidIsoDate('2026-02-31')).toBe(false);
+      expect(isValidIsoDate('2026-00-10')).toBe(false);
     });
   });
 });

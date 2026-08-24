@@ -215,7 +215,10 @@ export class RevenueService {
   }
 
   async findAll(
-    userList: RevenueListDto,
+    userList: RevenueListDto & {
+      startDate?: string;
+      endDate?: string;
+    },
     user: User,
   ): Promise<paginationData<Revenue>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
@@ -232,6 +235,8 @@ export class RevenueService {
       userList.search,
       userList.isRecurring,
       userList.isInstallment,
+      userList.startDate,
+      userList.endDate,
     );
 
     const paginateData = this.pagination.paginateData<Revenue>(

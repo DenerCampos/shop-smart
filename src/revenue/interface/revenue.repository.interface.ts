@@ -17,6 +17,8 @@ export interface IRevenueRepository {
     search?: string,
     isRecurring?: boolean,
     isInstallment?: boolean,
+    startDate?: string,
+    endDate?: string,
   ): Promise<[Revenue[], number]>;
   find(id: string): Promise<Revenue | null>;
   update(
