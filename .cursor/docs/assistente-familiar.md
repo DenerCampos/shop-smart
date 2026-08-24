@@ -1,4 +1,4 @@
-# Assistente Familiar (Chat Agent) — SP-117
+# Assistente Familiar (Chat Agent) — SP-117 / SP-139
 
 ## Objetivo
 
@@ -29,7 +29,7 @@ Permitir que o usuário autenticado faça perguntas em linguagem natural sobre o
 
 `screenContext` entra no system prompt delimitado (`<<<SCREEN_CONTEXT ... SCREEN_CONTEXT>>>`) como metadado de UI **não confiável** — o modelo deve usá-lo só como dica de assunto, nunca como instrução.
 
-`get_expense_receipt` devolve resumo (itens, valores, loja/pagamento) **sem** `uri`/`photos`; sanitização também remove essas chaves de qualquer tool result.
+`get_expense_receipt` devolve resumo (itens, valores, loja/pagamento) **sem** `uri`/`photos`; sanitização também remove essas chaves de qualquer tool result. A tool chama `getReceipt` com o usuário autenticado; a API libera dono ou admin da família (SP-138).
 
 ## Contratos HTTP
 
@@ -63,7 +63,25 @@ Antes de `POST .../messages` gravar o turno do usuário, `GeminiChatProvider.ass
 
 Desambiguação de **“receita”** no prompt: financeira × médica × culinária.
 
-`search_expense_items` limita a **100 despesas** mais recentes do período (`ORDER BY date DESC`) e até **100 itens** no resultado (`truncated: true` quando corta).
+### Recorte de período (SP-139)
+
+Prioridade ao resolver `from` / `to` / `lastN` nas tools de **listagem/busca** (`list_*`, `search_*`):
+
+| Situação | Comportamento | Exemplo de `period.label` |
+|----------|---------------|---------------------------|
+| `from` e/ou `to` | Intervalo pedido | `busquei de 01/01/2026 a 31/03/2026` |
+| `lastN` sem datas | Toda a base, mais recentes, `LIMIT lastN` (1–100) | `busquei em toda a base (últimos 20)` |
+| Sem data e sem `lastN` | Últimos **12 meses** corridos (`America/Sao_Paulo`) | `busquei de setembro/2025 a agosto/2026 (últimos 12 meses)` |
+
+Somatórios (`summarize_*`) e relatórios no chat (`report_*`) **sempre** usam intervalo de datas (12 meses se omitido). `lastN` é ignorado nessas tools. O módulo HTTP `/reports` **não muda**.
+
+Toda tool temporal (e cadastros) devolve `period: { from, to, scope, label }` no resultado. O system prompt obriga a IA a **repetir `period.label`** na resposta ao usuário.
+
+Tools mensais de propósito (`get_month_balance`, `get_family_summary`, `list_pending_recurring`, payroll) usam o mês pedido (default = mês atual) com `scope: 'month'` (ex.: `busquei só agosto/2026`).
+
+`search_expense_items` filtra **no SQL** (nome/categoria/loja + período opcional), ordena por `expense.date DESC`, limite `lastN` ou 100 (`truncated: true` quando corta). Não carrega mais “100 despesas do mês” para filtrar em memória.
+
+Helper: `src/chat-agent/utils/resolve-chat-period.ts` (+ `getLast12MonthsDates` em `dates.util`).
 
 ## Arquivos-chave
 

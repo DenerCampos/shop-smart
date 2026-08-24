@@ -3,13 +3,14 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
 import { EventEmitter } from 'events';
 import { UserService } from '../user/user.service';
 import { FamilyGroupService } from '../family-group/family-group.service';
@@ -18,9 +19,15 @@ import { RefreshTokenDto } from './dto/refreshToken.dto';
 import { OauthAuthorizeDto } from './dto/oauth-authorize.dto';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { OauthTokenDto } from './dto/oauth-token.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { RecoverAccountDto } from './dto/recover-account.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OauthClient } from './entities/oauth-client.entity';
 import { OauthCode } from './entities/oauth-code.entity';
 import { OauthConnection } from './entities/oauth-connection.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { accessTokenVersion } from './jwt-access.util';
+import { EmailService } from 'src/email/email.service';
 import { jwtTokenType } from './types/jwtTokenType';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -28,7 +35,13 @@ import { AppConfig } from '../common/app-config/app.config';
 import { SecurityAuditLogService } from '../common/logging/security-audit-log.service';
 import { logJson } from '../common/logging/log-event.util';
 import { EVENT_EMITTER } from '../common/event-emitter/event-emitter.provider';
+import {
+  AccountDeletedReactivationRequiredException,
+  InvalidOrExpiredResetTokenException,
+  UserLimitReachedException,
+} from 'src/exception/authErrorException';
 import { v4 as uuidv4 } from 'uuid';
+import { User } from 'src/user/entities/user.entity';
 
 interface OauthSession {
   clientInternalId: string;
@@ -49,6 +62,8 @@ export class AuthService {
   private readonly oauthSessions = new Map<string, OauthSession>();
   private readonly SESSION_TTL_MS = 10 * 60 * 1000;
   private readonly CODE_TTL_MS = 5 * 60 * 1000;
+  /** Evita que repetir "esqueci minha senha" encha a caixa do usuário e queime a cota diária. */
+  private readonly PASSWORD_RESET_COOLDOWN_MS = 2 * 60 * 1000;
 
   constructor(
     private usersService: UserService,
@@ -56,18 +71,24 @@ export class AuthService {
     private appConfig: AppConfig,
     private securityAuditLog: SecurityAuditLogService,
     private familyGroupService: FamilyGroupService,
+    private emailService: EmailService,
     @InjectRepository(OauthClient)
     private oauthClientRepository: Repository<OauthClient>,
     @InjectRepository(OauthCode)
     private oauthCodeRepository: Repository<OauthCode>,
     @InjectRepository(OauthConnection)
     private oauthConnectionRepository: Repository<OauthConnection>,
+    @InjectRepository(PasswordResetToken)
+    private passwordResetTokenRepository: Repository<PasswordResetToken>,
+    private readonly dataSource: DataSource,
     @Inject(EVENT_EMITTER)
     private readonly eventEmitter: EventEmitter,
   ) {}
 
   async signIn(signInDto: SignInDto): Promise<jwtTokenType> {
-    const user = await this.usersService.findByEmail(signInDto.email);
+    const user = await this.usersService.findByEmailWithDeleted(
+      signInDto.email,
+    );
 
     if (!user) {
       this.securityAuditLog.authLoginFailed(signInDto.email);
@@ -81,7 +102,11 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    const payload = { sub: user.id, username: user.email };
+    if (user.deletedAt) {
+      throw new AccountDeletedReactivationRequiredException();
+    }
+
+    const payload = this.buildAccessPayload(user);
     const accessToken = await this.jwtService.signAsync(payload);
 
     await this.usersService.saveToken(user.id, accessToken);
@@ -123,12 +148,147 @@ export class AuthService {
       throw new NotFoundException('Usuário demo não encontrado');
     }
 
-    const payload = { sub: user.id, username: user.email, isDemo: true };
+    const payload = this.buildAccessPayload(user, { isDemo: true });
     const accessToken = await this.jwtService.signAsync(payload, {
       expiresIn: '2h',
     });
 
     await this.usersService.saveToken(user.id, accessToken);
+
+    return { accessToken };
+  }
+
+  /**
+   * A resposta é idêntica exista ou não a conta: qualquer diferença
+   * transformaria a rota em um oráculo de e-mails cadastrados.
+   */
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    const genericResponse = this.passwordResetGenericResponse();
+
+    const user = await this.usersService.findByEmail(dto.email);
+
+    if (!user) {
+      this.securityAuditLog.passwordResetRequested(dto.email, 'unknown_email');
+      return genericResponse;
+    }
+
+    await this.issuePasswordResetToken(user, dto.email, 'password_reset');
+
+    return genericResponse;
+  }
+
+  /**
+   * Mesma resposta genérica do forgot-password. Só envia e-mail quando a
+   * conta está soft-deleted (anti-oráculo para quem chama a rota direto).
+   */
+  async recoverAccount(dto: RecoverAccountDto): Promise<{ message: string }> {
+    const genericResponse = this.passwordResetGenericResponse();
+    const user = await this.usersService.findByEmailWithDeleted(dto.email);
+
+    if (!user || !user.deletedAt) {
+      this.securityAuditLog.accountRecoveryRequested(
+        dto.email,
+        user ? 'active_account' : 'unknown_email',
+      );
+      return genericResponse;
+    }
+
+    await this.issuePasswordResetToken(user, dto.email, 'account_recovery');
+
+    return genericResponse;
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<jwtTokenType> {
+    const tokenHash = this.hashResetToken(dto.token);
+    const passwordHash = await bcrypt.hash(
+      dto.password,
+      this.appConfig.getSaltEncryption(),
+    );
+
+    let sessionUser: User | null = null;
+    let wasDeleted = false;
+
+    await this.dataSource.transaction(async (manager) => {
+      const tokenRepo = manager.getRepository(PasswordResetToken);
+      const userRepo = manager.getRepository(User);
+
+      const record = await tokenRepo.findOne({
+        where: { tokenHash },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      const isUsable =
+        record && !record.usedAt && record.expiresAt.getTime() > Date.now();
+
+      if (!isUsable) {
+        this.securityAuditLog.passwordResetFailed('invalid_or_expired_token');
+        throw new InvalidOrExpiredResetTokenException();
+      }
+
+      const user = await userRepo.findOne({
+        where: { id: record.userId },
+        withDeleted: true,
+      });
+
+      if (!user) {
+        this.securityAuditLog.passwordResetFailed('inactive_user');
+        throw new InvalidOrExpiredResetTokenException();
+      }
+
+      if (user.deletedAt) {
+        const totalUsers = await this.usersService.countActiveUsers();
+        if (totalUsers >= this.usersService.getUserLimit()) {
+          throw new UserLimitReachedException();
+        }
+
+        const restored = await userRepo.restore(user.id);
+        if (!restored.affected) {
+          logJson(
+            this.logger,
+            {
+              event: 'auth_reactivate_restore_failed',
+              userId: user.id,
+            },
+            'error',
+          );
+          throw new InternalServerErrorException();
+        }
+
+        user.deletedAt = null;
+        wasDeleted = true;
+      }
+
+      const nextVersion = accessTokenVersion(user) + 1;
+
+      await userRepo.update(user.id, {
+        password: passwordHash,
+        tokenVersion: nextVersion,
+        token: null,
+        refreshtoken: null,
+      });
+
+      user.tokenVersion = nextVersion;
+      sessionUser = user;
+
+      record.usedAt = new Date();
+      await tokenRepo.save(record);
+    });
+
+    if (!sessionUser) {
+      throw new InternalServerErrorException();
+    }
+
+    const payload = this.buildAccessPayload(sessionUser);
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    await this.usersService.saveToken(sessionUser.id, accessToken);
+
+    this.securityAuditLog.passwordResetCompleted(sessionUser.id);
+    this.eventEmitter.emit('auth.login_success', { userId: sessionUser.id });
+
+    if (wasDeleted) {
+      this.eventEmitter.emit('user.reactivated', { userId: sessionUser.id });
+    }
 
     return { accessToken };
   }
@@ -152,7 +312,7 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    const payload = { sub: user.id, username: user.email };
+    const payload = this.buildAccessPayload(user);
     const accessToken = await this.jwtService.signAsync(payload);
 
     await this.usersService.saveToken(user.id, accessToken);
@@ -352,11 +512,9 @@ export class AuthService {
     const familyGroupId = await this.getPrimaryFamilyGroupId(user.id);
     const refreshToken = uuidv4();
 
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-      username: user.email,
-      familyGroupId,
-    });
+    const accessToken = await this.jwtService.signAsync(
+      this.buildAccessPayload(user, { familyGroupId }),
+    );
 
     await Promise.all([
       this.usersService.saveRefreshToken(user.id, refreshToken),
@@ -385,11 +543,9 @@ export class AuthService {
     const familyGroupId = await this.getPrimaryFamilyGroupId(user.id);
     const newRefreshToken = uuidv4();
 
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-      username: user.email,
-      familyGroupId,
-    });
+    const accessToken = await this.jwtService.signAsync(
+      this.buildAccessPayload(user, { familyGroupId }),
+    );
 
     await this.usersService.saveRefreshToken(user.id, newRefreshToken);
 
@@ -438,6 +594,105 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  private passwordResetGenericResponse(): { message: string } {
+    return {
+      message:
+        'Se este e-mail estiver cadastrado, enviaremos as instruções de redefinição em instantes.',
+    };
+  }
+
+  private async issuePasswordResetToken(
+    user: User,
+    email: string,
+    kind: 'password_reset' | 'account_recovery',
+  ): Promise<void> {
+    const cooldownStart = new Date(
+      Date.now() - this.PASSWORD_RESET_COOLDOWN_MS,
+    );
+    const recentRequest = await this.passwordResetTokenRepository.findOne({
+      where: { user: { id: user.id }, createdAt: MoreThan(cooldownStart) },
+    });
+
+    if (recentRequest) {
+      if (kind === 'account_recovery') {
+        this.securityAuditLog.accountRecoveryRequested(email, 'cooldown');
+      } else {
+        this.securityAuditLog.passwordResetRequested(email, 'cooldown');
+      }
+      return;
+    }
+
+    const staleTokens = await this.passwordResetTokenRepository.find({
+      where: { user: { id: user.id }, usedAt: IsNull() },
+      select: ['id'],
+    });
+
+    if (staleTokens.length > 0) {
+      await this.passwordResetTokenRepository.delete(
+        staleTokens.map((token) => token.id),
+      );
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const ttlMinutes = this.appConfig.getPasswordResetTokenTtlMinutes();
+
+    await this.passwordResetTokenRepository.save(
+      this.passwordResetTokenRepository.create({
+        tokenHash: this.hashResetToken(token),
+        user,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + ttlMinutes * 60 * 1000),
+        usedAt: null,
+      }),
+    );
+
+    const send =
+      kind === 'account_recovery'
+        ? this.emailService.sendAccountRecovery({
+            to: user.email,
+            name: user.name,
+            token,
+          })
+        : this.emailService.sendPasswordReset({
+            to: user.email,
+            name: user.name,
+            token,
+          });
+
+    void send
+      .then((result) => {
+        const outcome = result.success ? 'sent' : 'send_failed';
+        if (kind === 'account_recovery') {
+          this.securityAuditLog.accountRecoveryRequested(email, outcome);
+        } else {
+          this.securityAuditLog.passwordResetRequested(email, outcome);
+        }
+      })
+      .catch(() => {
+        if (kind === 'account_recovery') {
+          this.securityAuditLog.accountRecoveryRequested(email, 'send_failed');
+        } else {
+          this.securityAuditLog.passwordResetRequested(email, 'send_failed');
+        }
+      });
+  }
+
+  private hashResetToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private buildAccessPayload(
+    user: User,
+    extra: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    return {
+      sub: user.id,
+      username: user.email,
+      ver: accessTokenVersion(user),
+      ...extra,
+    };
   }
 
   private scheduleSessionCleanup(sessionCode: string): void {

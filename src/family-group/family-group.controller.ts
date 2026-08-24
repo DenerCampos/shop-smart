@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,9 +9,15 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { seconds, Throttle } from '@nestjs/throttler';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { DenyDemoGuard } from 'src/auth/deny-demo.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ResponseService } from 'src/common/response/response';
 import { User } from 'src/user/entities/user.entity';
@@ -42,7 +49,11 @@ export class FamilyGroupController {
     @CurrentUser() user: User,
     @Body() dto: CreateFamilyGroupDto,
   ): Promise<FamilyGroupResponseDto> {
-    const group = await this.familyGroupService.create(user, dto.name);
+    const group = await this.familyGroupService.create(
+      user,
+      dto.name,
+      dto.coatOfArms,
+    );
     return this.responseService.mapToDto(FamilyGroupResponseDto, group);
   }
 
@@ -101,7 +112,43 @@ export class FamilyGroupController {
       id,
       user.id,
       dto.name,
+      dto.coatOfArms,
     );
+    return this.responseService.mapToDto(FamilyGroupResponseDto, group);
+  }
+
+  @Post(':id/upload-image')
+  @UseGuards(DenyDemoGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 1.5 * 1024 * 1024,
+        files: 1,
+      },
+    }),
+  )
+  async uploadGroupImage(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @UploadedFile() image: Express.Multer.File,
+  ): Promise<FamilyGroupResponseDto> {
+    if (!image) {
+      throw new BadRequestException('Imagem é obrigatória');
+    }
+
+    if (!/^image\/(jpg|jpeg|png|gif|webp)$/.test(image.mimetype)) {
+      throw new BadRequestException(
+        'Apenas imagens (jpg, jpeg, png, gif, webp) são permitidas',
+      );
+    }
+
+    const group = await this.familyGroupService.uploadGroupImage(
+      id,
+      user.id,
+      image,
+    );
+
     return this.responseService.mapToDto(FamilyGroupResponseDto, group);
   }
 
@@ -118,6 +165,7 @@ export class FamilyGroupController {
   // Membros e Convites
   // ========================
 
+  @Throttle({ default: { limit: 10, ttl: seconds(60) } })
   @Post(':id/invite')
   async inviteMember(
     @Param('id') id: string,

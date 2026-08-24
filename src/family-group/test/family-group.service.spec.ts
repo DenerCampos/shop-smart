@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter } from 'events';
 import { DataSource } from 'typeorm';
@@ -7,6 +8,8 @@ import { UserService } from '../../user/user.service';
 import { ExpenseService } from '../../expense/expense.service';
 import { RevenueService } from '../../revenue/revenue.service';
 import { EVENT_EMITTER } from '../../common/event-emitter/event-emitter.provider';
+import { FILE_STORAGE } from '../../file-storage/file-storage.constants';
+import { IFileStorageService } from '../../file-storage/interfaces/file-storage.interface';
 import {
   FAMILY_GROUP_MEMBER_INVITED_EVENT,
   FamilyGroupMemberInvitedEvent,
@@ -52,6 +55,7 @@ describe('FamilyGroupService', () => {
   let expenseService: jest.Mocked<Pick<ExpenseService, 'getByPeriod'>>;
   let revenueService: jest.Mocked<Pick<RevenueService, 'getByPeriod'>>;
   let userService: jest.Mocked<Pick<UserService, 'find' | 'findByEmail'>>;
+  let fileStorage: jest.Mocked<IFileStorageService>;
   let eventEmitter: EventEmitter;
 
   beforeEach(async () => {
@@ -81,6 +85,16 @@ describe('FamilyGroupService', () => {
       find: jest.fn(),
       findByEmail: jest.fn(),
     };
+    fileStorage = {
+      uploadFile: jest.fn().mockResolvedValue({
+        fileId: 'file-1',
+        fileName: 'family_group.png',
+        webViewLink: 'https://storage/view/file-1',
+        webContentLink: 'https://storage/content/file-1',
+      }),
+      deleteFile: jest.fn().mockResolvedValue(undefined),
+      extractFileIdFromUrl: jest.fn().mockReturnValue('old-file-id'),
+    };
     eventEmitter = new EventEmitter();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -91,6 +105,7 @@ describe('FamilyGroupService', () => {
         { provide: ExpenseService, useValue: expenseService },
         { provide: RevenueService, useValue: revenueService },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
+        { provide: FILE_STORAGE, useValue: fileStorage },
         { provide: EVENT_EMITTER, useValue: eventEmitter },
       ],
     }).compile();
@@ -398,11 +413,14 @@ describe('FamilyGroupService', () => {
         (call) => call[0] === FAMILY_GROUP_MEMBER_INVITED_EVENT,
       )?.[1] as FamilyGroupMemberInvitedEvent;
       expect(event.recipientUserId).toBe('invited-id');
+      expect(event.recipientEmail).toBe(invited.email);
+      expect(event.recipientName).toBe('Convidado');
       expect(event.actorName).toBe('Admin Nome');
       expect(event.groupName).toBe('Test Group');
+      expect(event.origin).toBe('invite');
     });
 
-    it('não emite evento quando convidado ainda não tem conta', async () => {
+    it('emite evento sem userId quando convidado ainda não tem conta', async () => {
       const emitSpy = jest.spyOn(eventEmitter, 'emit');
       userService.findByEmail.mockResolvedValue(null);
       familyGroupRepository.createMember.mockResolvedValue({
@@ -412,10 +430,160 @@ describe('FamilyGroupService', () => {
 
       await service.inviteMember('group-1', 'admin-id', 'new@test.com');
 
-      expect(emitSpy).not.toHaveBeenCalledWith(
-        FAMILY_GROUP_MEMBER_INVITED_EVENT,
-        expect.anything(),
+      const event = emitSpy.mock.calls.find(
+        (call) => call[0] === FAMILY_GROUP_MEMBER_INVITED_EVENT,
+      )?.[1] as FamilyGroupMemberInvitedEvent;
+
+      expect(event).toBeInstanceOf(FamilyGroupMemberInvitedEvent);
+      expect(event.recipientUserId).toBeNull();
+      expect(event.recipientEmail).toBe('new@test.com');
+      expect(event.recipientName).toBeNull();
+    });
+  });
+
+  describe('updateGroup - nome e brasão', () => {
+    const adminMember = makeMember(
+      'admin-id',
+      FAMILY_GROUP_ROLES.ADMIN,
+      FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+    ) as FamilyGroupMember;
+
+    beforeEach(() => {
+      familyGroupRepository.findMemberByGroupAndUser.mockResolvedValue(
+        adminMember,
       );
+      familyGroupRepository.updateGroup.mockImplementation(
+        async (group, data) => ({ ...group, ...data }) as FamilyGroup,
+      );
+    });
+
+    it('atualiza apenas o nome quando brasão não é informado', async () => {
+      familyGroupRepository.findGroupById.mockResolvedValue({
+        ...makeGroup([adminMember]),
+        groupImage: 'https://storage/content/foto',
+      } as FamilyGroup);
+
+      await service.updateGroup('group-1', 'admin-id', 'Novo Nome');
+
+      expect(familyGroupRepository.updateGroup).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'group-1' }),
+        { name: 'Novo Nome' },
+      );
+      expect(fileStorage.deleteFile).not.toHaveBeenCalled();
+    });
+
+    it('escolher brasão descarta a foto atual do grupo', async () => {
+      familyGroupRepository.findGroupById.mockResolvedValue({
+        ...makeGroup([adminMember]),
+        groupImage: 'https://storage/content/foto',
+      } as FamilyGroup);
+
+      await service.updateGroup(
+        'group-1',
+        'admin-id',
+        'Test Group',
+        '/assets/images/brasao/brasao-3.png',
+      );
+
+      expect(familyGroupRepository.updateGroup).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'group-1' }),
+        {
+          name: 'Test Group',
+          coatOfArms: '/assets/images/brasao/brasao-3.png',
+          groupImage: null,
+        },
+      );
+      expect(fileStorage.deleteFile).toHaveBeenCalledWith('old-file-id');
+    });
+
+    it('membro comum não pode alterar o grupo', async () => {
+      familyGroupRepository.findGroupById.mockResolvedValue(
+        makeGroup([adminMember]) as FamilyGroup,
+      );
+      familyGroupRepository.findMemberByGroupAndUser.mockResolvedValue(
+        makeMember(
+          'member-a',
+          FAMILY_GROUP_ROLES.MEMBER,
+          FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+        ) as FamilyGroupMember,
+      );
+
+      await expect(
+        service.updateGroup('group-1', 'member-a', 'Novo Nome'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(familyGroupRepository.updateGroup).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('uploadGroupImage', () => {
+    const adminMember = makeMember(
+      'admin-id',
+      FAMILY_GROUP_ROLES.ADMIN,
+      FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+    ) as FamilyGroupMember;
+
+    const file = {
+      buffer: Buffer.from('img'),
+      mimetype: 'image/png',
+      originalname: 'brasao.png',
+    } as Express.Multer.File;
+
+    beforeEach(() => {
+      familyGroupRepository.findMemberByGroupAndUser.mockResolvedValue(
+        adminMember,
+      );
+      familyGroupRepository.updateGroup.mockImplementation(
+        async (group, data) => ({ ...group, ...data }) as FamilyGroup,
+      );
+    });
+
+    it('salva a URL retornada pelo storage em groupImage', async () => {
+      familyGroupRepository.findGroupById.mockResolvedValue(
+        makeGroup([adminMember]) as FamilyGroup,
+      );
+
+      const result = await service.uploadGroupImage(
+        'group-1',
+        'admin-id',
+        file,
+      );
+
+      expect(fileStorage.uploadFile).toHaveBeenCalledWith(
+        file.buffer,
+        expect.stringMatching(/^family_group_group-1_.+\.png$/),
+        'image/png',
+        'family-group',
+      );
+      expect(result.groupImage).toBe('https://storage/content/file-1');
+    });
+
+    it('remove a imagem anterior antes de enviar a nova', async () => {
+      familyGroupRepository.findGroupById.mockResolvedValue({
+        ...makeGroup([adminMember]),
+        groupImage: 'https://storage/content/antiga',
+      } as FamilyGroup);
+
+      await service.uploadGroupImage('group-1', 'admin-id', file);
+
+      expect(fileStorage.deleteFile).toHaveBeenCalledWith('old-file-id');
+    });
+
+    it('membro comum não pode enviar imagem do grupo', async () => {
+      familyGroupRepository.findGroupById.mockResolvedValue(
+        makeGroup([adminMember]) as FamilyGroup,
+      );
+      familyGroupRepository.findMemberByGroupAndUser.mockResolvedValue(
+        makeMember(
+          'member-a',
+          FAMILY_GROUP_ROLES.MEMBER,
+          FAMILY_GROUP_MEMBER_STATUS.ACCEPTED,
+        ) as FamilyGroupMember,
+      );
+
+      await expect(
+        service.uploadGroupImage('group-1', 'member-a', file),
+      ).rejects.toThrow(ForbiddenException);
+      expect(fileStorage.uploadFile).not.toHaveBeenCalled();
     });
   });
 

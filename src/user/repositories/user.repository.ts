@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { User } from '../entities/user.entity';
-import { Equal, ILike, Not, Repository } from 'typeorm';
+import { EntityManager, Equal, Not, Repository } from 'typeorm';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { UpdateException } from 'src/exception/updateException';
-import { AlreadyExistsException } from 'src/exception/alreadyExistsException';
 import { RemoveException } from 'src/exception/removeException';
 import { IUserRepository } from '../interfaces/user.repository.interface';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,18 +16,7 @@ export class UserRepository implements IUserRepository {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const user = await this.userEntity.findOne({
-      where: {
-        email: ILike(`%${createUserDto.email}%`),
-      },
-    });
-
-    if (user) {
-      throw new AlreadyExistsException();
-    }
-
     const newUser = this.userEntity.create(createUserDto);
-
     return await this.userEntity.save(newUser);
   }
 
@@ -44,6 +32,13 @@ export class UserRepository implements IUserRepository {
 
   async findByEmail(email: string): Promise<User | null> {
     return await this.userEntity.findOneBy({ email });
+  }
+
+  async findByEmailWithDeleted(email: string): Promise<User | null> {
+    return await this.userEntity.findOne({
+      where: { email },
+      withDeleted: true,
+    });
   }
 
   async searchByEmailPrefix(
@@ -77,12 +72,21 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
+  async clearAuthTokens(id: string): Promise<void> {
+    await this.userEntity.update({ id }, { token: null, refreshtoken: null });
+  }
+
   async exist(email: string, user: User): Promise<boolean> {
+    if (!email) {
+      return false;
+    }
+
     const existUser = await this.userEntity.findOne({
       where: {
-        email: ILike(`%${email}%`),
+        email,
         id: Not(Equal(user.id)),
       },
+      withDeleted: true,
     });
 
     return existUser ? true : false;
@@ -107,10 +111,34 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
-  async delete(id: string): Promise<boolean> {
-    const result = await this.userEntity.softDelete({ id });
+  async invalidateSession(id: string, manager?: EntityManager): Promise<void> {
+    const repo = manager?.getRepository(User) ?? this.userEntity;
+    const result = await repo
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        tokenVersion: () => 'tokenVersion + 1',
+        token: null,
+        refreshtoken: null,
+      })
+      .where('id = :id', { id })
+      .execute();
+
+    if (!result.affected) {
+      throw new UpdateException();
+    }
+  }
+
+  async delete(id: string, manager?: EntityManager): Promise<boolean> {
+    const repo = manager?.getRepository(User) ?? this.userEntity;
+    const result = await repo.softDelete({ id });
 
     return result.affected === 1 ? true : false;
+  }
+
+  async restore(id: string): Promise<boolean> {
+    const result = await this.userEntity.restore({ id });
+    return result.affected === 1;
   }
 
   async saveRefreshToken(id: string, token: string): Promise<User> {

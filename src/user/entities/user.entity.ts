@@ -12,12 +12,14 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   OneToMany,
   OneToOne,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
+@Index('IDX_user_email_unique', ['email'], { unique: true })
 export class User {
   @Column({
     type: 'varchar',
@@ -43,10 +45,14 @@ export class User {
   password: string;
 
   @Column({ nullable: true })
-  token: string;
+  token: string | null;
 
   @Column({ nullable: true })
-  refreshtoken: string;
+  refreshtoken: string | null;
+
+  /** Incrementado a cada troca de senha ou exclusão de conta; o JWT carrega `ver` e o AuthGuard compara. */
+  @Column({ type: 'int', default: 0 })
+  tokenVersion: number;
 
   @Column({ nullable: true })
   profileImage: string;
@@ -58,7 +64,7 @@ export class User {
   updatedAt: Date;
 
   @DeleteDateColumn()
-  deletedAt: Date;
+  deletedAt: Date | null;
 
   @OneToMany(() => Revenue, (revenue) => revenue.user)
   revenues: Revenue[];

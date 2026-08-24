@@ -15,6 +15,14 @@ const bool = (description: string) => ({
   description,
 });
 
+/** Sem from/to = últimos 12 meses; lastN = base inteira (mais recentes). Só listagens/buscas. */
+const PERIOD_HINT =
+  'Sem from/to o backend usa os últimos 12 meses. Com lastN (sem datas) busca em toda a base (mais recentes). from/to YYYY-MM-DD sobrescrevem o padrão.';
+
+/** Relatórios e somatórios: sempre intervalo de datas. lastN não se aplica. */
+const RANGE_HINT =
+  'Sem from/to o backend usa os últimos 12 meses. from/to YYYY-MM-DD sobrescrevem. Não use lastN — somatório e relatório exigem intervalo de datas.';
+
 function obj(
   description: string,
   properties: Record<string, unknown>,
@@ -49,14 +57,19 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     { month: num('Mês 1-12'), year: num('Ano YYYY') },
     ['month', 'year'],
   ),
-  obj('list_latest_registrations: Últimos lançamentos (despesas/receitas).', {
-    page: num('Página'),
-    limit: num('Limite'),
-  }),
-  obj('list_expenses: Lista despesas com filtros.', {
+  obj(
+    `list_latest_registrations: Últimos lançamentos (despesas/receitas) em toda a base. ${PERIOD_HINT}`,
+    {
+      page: num('Página'),
+      limit: num('Limite / lastN de registros'),
+      lastN: num('Atalho para limit (últimos N em toda a base)'),
+    },
+  ),
+  obj(`list_expenses: Lista despesas com filtros. ${PERIOD_HINT}`, {
     search: str('Busca no nome'),
     from: str('YYYY-MM-DD início'),
     to: str('YYYY-MM-DD fim'),
+    lastN: num('Últimos N em toda a base (sem from/to)'),
     memberName: str('Nome do membro (admin)'),
     isRecurring: bool('Só recorrentes'),
     isInstallment: bool('Só parceladas'),
@@ -64,24 +77,28 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     limit: num('Limite'),
   }),
   obj(
-    'search_expense_items: Itens comprados (filtra por nome/categoria/loja/período).',
+    `search_expense_items: Itens comprados (filtra por nome/categoria/loja/período). ${PERIOD_HINT}`,
     {
       name: str('Nome do item'),
       category: str('Categoria/grupo (ex: alimentação)'),
       store: str('Loja/supermercado'),
       from: str('YYYY-MM-DD'),
       to: str('YYYY-MM-DD'),
+      lastN: num('Últimos N itens em toda a base (sem from/to)'),
       memberName: str('Nome do membro (admin)'),
     },
   ),
-  obj('summarize_expenses: Soma despesas por período/categoria/loja.', {
-    category: str('Categoria'),
-    store: str('Loja'),
-    from: str('YYYY-MM-DD'),
-    to: str('YYYY-MM-DD'),
-    memberName: str('Nome do membro (admin)'),
-    groupBy: str('category | store | none'),
-  }),
+  obj(
+    `summarize_expenses: Soma despesas por período/categoria/loja. ${RANGE_HINT}`,
+    {
+      category: str('Categoria'),
+      store: str('Loja'),
+      from: str('YYYY-MM-DD'),
+      to: str('YYYY-MM-DD'),
+      memberName: str('Nome do membro (admin)'),
+      groupBy: str('category | store | none'),
+    },
+  ),
   obj(
     'get_expense: Detalhe de uma despesa por id.',
     {
@@ -96,13 +113,16 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     },
     ['id'],
   ),
-  obj('list_revenues: Lista receitas financeiras.', {
+  obj(`list_revenues: Lista receitas financeiras. ${PERIOD_HINT}`, {
     search: str('Busca'),
+    from: str('YYYY-MM-DD início'),
+    to: str('YYYY-MM-DD fim'),
+    lastN: num('Últimos N em toda a base (sem from/to)'),
     memberName: str('Nome do membro (admin)'),
     page: num('Página'),
     limit: num('Limite'),
   }),
-  obj('summarize_revenues: Soma receitas no período.', {
+  obj(`summarize_revenues: Soma receitas no período. ${RANGE_HINT}`, {
     from: str('YYYY-MM-DD'),
     to: str('YYYY-MM-DD'),
     memberName: str('Nome do membro (admin)'),
@@ -125,22 +145,25 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   obj('list_stores: Lojas cadastradas do usuário.', {}),
   obj('list_categories: Categorias (grupos) de itens.', {}),
   obj('list_payments: Formas de pagamento.', {}),
-  obj('report_expense_by_category: Relatório despesas por categoria.', {
+  obj(
+    `report_expense_by_category: Relatório despesas por categoria. ${RANGE_HINT}`,
+    {
+      from: str('YYYY-MM-DD'),
+      to: str('YYYY-MM-DD'),
+      memberName: str('Membro ou all'),
+    },
+  ),
+  obj(`report_expense_by_store: Relatório despesas por loja. ${RANGE_HINT}`, {
     from: str('YYYY-MM-DD'),
     to: str('YYYY-MM-DD'),
     memberName: str('Membro ou all'),
   }),
-  obj('report_expense_by_store: Relatório despesas por loja.', {
+  obj(`report_expense_by_date: Relatório despesas por dia. ${RANGE_HINT}`, {
     from: str('YYYY-MM-DD'),
     to: str('YYYY-MM-DD'),
     memberName: str('Membro ou all'),
   }),
-  obj('report_expense_by_date: Relatório despesas por dia.', {
-    from: str('YYYY-MM-DD'),
-    to: str('YYYY-MM-DD'),
-    memberName: str('Membro ou all'),
-  }),
-  obj('report_most_purchased_items: Itens mais comprados.', {
+  obj(`report_most_purchased_items: Itens mais comprados. ${RANGE_HINT}`, {
     from: str('YYYY-MM-DD'),
     to: str('YYYY-MM-DD'),
     memberName: str('Membro ou all'),
@@ -157,6 +180,7 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   }),
   obj('list_shopping_lists: Listas de compras.', {
     status: str('active | completed | archived'),
+    lastN: num('Últimas N listas'),
   }),
   obj(
     'get_shopping_list: Detalhe de uma lista.',
@@ -177,6 +201,7 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     titleQuery: str('Trecho do título'),
     status: str('open|in_progress|waiting_approval|completed|rejected'),
     memberName: str('Responsável (admin)'),
+    lastN: num('Últimas N ocorrências'),
   }),
   obj('list_pending_approvals: Tarefas aguardando aprovação (admin).', {}),
   obj('get_payroll_pending: Mesada pendente do período.', {
@@ -190,25 +215,27 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   obj('get_coin_balance: Saldo de moedas.', {
     memberName: str('Membro (admin)'),
   }),
-  obj('get_coin_statement: Extrato de moedas.', {
+  obj(`get_coin_statement: Extrato de moedas. ${PERIOD_HINT}`, {
     from: str('YYYY-MM-DD'),
     to: str('YYYY-MM-DD'),
+    lastN: num('Últimos N lançamentos em toda a base'),
     memberName: str('Membro (admin)'),
     page: num('Página'),
     limit: num('Limite'),
   }),
   obj('list_missions: Missões e progresso do usuário.', {}),
   obj('list_themes: Temas disponíveis / desbloqueados.', {}),
-  obj('list_health_exams: Exames de saúde.', {
+  obj(`list_health_exams: Exames de saúde. ${PERIOD_HINT}`, {
     examName: str('Nome'),
     doctorName: str('Médico'),
     labName: str('Laboratório'),
     from: str('YYYY-MM-DD'),
     to: str('YYYY-MM-DD'),
+    lastN: num('Últimos N exames em toda a base'),
     memberName: str('Paciente'),
   }),
   obj(
-    'get_lab_item_evolution: Evolução de item laboratorial.',
+    `get_lab_item_evolution: Evolução de item laboratorial. ${PERIOD_HINT}`,
     {
       itemName: str('Nome do item'),
       from: str('YYYY-MM-DD'),
@@ -219,6 +246,7 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   ),
   obj('list_prescriptions: Receituários médicos.', {
     memberName: str('Paciente'),
+    lastN: num('Últimos N receituários'),
   }),
   obj('get_medication_schedule: Horários de um remédio.', {
     medicationName: str('Nome do medicamento'),
@@ -229,6 +257,7 @@ export const CHAT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
   }),
   obj('list_recipes: Receitas culinárias.', {
     search: str('Busca no título'),
+    lastN: num('Últimas N receitas'),
   }),
   obj(
     'get_recipe: Detalhe de receita culinária.',

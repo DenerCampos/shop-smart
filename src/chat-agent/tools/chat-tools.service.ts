@@ -17,10 +17,17 @@ import { ThemeService } from 'src/theme/theme.service';
 import { ProfileService } from 'src/profile/profile.service';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import { AppConfig } from 'src/common/app-config/app.config';
-import { getCurrentMonthDates } from 'src/common/utils/dates.util';
+import { getTodayDateString } from 'src/common/utils/dates.util';
 import { User } from 'src/user/entities/user.entity';
 import { ChatToolForbiddenException } from '../exceptions/chat-agent.exception';
 import { sanitizeChatToolResult } from '../utils/sanitize-chat-tool-result';
+import {
+  ChatPeriod,
+  defaultItemLimit,
+  resolveAllCatalogPeriod,
+  resolveChatPeriod,
+  resolveMonthPeriod,
+} from '../utils/resolve-chat-period';
 
 type Args = Record<string, unknown>;
 
@@ -139,8 +146,9 @@ export class ChatToolsService {
   }
 
   private async listFamilyMembers(ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     if (!ctx.groupId) {
-      return { members: [], note: 'Usuário sem grupo familiar.' };
+      return { members: [], note: 'Usuário sem grupo familiar.', period };
     }
     const members = await this.familyGroupService.getMembers(
       ctx.groupId,
@@ -155,10 +163,12 @@ export class ChatToolsService {
         role: m.role,
         status: m.status,
       })),
+      period,
     };
   }
 
   private async listPendingInvitations(ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     const rows = await this.familyGroupService.getPendingInvitations(ctx.user);
     return {
       invitations: rows.map((m) => ({
@@ -167,6 +177,7 @@ export class ChatToolsService {
         role: m.role,
         status: m.status,
       })),
+      period,
     };
   }
 
@@ -174,25 +185,41 @@ export class ChatToolsService {
     if (!ctx.groupId) {
       return { error: 'Usuário sem grupo familiar.' };
     }
+    const period = resolveMonthPeriod(args.month, args.year);
     const month = Number(args.month);
     const year = Number(args.year);
-    return this.familyGroupService.getGroupSummary(
+    const summary = await this.familyGroupService.getGroupSummary(
       ctx.groupId,
       ctx.user.id,
       month,
       year,
     );
+    return { ...summary, period };
   }
 
   private async listLatestRegistrations(args: Args, ctx: ChatAuthContext) {
+    const lastN =
+      args.lastN != null
+        ? Math.min(Math.max(1, Number(args.lastN) || 10), 100)
+        : null;
     const page = Number(args.page) || 1;
-    const limit = Number(args.limit) || 10;
-    return this.profileService.getLatestRegistrations(
+    const limit = lastN ?? (Number(args.limit) || 10);
+    const period: ChatPeriod = lastN
+      ? {
+          from: null,
+          to: null,
+          scope: 'all_time',
+          label: `busquei em toda a base (últimos ${limit})`,
+          limit,
+        }
+      : resolveAllCatalogPeriod();
+    const data = await this.profileService.getLatestRegistrations(
       ctx.user,
       page,
       limit,
       ctx.groupId ?? undefined,
     );
+    return { ...data, period };
   }
 
   private async resolveMemberUserId(
@@ -253,15 +280,13 @@ export class ChatToolsService {
     return proxy;
   }
 
-  private period(args: Args): { from: string; to: string } {
-    const { startDateString, endDateString } = getCurrentMonthDates();
-    return {
-      from: String(args.from || startDateString).slice(0, 10),
-      to: String(args.to || endDateString).slice(0, 10),
-    };
+  /** Somatórios/relatórios no chat: ignora lastN; sempre intervalo (12 meses se sem datas). */
+  private resolveRangePeriod(args: Args): ChatPeriod {
+    return resolveChatPeriod({ from: args.from, to: args.to });
   }
 
   private async listExpenses(args: Args, ctx: ChatAuthContext) {
+    const period = resolveChatPeriod(args);
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -269,10 +294,14 @@ export class ChatToolsService {
     );
     const user =
       memberId && memberId !== 'all' ? this.asUserFor(memberId, ctx) : ctx.user;
+    const limit =
+      period.scope === 'all_time'
+        ? (period.limit ?? 20)
+        : Number(args.limit) || 20;
     const page = await this.expenseService.findAll(
       {
-        page: Number(args.page) || 1,
-        limit: Number(args.limit) || 20,
+        page: period.scope === 'all_time' ? 1 : Number(args.page) || 1,
+        limit,
         search: args.search ? String(args.search) : undefined,
         isRecurring:
           args.isRecurring === undefined
@@ -282,6 +311,8 @@ export class ChatToolsService {
           args.isInstallment === undefined
             ? undefined
             : Boolean(args.isInstallment),
+        startDate: period.from ?? undefined,
+        endDate: period.to ?? undefined,
       },
       user,
     );
@@ -297,11 +328,12 @@ export class ChatToolsService {
         userName: e.user?.name,
         itemsCount: e.items?.length ?? 0,
       })),
+      period,
     };
   }
 
   private async searchExpenseItems(args: Args, ctx: ChatAuthContext) {
-    const { from, to } = this.period(args);
+    const period = resolveChatPeriod(args);
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -314,54 +346,31 @@ export class ChatToolsService {
           ? [memberId]
           : ctx.financialUserIds;
 
-    const nameQ = args.name ? String(args.name).toLowerCase() : '';
-    const catQ = args.category ? String(args.category).toLowerCase() : '';
-    const storeQ = args.store ? String(args.store).toLowerCase() : '';
-
-    const expenseLimit = 100;
-    const itemLimit = 100;
-    const expenses = await this.expenseService.findByPeriodWithItems(
+    const itemLimit = defaultItemLimit(period);
+    const items = await this.expenseService.searchItems({
       userIds,
-      from,
-      to,
-      expenseLimit,
-    );
+      name: args.name ? String(args.name) : undefined,
+      category: args.category ? String(args.category) : undefined,
+      store: args.store ? String(args.store) : undefined,
+      from: period.from,
+      to: period.to,
+      limit: itemLimit,
+    });
 
-    const collected: Array<Record<string, unknown>> = [];
-    for (const exp of expenses) {
-      const storeName = exp.store?.name?.toLowerCase() ?? '';
-      if (storeQ && !storeName.includes(storeQ)) continue;
-      for (const item of exp.items ?? []) {
-        const itemName = item.name?.toLowerCase() ?? '';
-        const groupName = item.group?.name?.toLowerCase() ?? '';
-        if (nameQ && !itemName.includes(nameQ)) continue;
-        if (catQ && !groupName.includes(catQ)) continue;
-        collected.push({
-          expenseId: exp.id,
-          expenseName: exp.name,
-          date: exp.date,
-          store: exp.store?.name,
-          itemName: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          total: item.total,
-          category: item.group?.name,
-          userId: exp.user?.id,
-        });
-        if (collected.length >= itemLimit) break;
-      }
-      if (collected.length >= itemLimit) break;
-    }
     return {
-      count: collected.length,
-      items: collected,
-      truncated:
-        expenses.length >= expenseLimit || collected.length >= itemLimit,
+      count: items.length,
+      items,
+      truncated: items.length >= itemLimit,
+      period,
     };
   }
 
   private async summarizeExpenses(args: Args, ctx: ChatAuthContext) {
-    const { from, to } = this.period(args);
+    const period = this.resolveRangePeriod(args);
+    const { from, to } = period;
+    if (!from || !to) {
+      return { error: 'Período inválido para sumarizar despesas.', period };
+    }
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -381,9 +390,10 @@ export class ChatToolsService {
           data: (Array.isArray(data) ? data : []).filter(
             (row: { name?: string }) => row.name?.toLowerCase().includes(q),
           ),
+          period,
         };
       }
-      return { data };
+      return { data, period };
     }
     const data = await this.reportsService.expenseByGroup(ctx.user, {
       startDate: from,
@@ -396,9 +406,10 @@ export class ChatToolsService {
         data: (Array.isArray(data) ? data : []).filter(
           (row: { name?: string }) => row.name?.toLowerCase().includes(q),
         ),
+        period,
       };
     }
-    return { data };
+    return { data, period };
   }
 
   private async getExpense(args: Args, ctx: ChatAuthContext) {
@@ -418,9 +429,8 @@ export class ChatToolsService {
     if (!ctx.financialUserIds.includes(expense.user.id)) {
       throw new ChatToolForbiddenException();
     }
-    // getReceipt exige o dono da despesa; admin já passou pelo ACL financeiro.
-    // Não enviar uri/photos ao Gemini — só resumo textual.
-    const receipt = await this.expenseService.getReceipt(id, expense.user.id);
+    // Sem uri/photos ao Gemini — só resumo textual.
+    const receipt = await this.expenseService.getReceipt(id, ctx.user.id);
     return this.mapReceiptForChat(receipt);
   }
 
@@ -491,6 +501,7 @@ export class ChatToolsService {
   }
 
   private async listRevenues(args: Args, ctx: ChatAuthContext) {
+    const period = resolveChatPeriod(args);
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -498,11 +509,17 @@ export class ChatToolsService {
     );
     const user =
       memberId && memberId !== 'all' ? this.asUserFor(memberId, ctx) : ctx.user;
+    const limit =
+      period.scope === 'all_time'
+        ? (period.limit ?? 20)
+        : Number(args.limit) || 20;
     const page = await this.revenueService.findAll(
       {
-        page: Number(args.page) || 1,
-        limit: Number(args.limit) || 20,
+        page: period.scope === 'all_time' ? 1 : Number(args.page) || 1,
+        limit,
         search: args.search ? String(args.search) : undefined,
+        startDate: period.from ?? undefined,
+        endDate: period.to ?? undefined,
       },
       user,
     );
@@ -516,11 +533,16 @@ export class ChatToolsService {
         userId: r.user?.id,
         userName: r.user?.name,
       })),
+      period,
     };
   }
 
   private async summarizeRevenues(args: Args, ctx: ChatAuthContext) {
-    const { from, to } = this.period(args);
+    const period = this.resolveRangePeriod(args);
+    const { from, to } = period;
+    if (!from || !to) {
+      return { error: 'Período inválido para sumarizar receitas.', period };
+    }
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -543,7 +565,7 @@ export class ChatToolsService {
       total += value;
       rows.push({ userId: uid, value });
     }
-    return { from, to, total, byUser: rows };
+    return { from, to, total, byUser: rows, period };
   }
 
   private async getRevenue(args: Args, ctx: ChatAuthContext) {
@@ -556,13 +578,11 @@ export class ChatToolsService {
   }
 
   private async getMonthBalance(args: Args, ctx: ChatAuthContext) {
-    const now = new Date();
-    const month = Number(args.month) || now.getMonth() + 1;
-    const year = Number(args.year) || now.getFullYear();
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0);
-    const startDateString = start.toISOString().slice(0, 10);
-    const endDateString = end.toISOString().slice(0, 10);
+    const period = resolveMonthPeriod(args.month, args.year);
+    const month = Number(args.month) || Number(period.from?.slice(5, 7));
+    const year = Number(args.year) || Number(period.from?.slice(0, 4));
+    const startDateString = period.from as string;
+    const endDateString = period.to as string;
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -597,12 +617,14 @@ export class ChatToolsService {
       expenses,
       revenues,
       balance: revenues - expenses,
+      period,
     };
   }
 
   private async listPendingRecurring(args: Args, ctx: ChatAuthContext) {
+    const period = resolveMonthPeriod();
     const type = String(args.type || 'both');
-    const result: Record<string, unknown> = {};
+    const result: Record<string, unknown> = { period };
     if (type === 'expense' || type === 'both') {
       const expenses =
         await this.expenseService.getRecurringExpenseByCurrentMonth(ctx.user);
@@ -627,32 +649,38 @@ export class ChatToolsService {
   }
 
   private async listStores(ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     const page = await this.storeService.findAll(
       { page: 1, limit: 50 },
       ctx.user,
     );
     return {
       items: page.data.map((s) => ({ id: s.id, name: s.name })),
+      period,
     };
   }
 
   private async listCategories(ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     const page = await this.groupService.findAll(
       { page: 1, limit: 50 },
       ctx.user,
     );
     return {
       items: page.data.map((g) => ({ id: g.id, name: g.name })),
+      period,
     };
   }
 
   private async listPayments(ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     const page = await this.paymentService.findAll(
       { page: 1, limit: 50 },
       ctx.user,
     );
     return {
       items: page.data.map((p) => ({ id: p.id, name: p.name })),
+      period,
     };
   }
 
@@ -665,7 +693,10 @@ export class ChatToolsService {
       | 'expenseByDate'
       | 'mostPurchasedItems',
   ) {
-    const { from, to } = this.period(args);
+    const period = this.resolveRangePeriod(args);
+    if (!period.from || !period.to) {
+      return { error: 'Período inválido para relatório.', period };
+    }
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
@@ -675,17 +706,18 @@ export class ChatToolsService {
       memberId === 'all'
         ? 'all'
         : memberId || (ctx.isAdmin ? 'all' : ctx.user.id);
-    const dto = { startDate: from, endDate: to, userId };
+    const dto = { startDate: period.from, endDate: period.to, userId };
+    let data: unknown;
     if (kind === 'expenseByGroup') {
-      return this.reportsService.expenseByGroup(ctx.user, dto);
+      data = await this.reportsService.expenseByGroup(ctx.user, dto);
+    } else if (kind === 'expenseByStore') {
+      data = await this.reportsService.expenseByStore(ctx.user, dto);
+    } else if (kind === 'expenseByDate') {
+      data = await this.reportsService.expenseByDate(ctx.user, dto);
+    } else {
+      data = await this.reportsService.mostPurchasedItems(ctx.user, dto);
     }
-    if (kind === 'expenseByStore') {
-      return this.reportsService.expenseByStore(ctx.user, dto);
-    }
-    if (kind === 'expenseByDate') {
-      return this.reportsService.expenseByDate(ctx.user, dto);
-    }
-    return this.reportsService.mostPurchasedItems(ctx.user, dto);
+    return { data, period };
   }
 
   private async reportExpensesVsIncome(args: Args, ctx: ChatAuthContext) {
@@ -694,13 +726,21 @@ export class ChatToolsService {
       ctx,
       'financial',
     );
-    return this.reportsService.expensesIncomeComparison(ctx.user, {
+    const year = args.year ? Number(args.year) : new Date().getFullYear();
+    const period: ChatPeriod = {
+      from: `${year}-01-01`,
+      to: `${year}-12-31`,
+      scope: 'custom',
+      label: `busquei o ano ${year}`,
+    };
+    const data = await this.reportsService.expensesIncomeComparison(ctx.user, {
       year: args.year ? String(args.year) : undefined,
       userId:
         memberId === 'all'
           ? 'all'
           : memberId || (ctx.isAdmin ? 'all' : ctx.user.id),
     });
+    return { data, period };
   }
 
   private async listWarranties(args: Args, ctx: ChatAuthContext) {
@@ -709,7 +749,16 @@ export class ChatToolsService {
       ctx,
       'financial',
     );
-    return this.reportsService.warrantyItems(ctx.user, {
+    const year = args.year ? Number(args.year) : new Date().getFullYear();
+    const period: ChatPeriod = {
+      from: `${year}-01-01`,
+      to: `${year}-12-31`,
+      scope: 'custom',
+      label: args.year
+        ? `busquei garantias do ano ${year}`
+        : 'busquei garantias (ano atual)',
+    };
+    const data = await this.reportsService.warrantyItems(ctx.user, {
       year: args.year ? String(args.year) : undefined,
       search: args.search ? String(args.search) : undefined,
       includeExpired: Boolean(args.includeExpired),
@@ -720,19 +769,35 @@ export class ChatToolsService {
       page: 1,
       limit: 50,
     });
+    return { ...data, period };
   }
 
   private async listShoppingLists(args: Args, ctx: ChatAuthContext) {
-    return this.shoppingListService.findAll(
+    const lastN =
+      args.lastN != null
+        ? Math.min(Math.max(1, Number(args.lastN) || 20), 100)
+        : 20;
+    const period: ChatPeriod =
+      args.lastN != null
+        ? {
+            from: null,
+            to: null,
+            scope: 'all_time',
+            label: `busquei em toda a base (últimos ${lastN})`,
+            limit: lastN,
+          }
+        : resolveAllCatalogPeriod();
+    const data = await this.shoppingListService.findAll(
       {
         page: 1,
-        limit: 20,
+        limit: lastN,
         status: args.status
           ? (String(args.status) as 'active' | 'completed' | 'archived')
           : undefined,
       },
       ctx.user,
     );
+    return { ...data, period };
   }
 
   private async getShoppingList(args: Args, ctx: ChatAuthContext) {
@@ -761,10 +826,12 @@ export class ChatToolsService {
 
   private async listChoreDefinitions(ctx: ChatAuthContext) {
     const groupId = this.requireGroup(ctx);
-    return this.choreService.listDefinitions(groupId, ctx.user, {
+    const period = resolveAllCatalogPeriod();
+    const data = await this.choreService.listDefinitions(groupId, ctx.user, {
       page: 1,
       limit: 50,
     });
+    return { ...data, period };
   }
 
   private async searchChores(args: Args, ctx: ChatAuthContext) {
@@ -773,18 +840,32 @@ export class ChatToolsService {
       ? String(args.titleQuery).toLowerCase()
       : '';
     const status = args.status ? String(args.status) : undefined;
+    const lastN =
+      args.lastN != null
+        ? Math.min(Math.max(1, Number(args.lastN) || 50), 100)
+        : 50;
+    const period: ChatPeriod =
+      args.lastN != null
+        ? {
+            from: null,
+            to: null,
+            scope: 'all_time',
+            label: `busquei em toda a base (últimos ${lastN})`,
+            limit: lastN,
+          }
+        : resolveAllCatalogPeriod();
 
     let page;
     if (ctx.isAdmin) {
       page = await this.choreService.listOccurrences(groupId, ctx.user, {
         page: 1,
-        limit: 50,
+        limit: lastN,
         status: status as never,
       });
     } else {
       page = await this.choreService.listMine(groupId, ctx.user, {
         page: 1,
-        limit: 50,
+        limit: lastN,
         status: status as never,
       });
     }
@@ -811,6 +892,7 @@ export class ChatToolsService {
         completedAt: occ.completedAt,
         scheduledDate: occ.scheduledDate,
       })),
+      period,
     };
   }
 
@@ -819,15 +901,22 @@ export class ChatToolsService {
     if (!ctx.isAdmin) {
       throw new ChatToolForbiddenException('Apenas admin pode ver aprovações.');
     }
-    return this.choreService.listPendingApproval(groupId, ctx.user, {
-      page: 1,
-      limit: 50,
-    });
+    const period = resolveAllCatalogPeriod();
+    const data = await this.choreService.listPendingApproval(
+      groupId,
+      ctx.user,
+      {
+        page: 1,
+        limit: 50,
+      },
+    );
+    return { ...data, period };
   }
 
   private async getPayrollPending(args: Args, ctx: ChatAuthContext) {
     const groupId = this.requireGroup(ctx);
-    return this.choreService.getPayrollPending(
+    const period = resolveMonthPeriod(args.month, args.year);
+    const data = await this.choreService.getPayrollPending(
       groupId,
       ctx.user,
       {
@@ -836,14 +925,21 @@ export class ChatToolsService {
       },
       ctx.isAdmin,
     );
+    return { ...data, period };
   }
 
   private async getPayrollSettlement(args: Args, ctx: ChatAuthContext) {
     const groupId = this.requireGroup(ctx);
     const year = Number(args.year);
     const month = Number(args.month);
+    const period = resolveMonthPeriod(month, year);
     const periodYm = year * 100 + month;
-    return this.choreService.getPayrollSettlement(groupId, ctx.user, periodYm);
+    const data = await this.choreService.getPayrollSettlement(
+      groupId,
+      ctx.user,
+      periodYm,
+    );
+    return { ...data, period };
   }
 
   private async getCoinBalance(args: Args, ctx: ChatAuthContext) {
@@ -857,63 +953,83 @@ export class ChatToolsService {
     if (!ctx.isAdmin && user.id !== ctx.user.id) {
       throw new ChatToolForbiddenException();
     }
-    return this.coinService.getCoinsByUser(user);
+    const period = resolveAllCatalogPeriod();
+    const balance = await this.coinService.getCoinsByUser(user);
+    return { balance, period };
   }
 
   private async getCoinStatement(args: Args, ctx: ChatAuthContext) {
-    const { from, to } = this.period(args);
+    const period = resolveChatPeriod(args);
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
       'financial',
     );
-    return this.coinService.getStatement(ctx.user, {
-      startDate: from,
-      endDate: to,
+    const limit =
+      period.scope === 'all_time'
+        ? (period.limit ?? 20)
+        : Number(args.limit) || 20;
+    // Coin statement exige intervalo; all_time usa janela ampla + LIMIT.
+    const startDate = period.from ?? '1970-01-01';
+    const endDate = period.to ?? getTodayDateString();
+    const data = await this.coinService.getStatement(ctx.user, {
+      startDate,
+      endDate,
       userId: memberId === 'all' ? 'all' : memberId,
-      page: Number(args.page) || 1,
-      limit: Number(args.limit) || 20,
+      page: period.scope === 'all_time' ? 1 : Number(args.page) || 1,
+      limit,
     });
+    return { ...data, period };
   }
 
   private async listMissions(ctx: ChatAuthContext) {
-    return this.missionService.getMissionsWithProgress(ctx.user);
+    const period = resolveAllCatalogPeriod();
+    const data = await this.missionService.getMissionsWithProgress(ctx.user);
+    return { data, period };
   }
 
   private async listThemes(ctx: ChatAuthContext) {
-    return this.themeService.availableThemes(ctx.user);
+    const period = resolveAllCatalogPeriod();
+    const data = await this.themeService.availableThemes(ctx.user);
+    return { data, period };
   }
 
   private async listHealthExams(args: Args, ctx: ChatAuthContext) {
+    const period = resolveChatPeriod(args);
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
       'group',
     );
-    return this.healthService.listExams(ctx.user, {
+    const limit =
+      period.scope === 'all_time' ? String(period.limit ?? 20) : '20';
+    const data = await this.healthService.listExams(ctx.user, {
       page: '1',
-      limit: '20',
+      limit,
       examName: args.examName ? String(args.examName) : undefined,
       doctorName: args.doctorName ? String(args.doctorName) : undefined,
       labName: args.labName ? String(args.labName) : undefined,
-      dateFrom: args.from ? String(args.from) : undefined,
-      dateTo: args.to ? String(args.to) : undefined,
+      dateFrom: period.from ?? undefined,
+      dateTo: period.to ?? undefined,
       userId: memberId && memberId !== 'all' ? memberId : undefined,
     });
+    return { ...data, period };
   }
 
   private async getLabItemEvolution(args: Args, ctx: ChatAuthContext) {
+    const period = resolveChatPeriod(args);
     const memberId = await this.resolveMemberUserId(
       args.memberName,
       ctx,
       'group',
     );
-    return this.healthService.getLabItemEvolution(ctx.user, {
+    const data = await this.healthService.getLabItemEvolution(ctx.user, {
       itemName: String(args.itemName),
-      dateFrom: args.from ? String(args.from) : undefined,
-      dateTo: args.to ? String(args.to) : undefined,
+      dateFrom: period.from ?? undefined,
+      dateTo: period.to ?? undefined,
       userId: memberId && memberId !== 'all' ? memberId : undefined,
     });
+    return { ...data, period };
   }
 
   private async listPrescriptions(args: Args, ctx: ChatAuthContext) {
@@ -922,11 +1038,26 @@ export class ChatToolsService {
       ctx,
       'group',
     );
-    return this.healthService.listPrescriptions(ctx.user, {
+    const lastN =
+      args.lastN != null
+        ? Math.min(Math.max(1, Number(args.lastN) || 20), 100)
+        : 20;
+    const period: ChatPeriod =
+      args.lastN != null
+        ? {
+            from: null,
+            to: null,
+            scope: 'all_time',
+            label: `busquei em toda a base (últimos ${lastN})`,
+            limit: lastN,
+          }
+        : resolveAllCatalogPeriod();
+    const data = await this.healthService.listPrescriptions(ctx.user, {
       page: '1',
-      limit: '20',
+      limit: String(lastN),
       userId: memberId && memberId !== 'all' ? memberId : undefined,
     });
+    return { ...data, period };
   }
 
   private async getMedicationSchedule(args: Args, ctx: ChatAuthContext) {
@@ -935,6 +1066,7 @@ export class ChatToolsService {
       ctx,
       'group',
     );
+    const period = resolveAllCatalogPeriod();
     const page = await this.healthService.listPrescriptions(ctx.user, {
       page: '1',
       limit: '50',
@@ -963,7 +1095,7 @@ export class ChatToolsService {
         });
       }
     }
-    return { count: schedules.length, medications: schedules };
+    return { count: schedules.length, medications: schedules, period };
   }
 
   private async getHealthAiOverview(args: Args, ctx: ChatAuthContext) {
@@ -972,15 +1104,31 @@ export class ChatToolsService {
       ctx,
       'group',
     );
-    return this.healthService.getLatestOverview(
+    const period = resolveAllCatalogPeriod();
+    const data = await this.healthService.getLatestOverview(
       ctx.user,
       memberId && memberId !== 'all' ? memberId : undefined,
     );
+    return { data, period };
   }
 
   private async listRecipes(args: Args, ctx: ChatAuthContext) {
+    const lastN =
+      args.lastN != null
+        ? Math.min(Math.max(1, Number(args.lastN) || 50), 100)
+        : 50;
+    const period: ChatPeriod =
+      args.lastN != null
+        ? {
+            from: null,
+            to: null,
+            scope: 'all_time',
+            label: `busquei em toda a base (últimos ${lastN})`,
+            limit: lastN,
+          }
+        : resolveAllCatalogPeriod();
     const page = await this.recipeService.findAll(
-      { page: 1, limit: 50 },
+      { page: 1, limit: lastN },
       ctx.user,
     );
     const search = args.search ? String(args.search).toLowerCase() : '';
@@ -994,6 +1142,7 @@ export class ChatToolsService {
         title: r.title,
         description: r.description,
       })),
+      period,
     };
   }
 
@@ -1002,11 +1151,13 @@ export class ChatToolsService {
   }
 
   private async getAlexaStatus(ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     const integrations = await this.profileService.getIntegrations(ctx.user.id);
-    return { alexa: integrations.alexa ?? { connected: false } };
+    return { alexa: integrations.alexa ?? { connected: false }, period };
   }
 
   private async getAiQuota(_ctx: ChatAuthContext) {
+    const period = resolveAllCatalogPeriod();
     const usage = await this.apiQuotaService.getCurrentUsage('gemini-chat');
     const dailyLimit = this.appConfig.getGeminiChatDailyLimit();
     return {
@@ -1017,6 +1168,7 @@ export class ChatToolsService {
         usage.dailyLimit > 0
           ? usage.remaining
           : dailyLimit - usage.requestCount,
+      period,
     };
   }
 }

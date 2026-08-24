@@ -49,4 +49,13 @@ describe('SecurityAuditLogService', () => {
       'warn',
     );
   });
+
+  it('accountRecoveryRequested registra outcome', () => {
+    service.accountRecoveryRequested('a@b.com', 'sent');
+    expect(logJsonSpy).toHaveBeenCalledWith(expect.any(Logger), {
+      event: 'account_recovery_requested',
+      email: 'a@b.com',
+      outcome: 'sent',
+    });
+  });
 });

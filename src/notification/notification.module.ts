@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from 'src/common/common.module';
+import { EmailModule } from 'src/email/email.module';
 import { UserModule } from 'src/user/user.module';
+import { EmailChannel } from './channels/email.channel';
 import { InAppChannel } from './channels/in-app.channel';
 import { NotificationChannelRegistry } from './channels/channel.registry';
 import { Notification } from './entities/notification.entity';
@@ -14,6 +16,7 @@ import { NotificationRepository } from './repositories/notification.repository';
   imports: [
     CommonModule,
     UserModule,
+    EmailModule,
     TypeOrmModule.forFeature([Notification]),
   ],
   controllers: [NotificationController],
@@ -21,6 +24,7 @@ import { NotificationRepository } from './repositories/notification.repository';
     NotificationService,
     NotificationEventsListener,
     InAppChannel,
+    EmailChannel,
     NotificationChannelRegistry,
     {
       provide: 'INotificationRepository',

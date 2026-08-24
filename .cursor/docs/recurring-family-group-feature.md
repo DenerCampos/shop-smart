@@ -170,3 +170,4 @@ Response DTO (inclui user owner info)
 - O `FamilyMemberResolverService` acessa diretamente o `Repository<FamilyGroupMember>` via TypeORM, sem depender do `FamilyGroupService`. Isso evita dependência circular.
 - O campo `user` no response é `null` quando o JOIN não carrega a relação (ex: rotas que não passam pelo `findAll` atualizado).
 - As rotas de edição (`PATCH`) e exclusão (`DELETE`) permanecem inalteradas -- o membro só pode editar/excluir seus próprios dados, como já era antes.
+- `GET /expense|revenue/:id/receipt` (SP-138): dono **ou** admin da família (`assertAdminManagingTarget`). Membro comum não vê cupom de outro membro. Response via DTO (`OwnerResponseDto`).

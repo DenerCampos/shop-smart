@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { CreateRevenueDto } from '../dto/create-revenue.dto';
 import { UpdateRevenueDto } from '../dto/update-revenue.dto';
+import { nextCalendarDateString } from 'src/common/utils/dates.util';
 
 @Injectable()
 export class RevenueRepository implements IRevenueRepository {
@@ -39,6 +40,8 @@ export class RevenueRepository implements IRevenueRepository {
     search?: string,
     isRecurring?: boolean,
     isInstallment?: boolean,
+    startDate?: string,
+    endDate?: string,
   ): Promise<[Revenue[], number]> {
     const queryBuilder = this.revenueEntity
       .createQueryBuilder('revenue')
@@ -65,6 +68,13 @@ export class RevenueRepository implements IRevenueRepository {
       queryBuilder.andWhere('revenue.isInstallment = :isInstallment', {
         isInstallment,
       });
+    }
+
+    if (startDate && endDate) {
+      queryBuilder.andWhere(
+        'revenue.date >= :startDate AND revenue.date < :endDateExclusive',
+        { startDate, endDateExclusive: nextCalendarDateString(endDate) },
+      );
     }
 
     if (page !== undefined && limit !== undefined) {

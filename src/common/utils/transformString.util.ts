@@ -25,6 +25,13 @@ export const trimString = (value: any): any => {
 };
 
 /**
+ * Trim + lowercase — normalização de e-mail para cadastro/login/busca.
+ */
+export const normalizeEmail = (value: any): any => {
+  return typeof value === 'string' ? value.trim().toLowerCase() : value;
+};
+
+/**
  * Capitaliza todas as palavras (Title Case)
  */
 export const capitalizeWords = (value: any): any => {

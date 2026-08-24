@@ -19,6 +19,13 @@ interface ICache {
   host: string;
   port: number;
 }
+
+interface IEmail {
+  provider: 'brevo' | 'noop';
+  apiKey: string;
+  from: string;
+  fromName: string;
+}
 @Injectable()
 export class AppConfig {
   private readonly configService = new ConfigService();
@@ -64,6 +71,35 @@ export class AppConfig {
       host: this.configService.get<string>('API_REDIS_HOST'),
       port: Number(this.configService.get<string>('API_REDIS_PORT')),
     };
+  }
+
+  /**
+   * `noop` é o padrão de propósito: sem configuração explícita, a API loga o
+   * e-mail em vez de enviar (evita queimar a cota do Brevo em dev e nos testes).
+   */
+  getEmail(): IEmail {
+    const provider = this.configService.get<string>('EMAIL_PROVIDER', 'noop');
+
+    return {
+      provider: provider === 'brevo' ? 'brevo' : 'noop',
+      apiKey: (this.configService.get<string>('BREVO_API_KEY') ?? '').trim(),
+      from: (this.configService.get<string>('EMAIL_FROM') ?? '').trim(),
+      fromName: (
+        this.configService.get<string>(
+          'EMAIL_FROM_NAME',
+          'Super Family Quest',
+        ) ?? 'Super Family Quest'
+      ).trim(),
+    };
+  }
+
+  getPasswordResetTokenTtlMinutes(): number {
+    const minutes = Number.parseInt(
+      this.configService.get<string>('PASSWORD_RESET_TOKEN_TTL_MINUTES') ||
+        '30',
+      10,
+    );
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
   }
 
   getSaltEncryption(): number {

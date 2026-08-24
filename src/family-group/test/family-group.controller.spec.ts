@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FamilyGroupController } from '../family-group.controller';
 import { FamilyGroupService } from '../family-group.service';
@@ -19,6 +20,7 @@ describe('FamilyGroupController', () => {
       rejectInvitation: jest.fn().mockResolvedValue({ id: 'm2' }),
       findGroupById: jest.fn().mockResolvedValue({ id: 'g1' }),
       updateGroup: jest.fn().mockResolvedValue({ id: 'g1' }),
+      uploadGroupImage: jest.fn().mockResolvedValue({ id: 'g1' }),
       deleteGroup: jest.fn().mockResolvedValue(true),
       inviteMember: jest.fn().mockResolvedValue({ id: 'm3' }),
       getMembers: jest.fn().mockResolvedValue([]),
@@ -50,10 +52,17 @@ describe('FamilyGroupController', () => {
 
   const user = () => createTestUser();
 
-  it('create chama serviço com usuário e nome', async () => {
+  it('create chama serviço com usuário, nome e brasão', async () => {
     const u = user();
-    await controller.create(u, { name: 'Família' } as never);
-    expect(familyGroupService.create).toHaveBeenCalledWith(u, 'Família');
+    await controller.create(u, {
+      name: 'Família',
+      coatOfArms: '/assets/images/brasao/brasao-2.png',
+    } as never);
+    expect(familyGroupService.create).toHaveBeenCalledWith(
+      u,
+      'Família',
+      '/assets/images/brasao/brasao-2.png',
+    );
   });
 
   it('findAll lista grupos do usuário', async () => {
@@ -86,11 +95,15 @@ describe('FamilyGroupController', () => {
     const u = user();
     await controller.findOne('g1', u);
     expect(familyGroupService.findGroupById).toHaveBeenCalledWith('g1', u.id);
-    await controller.update('g1', u, { name: 'Novo' } as never);
+    await controller.update('g1', u, {
+      name: 'Novo',
+      coatOfArms: '/assets/images/brasao/brasao-4.png',
+    } as never);
     expect(familyGroupService.updateGroup).toHaveBeenCalledWith(
       'g1',
       u.id,
       'Novo',
+      '/assets/images/brasao/brasao-4.png',
     );
     await controller.delete('g1', u);
     expect(familyGroupService.deleteGroup).toHaveBeenCalledWith('g1', u.id);
@@ -123,6 +136,42 @@ describe('FamilyGroupController', () => {
     );
     await controller.leaveGroup('g1', u);
     expect(familyGroupService.leaveGroup).toHaveBeenCalledWith('g1', u.id);
+  });
+
+  describe('uploadGroupImage', () => {
+    const image = (mimetype: string) =>
+      ({
+        buffer: Buffer.from('img'),
+        mimetype,
+        originalname: 'foto.png',
+      }) as Express.Multer.File;
+
+    it('repassa grupo, usuário e arquivo ao serviço', async () => {
+      const u = user();
+      const file = image('image/png');
+      await controller.uploadGroupImage('g1', u, file);
+      expect(familyGroupService.uploadGroupImage).toHaveBeenCalledWith(
+        'g1',
+        u.id,
+        file,
+      );
+    });
+
+    it('rejeita requisição sem arquivo', async () => {
+      const u = user();
+      await expect(
+        controller.uploadGroupImage('g1', u, undefined as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(familyGroupService.uploadGroupImage).not.toHaveBeenCalled();
+    });
+
+    it('rejeita mimetype que não é imagem permitida', async () => {
+      const u = user();
+      await expect(
+        controller.uploadGroupImage('g1', u, image('application/pdf')),
+      ).rejects.toThrow(BadRequestException);
+      expect(familyGroupService.uploadGroupImage).not.toHaveBeenCalled();
+    });
   });
 
   it('getGroupSummary e getMemberData repassam filtro mês/ano', async () => {

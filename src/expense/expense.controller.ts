@@ -140,7 +140,8 @@ export class ExpenseController {
     @Param('id') id: string,
     @CurrentUser() user: User,
   ): Promise<ExpenseReceiptDto> {
-    return this.expenseService.getReceipt(id, user.id);
+    const receipt = await this.expenseService.getReceipt(id, user.id);
+    return this.responseService.mapToDto(ExpenseReceiptDto, receipt);
   }
 
   @UseGuards(AuthGuard)

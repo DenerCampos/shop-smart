@@ -9,6 +9,7 @@ import {
   loginAsSeedUser,
 } from './helpers/create-e2e-app';
 import { expectClientError } from './helpers/expect-response';
+import { EmailService } from '../../src/email/email.service';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
@@ -72,6 +73,96 @@ describe('Auth (e2e)', () => {
     expectClientError(res);
   });
 
+  it('POST /auth/login — 200 com e-mail em caixa diferente (case-insensitive)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: E2E_SEED_EMAIL.toUpperCase(),
+        password: E2E_SEED_PASSWORD,
+      })
+      .expect(200);
+    expect(res.body.accessToken).toEqual(expect.any(String));
+  });
+
+  describe('POST /auth/recover-account e reset (SP-136)', () => {
+    it('login de conta deletada com senha correta retorna 409 e o reset reativa autenticando', async () => {
+      const emailService = app.get(EmailService);
+      const sendSpy = jest.spyOn(emailService, 'sendAccountRecovery');
+      const email = `recover-ok-${Date.now()}@example.com`;
+      const password = 'Valid123';
+      const newPassword = 'NovaSenha99';
+
+      await request(app.getHttpServer())
+        .post('/user')
+        .send({ name: 'Recover Ok', email, password })
+        .expect(201);
+
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+
+      const profile = await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(login.body.accessToken))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .delete(`/user/${profile.body.user.id}`)
+        .set(bearerAuth(login.body.accessToken))
+        .send({ password })
+        .expect(200);
+
+      const blocked = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(409);
+      expect(blocked.body).toEqual(
+        expect.objectContaining({
+          code: 'ACCOUNT_DELETED_REACTIVATION_REQUIRED',
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: 'WrongPass1' })
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .post('/auth/recover-account')
+        .send({ email })
+        .expect(200);
+
+      expect(sendSpy).toHaveBeenCalled();
+      const token = sendSpy.mock.calls[0][0].token as string;
+
+      const reset = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: newPassword })
+        .expect(200);
+
+      expect(reset.body).toEqual(
+        expect.objectContaining({ accessToken: expect.any(String) }),
+      );
+
+      await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(reset.body.accessToken))
+        .expect(200);
+
+      sendSpy.mockRestore();
+    });
+
+    it('recover-account responde igual para e-mail desconhecido', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/recover-account')
+        .send({ email: `missing-${Date.now()}@example.com` })
+        .expect(200);
+
+      expect(res.body.message).toEqual(expect.any(String));
+    });
+  });
+
   describe('sessão demo — bloqueio de perfil (SP-130)', () => {
     async function demoTokenForSeedUser(): Promise<{
       token: string;
@@ -121,6 +212,123 @@ describe('Auth (e2e)', () => {
         .get('/profile')
         .set(bearerAuth(token))
         .expect(200);
+    });
+  });
+
+  describe('POST /auth/forgot-password e reset-password (SP-91)', () => {
+    const genericMessage =
+      'Se este e-mail estiver cadastrado, enviaremos as instruções de redefinição em instantes.';
+
+    it('e-mail desconhecido e cadastrado devolvem a mesma mensagem', async () => {
+      const unknown = await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: `missing-${Date.now()}@example.com` })
+        .expect(200);
+
+      const known = await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: E2E_SEED_EMAIL })
+        .expect(200);
+
+      expect(unknown.body).toEqual({ message: genericMessage });
+      expect(known.body).toEqual(unknown.body);
+    });
+
+    it('400 quando o e-mail é inválido', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: 'nao-e-email' });
+      expectClientError(res);
+    });
+
+    it('400 quando o token está malformado', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: 'curto', password: 'senha-valida-1' });
+      expectClientError(res);
+    });
+
+    it('400 quando a senha é curta', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: 'a'.repeat(64), password: '123' });
+      expectClientError(res);
+    });
+
+    it('400 com token inexistente', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: 'b'.repeat(64), password: 'senha-valida-1' });
+      expectClientError(res);
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          code: 'INVALID_OR_EXPIRED_RESET_TOKEN',
+        }),
+      );
+    });
+
+    it('redefine senha, invalida JWT anterior e permite login com a nova senha', async () => {
+      const emailService = app.get(EmailService);
+      const sendSpy = jest.spyOn(emailService, 'sendPasswordReset');
+
+      const email = `reset-ok-${Date.now()}@example.com`;
+      const oldPassword = 'Valid123';
+      const newPassword = 'NovaSenha99';
+
+      await request(app.getHttpServer())
+        .post('/user')
+        .send({ name: 'Reset Ok', email, password: oldPassword })
+        .expect(201);
+
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: oldPassword })
+        .expect(200);
+      const oldAccess = login.body.accessToken as string;
+
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email })
+        .expect(200);
+
+      expect(sendSpy).toHaveBeenCalled();
+      const token = sendSpy.mock.calls[0][0].token as string;
+
+      const reset = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: newPassword })
+        .expect(200);
+
+      expect(reset.body).toEqual(
+        expect.objectContaining({ accessToken: expect.any(String) }),
+      );
+
+      await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(oldAccess))
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(reset.body.accessToken))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: oldPassword })
+        .expect(401);
+
+      const relogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: newPassword })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/profile')
+        .set(bearerAuth(relogin.body.accessToken))
+        .expect(200);
+
+      sendSpy.mockRestore();
     });
   });
 });

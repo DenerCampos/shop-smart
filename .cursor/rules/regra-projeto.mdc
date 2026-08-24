@@ -57,7 +57,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 
 | Módulo | Pasta | Responsabilidade resumida |
 |--------|-------|---------------------------|
-| auth | `auth/` | JWT, login, refresh, guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
+| `auth` | `auth/` | JWT, login, refresh, recuperação de conta (`POST /auth/recover-account` SP-136), recuperação de senha (`POST /auth/forgot-password`, `POST /auth/reset-password` SP-91), guards (`AuthGuard`, `DenyDemoGuard` SP-130) |
 | user | `user/` | Usuários |
 | expense | `expense/` | Despesas, recorrência, itens |
 | revenue | `revenue/` | Receitas |
@@ -76,8 +76,8 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | recipe | `recipe/` | Receitas |
 | mission | `mission/` | Missões dinâmicas (SP-78) |
 | health | `health/` | Módulo de Saúde — exames, processamento IA, receituário, visão geral (SP-123) |
-| chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117) |
-| notification | `notification/` | Notificações internas (canais + orquestrador; SP-101) |
+| chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117); recorte de período 12 meses / lastN / `period.label` (SP-139) |
+| notification | `notification/` | Notificações internas (canais in-app + e-mail; SP-101 / SP-91) |
 | alexa | `alexa/` | Integração Alexa |
 
 **Infraestrutura** (não expor como REST principal; usar via services):
@@ -85,6 +85,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | Módulo | Pasta | Uso |
 |--------|-------|-----|
 | common | `common/` | Config, logger, logging, filters, middleware, pagination, response, **`FamilyMemberResolverService`**, **`prompts/`** (prompts Gemini compartilhados) |
+| email | `email/` | E-mail transacional (Brevo/noop, templates; SP-91) — importado por `AuthModule` e `NotificationModule` |
 | file-storage | `file-storage/` | Abstração de armazenamento de arquivos |
 | supabase-storage | `supabase-storage/` | Provider Supabase |
 | google-drive | `google-drive/` | Google Drive (tokens, upload) |
@@ -131,6 +132,7 @@ Quando o service precisar apenas de **dados de membership** (quem está no grupo
 | Admin vê todos os membros; demais só a si | `getAcceptedMemberUserIdsIfAdmin(userId)` |
 | Todos os membros aceitos do grupo (ou `[userId]` se sem grupo) | `getAcceptedMemberUserIds(userId)` |
 | Escopo + flag admin + `groupId` | `resolve(userId)` |
+| Dono ou admin da família do dono (receipt SP-138) | `isAdminManagingTarget` (boolean) / `assertAdminManagingTarget(requesterId, ownerId)` (403) |
 
 **Importar** `CommonModule` no módulo do domínio; **não** importar `FamilyGroupModule` só para resolver membros.
 
@@ -158,10 +160,10 @@ Prefixos atuais (atualizar ao criar controller):
 
 | Prefixo | Módulo |
 |---------|--------|
-| `auth` | auth |
-| `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min) |
-| `/expense` | expense |
-| `/revenue` | revenue |
+| `auth` | auth — `POST /login`, `PUT /refresh`, `POST /demo`, `POST /recover-account` (SP-136), `POST /forgot-password`, `POST /reset-password` (SP-91), OAuth Alexa |
+| `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min); `DELETE /user/:id` com senha (SP-136; 400 `INVALID_PASSWORD`; 409 `FAMILY_GROUP_OWNER` / `LAST_FAMILY_GROUP_ADMIN`) |
+| `/expense` | expense — `GET /:id/receipt` dono ou admin da família (SP-138) |
+| `/revenue` | revenue — `GET /:id/receipt` dono ou admin da família (SP-138) |
 | `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |
 | `/theme` | theme |
 | `/profile` | profile |
@@ -169,7 +171,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/group`, `/payment`, `/store` | resources |
 | `/coupon-reader` | coupon-reader |
 | `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
-| `/family-group` | family-group |
+| `/family-group` | family-group — incl. `POST /:id/upload-image` (foto do grupo, admin + DenyDemo, SP-131) |
 | `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
 | `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113), `POST .../occurrences/:id/return-for-adjustment` (SP-115) |
 | `/recipes` | recipe |
@@ -210,7 +212,7 @@ Todos os textos de prompt enviados ao Gemini ficam em **`src/common/prompts/`**,
 | `coupon-text.prompt.ts` | Cupom fiscal / NF-e (texto) |
 | `image-finance.prompt.ts` | Despesa/receita por imagem |
 | `audio-finance.prompt.ts` | Despesa/receita por áudio |
-| `chat-agent.prompt.ts` | Assistente Familiar — system prompt (SP-117) |
+| `chat-agent.prompt.ts` | Assistente Familiar — system prompt (SP-117); regras de período / `period.label` (SP-139) |
 
 **Regras:**
 
@@ -267,14 +269,16 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `missoes.md` — missões dinâmicas (SP-78 / SP-110)
 - `extrato-moedas.md` — extrato de moedas e celebração de tarefas (SP-97)
 - `mesada.md` — liquidação de mesada, financeiro e histórico (SP-113)
-- `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86)
+- `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86); ACL do receipt: dono ou admin da família (SP-138)
 - `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive
 - `demo-login.md` — login demo via link para portfólio (SP-118); bloqueio de mutações de perfil em sessão demo (SP-130)
+- `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, exclusão e recuperação de conta (SP-136), recuperação de senha (SP-91)
+- `email.md` — e-mail transacional (Brevo/noop, templates, reset/recuperação de conta/boas-vindas/convite; SP-91 / SP-136)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
-- `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL e obrigação de tools em novos módulos (SP-117)
-- `notificacoes.md` — notificações internas, canais e evento de convite familiar (SP-101)
+- `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL, recorte de período (SP-117 / SP-139) e obrigação de tools em novos módulos
+- `notificacoes.md` — notificações internas, canais in-app + e-mail e evento de convite familiar (SP-101 / SP-91)
 - `deploy.md` — deploy VPS (`deploy.sh` / `ci_deploy.sh`), prune de imagens após containers no ar (SP-132)
 
 ---

@@ -215,7 +215,10 @@ export class RevenueService {
   }
 
   async findAll(
-    userList: RevenueListDto,
+    userList: RevenueListDto & {
+      startDate?: string;
+      endDate?: string;
+    },
     user: User,
   ): Promise<paginationData<Revenue>> {
     const offset = this.pagination.getOffset(userList.page, userList.limit);
@@ -232,6 +235,8 @@ export class RevenueService {
       userList.search,
       userList.isRecurring,
       userList.isInstallment,
+      userList.startDate,
+      userList.endDate,
     );
 
     const paginateData = this.pagination.paginateData<Revenue>(
@@ -550,7 +555,10 @@ export class RevenueService {
   ): Promise<RevenueReceiptDto> {
     const revenue = await this.revenueRepository.find(revenueId);
     if (!revenue) throw new NotExistException();
-    if (revenue.user?.id !== userId) throw new ForbiddenException();
+    await this.familyMemberResolver.assertAdminManagingTarget(
+      userId,
+      revenue.user?.id,
+    );
 
     let photos = revenue.photos ?? [];
     let groupMembers: Revenue[] = [];

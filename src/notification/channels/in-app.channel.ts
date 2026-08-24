@@ -17,6 +17,11 @@ export class InAppChannel implements INotificationChannel {
   ) {}
 
   async send(payload: NotificationPayload): Promise<DeliveryResult> {
+    // Convidado sem conta não tem inbox: só o canal de e-mail alcança.
+    if (!payload.userId) {
+      return { channel: this.name, success: true, skipped: true };
+    }
+
     try {
       await this.notificationRepository.create({
         userId: payload.userId,
