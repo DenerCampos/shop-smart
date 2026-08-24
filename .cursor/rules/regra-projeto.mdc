@@ -132,6 +132,7 @@ Quando o service precisar apenas de **dados de membership** (quem está no grupo
 | Admin vê todos os membros; demais só a si | `getAcceptedMemberUserIdsIfAdmin(userId)` |
 | Todos os membros aceitos do grupo (ou `[userId]` se sem grupo) | `getAcceptedMemberUserIds(userId)` |
 | Escopo + flag admin + `groupId` | `resolve(userId)` |
+| Dono ou admin da família do dono (receipt SP-138) | `isAdminManagingTarget` (boolean) / `assertAdminManagingTarget(requesterId, ownerId)` (403) |
 
 **Importar** `CommonModule` no módulo do domínio; **não** importar `FamilyGroupModule` só para resolver membros.
 
@@ -161,8 +162,8 @@ Prefixos atuais (atualizar ao criar controller):
 |---------|--------|
 | `auth` | auth — `POST /login`, `PUT /refresh`, `POST /demo`, `POST /recover-account` (SP-136), `POST /forgot-password`, `POST /reset-password` (SP-91), OAuth Alexa |
 | `/user` | user — incl. `GET /user/search?email=` (SP-127, admin, min 3 / max 255, throttle 15/min); `DELETE /user/:id` com senha (SP-136; 400 `INVALID_PASSWORD`; 409 `FAMILY_GROUP_OWNER` / `LAST_FAMILY_GROUP_ADMIN`) |
-| `/expense` | expense |
-| `/revenue` | revenue |
+| `/expense` | expense — `GET /:id/receipt` dono ou admin da família (SP-138) |
+| `/revenue` | revenue — `GET /:id/receipt` dono ou admin da família (SP-138) |
 | `/coin` | coin — `GET /balance`, `GET /statement`, `POST /addCoins`, `POST /removeCoins` |
 | `/theme` | theme |
 | `/profile` | profile |
@@ -268,7 +269,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `missoes.md` — missões dinâmicas (SP-78 / SP-110)
 - `extrato-moedas.md` — extrato de moedas e celebração de tarefas (SP-97)
 - `mesada.md` — liquidação de mesada, financeiro e histórico (SP-113)
-- `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86)
+- `parcelamento-e-receipt.md` — parcelamento, fotos, receipt e garantia (SP-86); ACL do receipt: dono ou admin da família (SP-138)
 - `relatorio-garantias.md` — relatório de itens em garantia no dashboard (SP-86)
 - `relatorio-despesas-receitas.md` — comparativo mensal despesas vs receitas (agrupamento, recorrência)
 - `oauth2.md`, `google-drive-token-config.md` — OAuth / Drive

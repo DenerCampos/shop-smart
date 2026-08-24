@@ -300,6 +300,23 @@ export class FamilyMemberResolverService {
     return groupId !== null;
   }
 
+  /**
+   * Dono (mesmo userId) ou admin accepted do grupo em que o dono é membro accepted.
+   * Sem `ownerUserId` ou sem permissão → 403.
+   */
+  async assertAdminManagingTarget(
+    requesterId: string,
+    ownerUserId: string | undefined,
+  ): Promise<void> {
+    if (!ownerUserId) {
+      throw new ForbiddenException();
+    }
+    const allowed = await this.isAdminManagingTarget(requesterId, ownerUserId);
+    if (!allowed) {
+      throw new ForbiddenException();
+    }
+  }
+
   /** União de membros accepted de todos os grupos do usuário. */
   async getAllAcceptedMemberUserIdsAcrossGroups(
     userId: string,

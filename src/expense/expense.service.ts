@@ -905,7 +905,10 @@ export class ExpenseService {
   ): Promise<ExpenseReceiptDto> {
     const expense = await this.expenseRepository.find(expenseId);
     if (!expense) throw new NotExistException();
-    if (expense.user?.id !== userId) throw new ForbiddenException();
+    await this.familyMemberResolver.assertAdminManagingTarget(
+      userId,
+      expense.user?.id,
+    );
 
     let items = expense.items ?? [];
     let photos = expense.photos ?? [];

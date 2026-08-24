@@ -418,9 +418,8 @@ export class ChatToolsService {
     if (!ctx.financialUserIds.includes(expense.user.id)) {
       throw new ChatToolForbiddenException();
     }
-    // getReceipt exige o dono da despesa; admin já passou pelo ACL financeiro.
-    // Não enviar uri/photos ao Gemini — só resumo textual.
-    const receipt = await this.expenseService.getReceipt(id, expense.user.id);
+    // Sem uri/photos ao Gemini — só resumo textual.
+    const receipt = await this.expenseService.getReceipt(id, ctx.user.id);
     return this.mapReceiptForChat(receipt);
   }
 

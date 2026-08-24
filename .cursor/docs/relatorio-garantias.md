@@ -19,7 +19,7 @@ Listar itens de despesa que possuem garantia cadastrada, ordenados pela data de 
 1. Dashboard → tile **Garantias** → `/dashboard/warrantyItems`.
 2. Usuário ajusta ano, membro (se admin), busca por nome e filtro ativo/vencidas.
 3. Lista exibe nome do item, despesa/loja, data de compra, duração, término e dias restantes.
-4. Toque na linha abre `FinancialReceiptDrawer` (`GET /expense/:id/receipt`).
+4. Toque na linha abre `FinancialReceiptDrawer` (`GET /expense/:id/receipt` — dono ou admin da família, SP-138).
 
 ## Contrato HTTP
 

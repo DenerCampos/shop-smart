@@ -550,7 +550,10 @@ export class RevenueService {
   ): Promise<RevenueReceiptDto> {
     const revenue = await this.revenueRepository.find(revenueId);
     if (!revenue) throw new NotExistException();
-    if (revenue.user?.id !== userId) throw new ForbiddenException();
+    await this.familyMemberResolver.assertAdminManagingTarget(
+      userId,
+      revenue.user?.id,
+    );
 
     let photos = revenue.photos ?? [];
     let groupMembers: Revenue[] = [];

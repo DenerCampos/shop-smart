@@ -132,7 +132,7 @@ describe('ChatToolsService ACL', () => {
       adminCtx,
     );
 
-    expect(expenseService.getReceipt).toHaveBeenCalledWith('exp-1', 'member-1');
+    expect(expenseService.getReceipt).toHaveBeenCalledWith('exp-1', 'admin-1');
     expect(result).toEqual({
       id: 'exp-1',
       type: 'expense',

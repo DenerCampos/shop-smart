@@ -26,9 +26,7 @@ export class DenyDemoGuard implements CanActivate {
 
     if (request.isDemo) {
       const path =
-        request.originalUrl?.split('?')[0] ||
-        request.url?.split('?')[0] ||
-        '';
+        request.originalUrl?.split('?')[0] || request.url?.split('?')[0] || '';
 
       logJson(
         this.logger,

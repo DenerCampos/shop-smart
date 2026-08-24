@@ -134,7 +134,8 @@ export class RevenueController {
     @Param('id') id: string,
     @CurrentUser() user: User,
   ): Promise<RevenueReceiptDto> {
-    return this.revenueService.getReceipt(id, user.id);
+    const receipt = await this.revenueService.getReceipt(id, user.id);
+    return this.responseService.mapToDto(RevenueReceiptDto, receipt);
   }
 
   @UseGuards(AuthGuard)
