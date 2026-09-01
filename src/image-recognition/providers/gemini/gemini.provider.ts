@@ -6,6 +6,8 @@ import {
 } from '../interfaces/image-recognition-provider.interface';
 import { ImageRecognitionResult } from '../../types/imageRecognitionType';
 import { ImageRecognitionException } from '../../exceptions/imageRecognition.exception';
+import { AiProviderException } from 'src/common/ai-provider/ai-provider.exception';
+import { measureThenWrapAiCall } from 'src/common/ai-provider/wrap-ai-call-error';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
@@ -42,75 +44,64 @@ export class GeminiProvider implements IImageRecognitionProvider {
     imageData: string,
     options?: AnalyzeOptions,
   ): Promise<ImageRecognitionResult> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'image_recognition',
       this.name,
       async () => {
-        try {
-          // Verifica a quota antes de fazer a requisição
-          await this.apiQuotaService.checkAndIncrementQuota(
-            this.name,
-            this.dailyLimit,
-          );
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
 
-          // Verifica se a imagem está em formato base64 data URL
-          if (!imageData.startsWith('data:image/')) {
-            throw new Error('Formato de imagem inválido');
-          }
-
-          // Define valores padrão
-          const groups =
-            options?.groups?.join(', ') ||
-            'Alimentação, Bebida, Limpeza, Higiene, Outros';
-          const payment = options?.defaultPayment || 'Cartão de crédito';
-          const context = options?.context || 'expense';
-
-          // Monta o prompt de acordo com o contexto (despesa ou receita)
-          let prompt: string;
-
-          if (context === 'revenue') {
-            prompt = buildImageRevenuePrompt();
-          } else {
-            prompt = buildImageExpensePrompt(groups, payment);
-          }
-
-          // Prepara a imagem para o Gemini
-          const result = await this.model.generateContent([
-            prompt,
-            {
-              inlineData: {
-                mimeType: imageData.split(';')[0].split(':')[1],
-                data: imageData.split(',')[1],
-              },
-            },
-          ]);
-          const response = result.response;
-          const responseText = response.text();
-
-          // Remove marcadores de código markdown se existirem
-          let cleanedText = responseText.trim();
-          if (cleanedText.startsWith('```json')) {
-            cleanedText = cleanedText
-              .replace(/^```json\s*/, '')
-              .replace(/\s*```$/, '');
-          } else if (cleanedText.startsWith('```')) {
-            cleanedText = cleanedText
-              .replace(/^```\s*/, '')
-              .replace(/\s*```$/, '');
-          }
-
-          const parsedResult = JSON.parse(cleanedText);
-
-          return {
-            ...parsedResult,
-            provider: this.name,
-            confidence: 0.9, // TODO: Implementar cálculo de confiança
-          };
-        } catch (error) {
-          throw new ImageRecognitionException(
-            `Erro ao analisar imagem: ${error.message}`,
-          );
+        if (!imageData.startsWith('data:image/')) {
+          throw new ImageRecognitionException('Formato de imagem inválido');
         }
+
+        const groups =
+          options?.groups?.join(', ') ||
+          'Alimentação, Bebida, Limpeza, Higiene, Outros';
+        const payment = options?.defaultPayment || 'Cartão de crédito';
+        const context = options?.context || 'expense';
+
+        let prompt: string;
+
+        if (context === 'revenue') {
+          prompt = buildImageRevenuePrompt();
+        } else {
+          prompt = buildImageExpensePrompt(groups, payment);
+        }
+
+        const result = await this.model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              mimeType: imageData.split(';')[0].split(':')[1],
+              data: imageData.split(',')[1],
+            },
+          },
+        ]);
+        const response = result.response;
+        const responseText = response.text();
+
+        let cleanedText = responseText.trim();
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText
+            .replace(/^```json\s*/, '')
+            .replace(/\s*```$/, '');
+        } else if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText
+            .replace(/^```\s*/, '')
+            .replace(/\s*```$/, '');
+        }
+
+        const parsedResult = JSON.parse(cleanedText);
+
+        return {
+          ...parsedResult,
+          provider: this.name,
+          confidence: 0.9, // TODO: Implementar cálculo de confiança
+        };
       },
     );
   }
@@ -143,7 +134,8 @@ export class GeminiProvider implements IImageRecognitionProvider {
     base64Data: string,
     mimeType: string,
   ): Promise<ExtractedExamData> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'image_recognition',
       this.name,
       async () => {
@@ -155,8 +147,9 @@ export class GeminiProvider implements IImageRecognitionProvider {
         const prompt = buildHealthExamImageExtractionPrompt();
 
         if (!this.model) {
-          throw new ImageRecognitionException('Modelo de IA não disponível.');
+          throw new AiProviderException();
         }
+
         const result = await this.model.generateContent([
           prompt,
           {
@@ -174,13 +167,7 @@ export class GeminiProvider implements IImageRecognitionProvider {
           clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
 
-        try {
-          return JSON.parse(clean) as ExtractedExamData;
-        } catch {
-          throw new ImageRecognitionException(
-            'Resposta da IA para exame médico (imagem) não é um JSON válido',
-          );
-        }
+        return JSON.parse(clean) as ExtractedExamData;
       },
     );
   }
@@ -197,7 +184,8 @@ export class GeminiProvider implements IImageRecognitionProvider {
     base64Data: string,
     mimeType: string,
   ): Promise<ExtractedExamData> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'image_recognition',
       this.name,
       async () => {
@@ -209,8 +197,9 @@ export class GeminiProvider implements IImageRecognitionProvider {
         const prompt = buildHealthImagingImageExtractionPrompt();
 
         if (!this.model) {
-          throw new ImageRecognitionException('Modelo de IA não disponível.');
+          throw new AiProviderException();
         }
+
         const result = await this.model.generateContent([
           prompt,
           {
@@ -228,13 +217,7 @@ export class GeminiProvider implements IImageRecognitionProvider {
           clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
 
-        try {
-          return JSON.parse(clean) as ExtractedExamData;
-        } catch {
-          throw new ImageRecognitionException(
-            'Resposta da IA para laudo de imagem não é um JSON válido',
-          );
-        }
+        return JSON.parse(clean) as ExtractedExamData;
       },
     );
   }
@@ -243,7 +226,8 @@ export class GeminiProvider implements IImageRecognitionProvider {
     base64Data: string,
     mimeType: string,
   ): Promise<ExtractedPrescriptionData> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'image_recognition',
       this.name,
       async () => {
@@ -255,8 +239,9 @@ export class GeminiProvider implements IImageRecognitionProvider {
         const prompt = buildPrescriptionImageExtractionPrompt();
 
         if (!this.model) {
-          throw new ImageRecognitionException('Modelo de IA não disponível.');
+          throw new AiProviderException();
         }
+
         const result = await this.model.generateContent([
           prompt,
           { inlineData: { mimeType, data: base64Data } },
@@ -269,13 +254,7 @@ export class GeminiProvider implements IImageRecognitionProvider {
           clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
         }
 
-        try {
-          return JSON.parse(clean) as ExtractedPrescriptionData;
-        } catch {
-          throw new ImageRecognitionException(
-            'Resposta da IA para receituário não é um JSON válido',
-          );
-        }
+        return JSON.parse(clean) as ExtractedPrescriptionData;
       },
     );
   }

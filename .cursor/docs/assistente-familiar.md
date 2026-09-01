@@ -48,7 +48,7 @@ Todos com `AuthGuard`.
 | Código | `error` | Quando |
 |--------|---------|--------|
 | 429 | `API Quota Exceeded` | `ApiQuotaException` (`gemini-chat`) — checado **antes** de persistir a mensagem do usuário |
-| 502 | `CHAT_AI_PROVIDER_ERROR` | falha Gemini / resposta vazia (mensagem genérica ao cliente; detalhe só em `ai_provider_call`). A mensagem do usuário **já foi persistida** e permanece no histórico |
+| 502 | `CHAT_AI_PROVIDER_ERROR` | falha Gemini / resposta vazia (mensagem genérica ao cliente; detalhe só em `ai_provider_call`). A mensagem do usuário **já foi persistida** e permanece no histórico. O app também trata `AI_PROVIDER_ERROR` nas demais rotas de IA (SP-142). |
 
 Antes de `POST .../messages` gravar o turno do usuário, `GeminiChatProvider.assertCanStartTurn()` valida `GOOGLE_API_KEY` e quota (sem consumir o contador). O incremento ocorre só ao iniciar a chamada Gemini.
 

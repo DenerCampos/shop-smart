@@ -280,6 +280,9 @@ Adiciona um item na lista. O backend tenta inferir automaticamente a categoria (
 | quantity | number | Nao         | 1       | Quantidade (min: 0.01)                 |
 | unit     | string | Nao         | "un"    | Unidade: un, kg, g, l, ml, pack, dz    |
 | groupId  | string | Nao         | -       | UUID da categoria (auto-inferido)      |
+| useTextRecognition | boolean | Nao | false | Se true, interpreta `name` via Gemini |
+
+Com `useTextRecognition: true` (ou no bulk de itens), falha do modelo → **502 `AI_PROVIDER_ERROR`** (SP-142). Ver `erros-ia.md`.
 
 **Response** (201): `ShoppingListItemResponseDto`
 

@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IImageRecognitionRepository } from './interfaces/imageRecognition.repository.interface';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { wrapAiCallError } from 'src/common/ai-provider/wrap-ai-call-error';
+import { AiProviderException } from 'src/common/ai-provider/ai-provider.exception';
 import { ImageRecognitionProviderFactory } from './providers/factory/image-recognition-provider.factory';
 import {
   ImageRecognitionResult,
@@ -75,12 +77,12 @@ export class ImageRecognitionService {
           confidence: 0,
           result: null,
           status: RecognitionStatus.FAILED,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         },
         user,
       );
 
-      throw error;
+      wrapAiCallError(error);
     }
   }
 
@@ -118,9 +120,7 @@ export class ImageRecognitionService {
       provider.analyzeHealthExamImage ?? provider.analyzeHealthLabImage;
 
     if (typeof analyze !== 'function') {
-      throw new Error(
-        'Provedor não suporta análise de exames médicos por imagem.',
-      );
+      throw new AiProviderException();
     }
 
     try {
@@ -151,7 +151,7 @@ export class ImageRecognitionService {
         user,
       );
 
-      throw error;
+      wrapAiCallError(error);
     }
   }
 
@@ -178,7 +178,7 @@ export class ImageRecognitionService {
     );
 
     if (typeof provider.analyzeHealthImaging !== 'function') {
-      throw new Error('Provedor não suporta análise de laudos de imagem.');
+      throw new AiProviderException();
     }
 
     try {
@@ -209,7 +209,7 @@ export class ImageRecognitionService {
         user,
       );
 
-      throw error;
+      wrapAiCallError(error);
     }
   }
 
@@ -223,9 +223,7 @@ export class ImageRecognitionService {
     );
 
     if (typeof provider.analyzePrescriptionImage !== 'function') {
-      throw new Error(
-        'Provedor não suporta análise de receituários por imagem.',
-      );
+      throw new AiProviderException();
     }
 
     try {
@@ -259,7 +257,7 @@ export class ImageRecognitionService {
         user,
       );
 
-      throw error;
+      wrapAiCallError(error);
     }
   }
 }

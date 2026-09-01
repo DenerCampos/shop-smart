@@ -5,10 +5,13 @@ import { GroupService } from '../../group/group.service';
 import { TextRecognitionProviderFactory } from '../providers/factory/text-recognition-provider.factory';
 import { User } from '../../user/entities/user.entity';
 import { TextRecognitionException } from '../exceptions/textRecognition.exception';
+import { AiProviderException } from '../../common/ai-provider/ai-provider.exception';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
 
 describe('TextRecognitionService', () => {
   let service: TextRecognitionService;
+  let providerFactory: { getProvider: jest.Mock };
+  let repository: { create: jest.Mock };
 
   const user = (): User => {
     const u = new User();
@@ -22,18 +25,24 @@ describe('TextRecognitionService', () => {
   };
 
   beforeEach(async () => {
+    providerFactory = { getProvider: jest.fn() };
+    repository = { create: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TextRecognitionService,
         {
           provide: 'ITextRecognitionRepository',
-          useValue: { create: jest.fn().mockResolvedValue(undefined) },
+          useValue: repository,
         },
-        { provide: GroupService, useValue: {} },
+        {
+          provide: GroupService,
+          useValue: { findAllNames: jest.fn().mockResolvedValue([]) },
+        },
         { provide: AppConfig, useValue: createAppConfigMock() },
         {
           provide: TextRecognitionProviderFactory,
-          useValue: { getProvider: jest.fn() },
+          useValue: providerFactory,
         },
       ],
     }).compile();
@@ -45,5 +54,16 @@ describe('TextRecognitionService', () => {
     await expect(
       service.parseShoppingListItem('   ', user()),
     ).rejects.toBeInstanceOf(TextRecognitionException);
+  });
+
+  it('parseShoppingListItem propaga AI_PROVIDER_ERROR quando o modelo falha', async () => {
+    providerFactory.getProvider.mockResolvedValue({
+      name: 'gemini-text',
+      analyze: jest.fn().mockRejectedValue(new Error('gemini down')),
+    });
+
+    await expect(
+      service.parseShoppingListItem('leite', user()),
+    ).rejects.toBeInstanceOf(AiProviderException);
   });
 });

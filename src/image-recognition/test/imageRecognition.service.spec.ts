@@ -6,9 +6,11 @@ import { PaymentService } from '../../payment/payment.service';
 import { ImageRecognitionProviderFactory } from '../providers/factory/image-recognition-provider.factory';
 import { User } from '../../user/entities/user.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { AiProviderException } from '../../common/ai-provider/ai-provider.exception';
 
 describe('ImageRecognitionService', () => {
   let service: ImageRecognitionService;
+  let provider: { name: string; analyze: jest.Mock };
 
   const user = (): User => {
     const u = new User();
@@ -25,7 +27,7 @@ describe('ImageRecognitionService', () => {
     const imageRecognitionRepository = {
       create: jest.fn().mockResolvedValue(undefined),
     };
-    const provider = {
+    provider = {
       name: 'gemini',
       analyze: jest.fn().mockResolvedValue({ confidence: 0.9 }),
     };
@@ -68,5 +70,13 @@ describe('ImageRecognitionService', () => {
     const result = await service.analyzeImage(buf, user(), 'expense');
 
     expect(result.confidence).toBe(0.9);
+  });
+
+  it('analyzeImage propaga AI_PROVIDER_ERROR quando o modelo falha', async () => {
+    provider.analyze.mockRejectedValue(new Error('gemini down'));
+
+    await expect(
+      service.analyzeImage(Buffer.from('fake-image'), user(), 'expense'),
+    ).rejects.toBeInstanceOf(AiProviderException);
   });
 });

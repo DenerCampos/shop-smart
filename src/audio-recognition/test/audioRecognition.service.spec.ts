@@ -6,9 +6,11 @@ import { PaymentService } from '../../payment/payment.service';
 import { AudioRecognitionProviderFactory } from '../providers/factory/audio-recognition-provider.factory';
 import { User } from '../../user/entities/user.entity';
 import { createAppConfigMock } from '../../common/test/app-config.mock';
+import { AiProviderException } from '../../common/ai-provider/ai-provider.exception';
 
 describe('AudioRecognitionService', () => {
   let service: AudioRecognitionService;
+  let provider: { name: string; analyze: jest.Mock };
 
   const user = (): User => {
     const u = new User();
@@ -25,7 +27,7 @@ describe('AudioRecognitionService', () => {
     const audioRecognitionRepository = {
       create: jest.fn().mockResolvedValue(undefined),
     };
-    const provider = {
+    provider = {
       name: 'gemini-audio',
       analyze: jest.fn().mockResolvedValue({ confidence: 0.8 }),
     };
@@ -69,5 +71,13 @@ describe('AudioRecognitionService', () => {
     const result = await service.analyzeAudio(buf, 'audio/wav', user());
 
     expect(result.confidence).toBe(0.8);
+  });
+
+  it('analyzeAudio propaga AI_PROVIDER_ERROR quando o modelo falha', async () => {
+    provider.analyze.mockRejectedValue(new Error('gemini down'));
+
+    await expect(
+      service.analyzeAudio(Buffer.from('wav-bytes'), 'audio/wav', user()),
+    ).rejects.toBeInstanceOf(AiProviderException);
   });
 });

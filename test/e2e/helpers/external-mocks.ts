@@ -98,6 +98,48 @@ export const mockAudioRecognitionProviders: IAudioRecognitionProvider[] = [
   },
 ];
 
+export function failingTextRecognitionProviders(): ITextRecognitionProvider[] {
+  const base = mockTextRecognitionProviders[0];
+  return [
+    {
+      ...base,
+      analyze: async () => {
+        throw new Error('gemini down');
+      },
+      analyzeBulk: async () => {
+        throw new Error('gemini down');
+      },
+      parseCoupon: async () => {
+        throw new Error('gemini down');
+      },
+    },
+  ];
+}
+
+export function failingImageRecognitionProviders(): IImageRecognitionProvider[] {
+  const base = mockImageRecognitionProviders[0];
+  return [
+    {
+      ...base,
+      analyze: async () => {
+        throw new Error('gemini down');
+      },
+    },
+  ];
+}
+
+export function failingAudioRecognitionProviders(): IAudioRecognitionProvider[] {
+  const base = mockAudioRecognitionProviders[0];
+  return [
+    {
+      ...base,
+      analyze: async () => {
+        throw new Error('gemini down');
+      },
+    },
+  ];
+}
+
 export function mockCouponReaderService(): Pick<CouponReaderService, 'read'> {
   const result: CouponTextResult & { uri: string } = {
     name: 'E2e loja',
