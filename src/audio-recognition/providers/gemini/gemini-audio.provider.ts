@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import {
   IAudioRecognitionProvider,
@@ -7,7 +7,7 @@ import {
 import { AudioRecognitionResult } from '../../types/audioRecognitionType';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
-import { AudioRecognitionException } from '../../exceptions/audioRecognition.exception';
+import { measureThenWrapAiCall } from 'src/common/ai-provider/wrap-ai-call-error';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
 import {
   buildAudioExpensePrompt,
@@ -57,100 +57,92 @@ export class GeminiAudioProvider implements IAudioRecognitionProvider {
     audioData: string | Buffer,
     options?: AnalyzeOptions,
   ): Promise<AudioRecognitionResult> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'audio_recognition',
       this.name,
       async () => {
-        try {
-          await this.apiQuotaService.checkAndIncrementQuota(
-            this.name,
-            this.dailyLimit,
-          );
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
 
-          let base64Audio: string;
-          let mimeType: string;
+        let base64Audio: string;
+        let mimeType: string;
 
-          if (Buffer.isBuffer(audioData)) {
-            if (audioData.length === 0) {
-              throw new Error('Buffer de áudio está vazio');
-            }
+        if (Buffer.isBuffer(audioData)) {
+          if (audioData.length === 0) {
+            throw new BadRequestException('Buffer de áudio está vazio');
+          }
 
-            base64Audio = audioData.toString('base64');
+          base64Audio = audioData.toString('base64');
 
-            if (!base64Audio || base64Audio.length === 0) {
-              throw new Error('Falha ao converter buffer para base64');
-            }
-
-            // Normaliza o MIME type (video/webm -> audio/webm)
-            const rawMimeType = options?.mimeType || 'audio/webm';
-            mimeType = this.normalizeMimeType(rawMimeType);
-          } else if (
-            audioData.startsWith('data:audio/') ||
-            audioData.startsWith('data:video/')
-          ) {
-            // Suporta data URL (backward compatibility)
-            const rawMimeType = audioData.split(';')[0].split(':')[1];
-            mimeType = this.normalizeMimeType(rawMimeType);
-            base64Audio = audioData.split(',')[1];
-          } else {
-            throw new Error(
-              'Formato de áudio inválido. Esperado Buffer ou data URL',
+          if (!base64Audio || base64Audio.length === 0) {
+            throw new BadRequestException(
+              'Falha ao converter buffer para base64',
             );
           }
 
-          // Define valores padrão
-          const groups =
-            options?.groups?.join(', ') ||
-            'Alimentação, Bebida, Limpeza, Higiene, Outros';
-          const payment = options?.defaultPayment || 'Cartão de crédito';
-          const context = options?.context || 'expense';
-
-          // Monta o prompt de acordo com o contexto (despesa ou receita)
-          let prompt: string;
-
-          if (context === 'revenue') {
-            prompt = buildAudioRevenuePrompt();
-          } else {
-            prompt = buildAudioExpensePrompt(groups, payment);
-          }
-
-          const result = await this.model.generateContent([
-            prompt,
-            {
-              inlineData: {
-                mimeType,
-                data: base64Audio,
-              },
-            },
-          ]);
-
-          const response = result.response;
-          const responseText = response.text();
-
-          // Remove marcadores de código markdown se existirem
-          let cleanedText = responseText.trim();
-          if (cleanedText.startsWith('```json')) {
-            cleanedText = cleanedText
-              .replace(/^```json\s*/, '')
-              .replace(/\s*```$/, '');
-          } else if (cleanedText.startsWith('```')) {
-            cleanedText = cleanedText
-              .replace(/^```\s*/, '')
-              .replace(/\s*```$/, '');
-          }
-
-          const parsedResult = JSON.parse(cleanedText);
-
-          return {
-            ...parsedResult,
-            provider: this.name,
-            confidence: 0.85,
-          };
-        } catch (error) {
-          throw new AudioRecognitionException(
-            `Erro ao analisar áudio: ${error.message}`,
+          const rawMimeType = options?.mimeType || 'audio/webm';
+          mimeType = this.normalizeMimeType(rawMimeType);
+        } else if (
+          audioData.startsWith('data:audio/') ||
+          audioData.startsWith('data:video/')
+        ) {
+          const rawMimeType = audioData.split(';')[0].split(':')[1];
+          mimeType = this.normalizeMimeType(rawMimeType);
+          base64Audio = audioData.split(',')[1];
+        } else {
+          throw new BadRequestException(
+            'Formato de áudio inválido. Esperado Buffer ou data URL',
           );
         }
+
+        const groups =
+          options?.groups?.join(', ') ||
+          'Alimentação, Bebida, Limpeza, Higiene, Outros';
+        const payment = options?.defaultPayment || 'Cartão de crédito';
+        const context = options?.context || 'expense';
+
+        let prompt: string;
+
+        if (context === 'revenue') {
+          prompt = buildAudioRevenuePrompt();
+        } else {
+          prompt = buildAudioExpensePrompt(groups, payment);
+        }
+
+        const result = await this.model.generateContent([
+          prompt,
+          {
+            inlineData: {
+              mimeType,
+              data: base64Audio,
+            },
+          },
+        ]);
+
+        const response = result.response;
+        const responseText = response.text();
+
+        let cleanedText = responseText.trim();
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText
+            .replace(/^```json\s*/, '')
+            .replace(/\s*```$/, '');
+        } else if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText
+            .replace(/^```\s*/, '')
+            .replace(/\s*```$/, '');
+        }
+
+        const parsedResult = JSON.parse(cleanedText);
+
+        return {
+          ...parsedResult,
+          provider: this.name,
+          confidence: 0.85,
+        };
       },
     );
   }

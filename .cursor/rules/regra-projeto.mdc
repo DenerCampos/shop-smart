@@ -170,7 +170,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/reports` | reports — incl. `GET /warranty-items` (itens em garantia, SP-86) |
 | `/group`, `/payment`, `/store` | resources |
 | `/coupon-reader` | coupon-reader |
-| `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA |
+| `/image-recognition`, `/audio-recognition`, `/text-recognition` | IA — falha do modelo: 502 `AI_PROVIDER_ERROR` (SP-142) |
 | `/family-group` | family-group — incl. `POST /:id/upload-image` (foto do grupo, admin + DenyDemo, SP-131) |
 | `/shopping-lists` | shopping-list — `PATCH :id/complete`, `PATCH :id/complete-with-remaining`, `POST :id/recreate` (ver `lista-de-compras.md`) |
 | `family-groups/:familyGroupId/chores` | chore — incl. `GET/POST .../coin-rewards/*` (SP-97), `GET .../payroll/settlements`, `POST .../payroll/settle` (SP-113), `POST .../occurrences/:id/return-for-adjustment` (SP-115) |
@@ -194,7 +194,7 @@ REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em D
 - **WebSockets**: `@nestjs/websockets` + `socket.io` (ex.: shopping-list).
 - **Arquivos**: `file-storage` + `supabase-storage`; ver `.cursor/docs/file-storage.md`.
 - **Logging**: Winston + Loki opcional (`LOKI_*`); `RequestLoggingMiddleware`; `logJson` com contexto `Observability`.
-- **IA**: providers Gemini com factory; telemetria `ai_provider_call`; **prompts centralizados** em `src/common/prompts/` (ver [Prompts Gemini](#prompts-gemini-ia)).
+- **IA**: providers Gemini com factory; telemetria `ai_provider_call`; **prompts centralizados** em `src/common/prompts/` (ver [Prompts Gemini](#prompts-gemini-ia)); falha do modelo → 502 `AI_PROVIDER_ERROR` (`AiProviderException`, SP-142).
 
 ---
 
@@ -277,6 +277,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, exclusão e recuperação de conta (SP-136), recuperação de senha (SP-91)
 - `email.md` — e-mail transacional (Brevo/noop, templates, reset/recuperação de conta/boas-vindas/convite; SP-91 / SP-136)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
+- `erros-ia.md` — contrato 502 `AI_PROVIDER_ERROR` nas rotas Gemini (SP-142)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL, recorte de período (SP-117 / SP-139) e obrigação de tools em novos módulos
 - `notificacoes.md` — notificações internas, canais in-app + e-mail e evento de convite familiar (SP-101 / SP-91)
 - `deploy.md` — deploy VPS (`deploy.sh` / `ci_deploy.sh`), prune de imagens após containers no ar (SP-132)

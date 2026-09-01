@@ -11,7 +11,7 @@ import { GeminiTextProvider } from '../providers/gemini/gemini-text.provider';
 import { AppConfig } from '../../common/app-config/app.config';
 import { ApiQuotaService } from '../../common/ai-quota/services/apiQuota.service';
 import { AiCallTelemetryService } from '../../common/logging/ai-call-telemetry.service';
-import { TextRecognitionException } from '../exceptions/textRecognition.exception';
+import { AiProviderException } from '../../common/ai-provider/ai-provider.exception';
 
 describe('GeminiTextProvider.parseCoupon', () => {
   let provider: GeminiTextProvider;
@@ -138,7 +138,7 @@ describe('GeminiTextProvider.parseCoupon', () => {
     mockResponse(couponPayload({ value: '42.5' }));
 
     await expect(provider.parseCoupon('texto do cupom')).rejects.toBeInstanceOf(
-      TextRecognitionException,
+      AiProviderException,
     );
   });
 
@@ -146,7 +146,48 @@ describe('GeminiTextProvider.parseCoupon', () => {
     mockResponse(couponPayload({ items: null }));
 
     await expect(provider.parseCoupon('texto do cupom')).rejects.toBeInstanceOf(
-      TextRecognitionException,
+      AiProviderException,
     );
+  });
+
+  it('lança AI_PROVIDER_ERROR quando o modelo falha ao responder', async () => {
+    generateContent.mockRejectedValue(new Error('gemini timeout'));
+
+    await expect(provider.parseCoupon('texto do cupom')).rejects.toBeInstanceOf(
+      AiProviderException,
+    );
+  });
+});
+
+describe('GeminiTextProvider.generateHealthOverview', () => {
+  let provider: GeminiTextProvider;
+
+  beforeEach(() => {
+    generateContent.mockReset();
+
+    const appConfig = {
+      getGoogleApiKey: jest.fn().mockReturnValue('fake-key'),
+      getGeminiTextDailyLimit: jest.fn().mockReturnValue(100),
+    } as unknown as AppConfig;
+
+    const apiQuotaService = {
+      checkAndIncrementQuota: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ApiQuotaService;
+
+    const telemetry = {
+      measure: <T>(_f: string, _p: string, fn: () => Promise<T>) => fn(),
+    } as unknown as AiCallTelemetryService;
+
+    provider = new GeminiTextProvider(appConfig, apiQuotaService, telemetry);
+  });
+
+  it('lança AI_PROVIDER_ERROR quando a resposta do modelo está vazia', async () => {
+    generateContent.mockResolvedValue({
+      response: { text: () => '   ' },
+    });
+
+    await expect(
+      provider.generateHealthOverview('exames do paciente'),
+    ).rejects.toBeInstanceOf(AiProviderException);
   });
 });

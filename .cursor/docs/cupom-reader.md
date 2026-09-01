@@ -123,7 +123,7 @@ Arquivos: [`src/text-recognition/utils/coupon-store-name.util.ts`](../../src/tex
 
 O prompt também instrui o modelo a devolver string vazia em vez de `null` e a **não inventar** nome de estabelecimento.
 
-Continuam sendo erro de leitura: `value` não numérico e `items` ausente/não-array.
+Continuam sendo erro de leitura do modelo (502 `AI_PROVIDER_ERROR`, SP-142): `value` não numérico, `items` ausente/não-array, ou falha ao chamar o Gemini. Ver `erros-ia.md`.
 
 ## Casamento de Loja (findSimilarString)
 
