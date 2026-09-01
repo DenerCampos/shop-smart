@@ -13,8 +13,9 @@ import {
   TextRecognitionStatus,
 } from './types/textRecognitionType';
 import { TextRecognitionException } from './exceptions/textRecognition.exception';
+import { wrapAiCallError } from 'src/common/ai-provider/wrap-ai-call-error';
+import { AiProviderException } from 'src/common/ai-provider/ai-provider.exception';
 import { normalizeShoppingListItemUnit } from 'src/shopping-list/utils/normalize-shopping-list-item-unit';
-import { ApiQuotaException } from 'src/common/ai-quota/exceptions/apiQuota.exception';
 
 @Injectable()
 export class TextRecognitionService {
@@ -81,18 +82,7 @@ export class TextRecognitionService {
         user,
       );
 
-      if (
-        error instanceof TextRecognitionException ||
-        error instanceof ApiQuotaException
-      ) {
-        throw error;
-      }
-
-      throw new TextRecognitionException(
-        `Falha ao interpretar item: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+      wrapAiCallError(error);
     }
   }
 
@@ -180,18 +170,7 @@ export class TextRecognitionService {
         user,
       );
 
-      if (
-        error instanceof TextRecognitionException ||
-        error instanceof ApiQuotaException
-      ) {
-        throw error;
-      }
-
-      throw new TextRecognitionException(
-        `Falha ao interpretar lista de itens: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+      wrapAiCallError(error);
     }
   }
 
@@ -263,18 +242,7 @@ export class TextRecognitionService {
         user,
       );
 
-      if (
-        error instanceof TextRecognitionException ||
-        error instanceof ApiQuotaException
-      ) {
-        throw error;
-      }
-
-      throw new TextRecognitionException(
-        `Falha ao processar cupom: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+      wrapAiCallError(error);
     }
   }
 
@@ -311,9 +279,7 @@ export class TextRecognitionService {
       provider.analyzeHealthExamText ?? provider.analyzeHealthLabText;
 
     if (typeof analyze !== 'function') {
-      throw new TextRecognitionException(
-        'Provedor não suporta análise de exames médicos por texto.',
-      );
+      throw new AiProviderException();
     }
 
     try {
@@ -344,11 +310,7 @@ export class TextRecognitionService {
         user,
       );
 
-      if (error instanceof ApiQuotaException) throw error;
-
-      throw new TextRecognitionException(
-        `Falha ao analisar exame: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      wrapAiCallError(error);
     }
   }
 
@@ -373,9 +335,7 @@ export class TextRecognitionService {
     );
 
     if (typeof provider.generateHealthOverview !== 'function') {
-      throw new TextRecognitionException(
-        'Provedor não suporta geração de visão geral de saúde.',
-      );
+      throw new AiProviderException();
     }
 
     try {
@@ -406,11 +366,7 @@ export class TextRecognitionService {
         user,
       );
 
-      if (error instanceof ApiQuotaException) throw error;
-
-      throw new TextRecognitionException(
-        `Falha ao gerar visão geral de saúde: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      wrapAiCallError(error);
     }
   }
 
@@ -423,9 +379,7 @@ export class TextRecognitionService {
     );
 
     if (typeof provider.analyzePrescriptionText !== 'function') {
-      throw new TextRecognitionException(
-        'Provedor não suporta análise de receituários.',
-      );
+      throw new AiProviderException();
     }
 
     try {
@@ -456,11 +410,7 @@ export class TextRecognitionService {
         user,
       );
 
-      if (error instanceof ApiQuotaException) throw error;
-
-      throw new TextRecognitionException(
-        `Falha ao analisar receituário: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      wrapAiCallError(error);
     }
   }
 }

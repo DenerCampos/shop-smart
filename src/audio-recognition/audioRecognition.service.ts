@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { IAudioRecognitionRepository } from './interfaces/audioRecognition.repository.interface';
 import { AppConfig } from 'src/common/app-config/app.config';
+import { wrapAiCallError } from 'src/common/ai-provider/wrap-ai-call-error';
 import { AudioRecognitionProviderFactory } from './providers/factory/audio-recognition-provider.factory';
 import {
   AudioRecognitionResult,
@@ -34,7 +35,7 @@ export class AudioRecognitionService {
     );
 
     if (!Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
-      throw new Error('Buffer de áudio inválido ou vazio');
+      throw new BadRequestException('Buffer de áudio inválido ou vazio');
     }
 
     const groups = await this.groupService.findAllNames();
@@ -71,12 +72,12 @@ export class AudioRecognitionService {
           confidence: 0,
           result: null,
           status: RecognitionStatus.FAILED,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         },
         user,
       );
 
-      throw error;
+      wrapAiCallError(error);
     }
   }
 

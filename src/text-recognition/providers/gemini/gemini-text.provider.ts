@@ -9,8 +9,8 @@ import {
   ShoppingListItemTextAiResult,
   ShoppingListItemTextAiResultArray,
 } from '../../types/textRecognitionType';
-import { TextRecognitionException } from '../../exceptions/textRecognition.exception';
-import { ApiQuotaException } from 'src/common/ai-quota/exceptions/apiQuota.exception';
+import { AiProviderException } from 'src/common/ai-provider/ai-provider.exception';
+import { measureThenWrapAiCall } from 'src/common/ai-provider/wrap-ai-call-error';
 import {
   CouponParseOptions,
   ITextRecognitionProvider,
@@ -102,9 +102,7 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
   ): ShoppingListItemTextAiResult {
     const nameRaw = parsed.name;
     if (typeof nameRaw !== 'string' || !nameRaw.trim()) {
-      throw new TextRecognitionException(
-        'Resposta da IA sem nome de produto válido.',
-      );
+      throw new AiProviderException();
     }
 
     let quantity = Number(parsed.quantity);
@@ -138,48 +136,35 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
     text: string,
     options?: TextRecognitionAnalyzeOptions,
   ): Promise<ShoppingListItemTextAiResult> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'text_recognition',
       this.name,
       async () => {
-        try {
-          await this.apiQuotaService.checkAndIncrementQuota(
-            this.name,
-            this.dailyLimit,
-          );
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
 
-          const groupsList = options?.groups?.filter(Boolean) ?? [];
-          const groupsCsv =
-            groupsList.length > 0
-              ? groupsList.join(', ')
-              : '(nenhuma categoria cadastrada ainda)';
+        const groupsList = options?.groups?.filter(Boolean) ?? [];
+        const groupsCsv =
+          groupsList.length > 0
+            ? groupsList.join(', ')
+            : '(nenhuma categoria cadastrada ainda)';
 
-          const allowedUnits = ALLOWED_UNITS.join(', ');
+        const allowedUnits = ALLOWED_UNITS.join(', ');
 
-          const prompt = buildShoppingListItemPrompt(groupsCsv, allowedUnits);
+        const prompt = buildShoppingListItemPrompt(groupsCsv, allowedUnits);
 
-          const result = await this.model.generateContent(
-            `${prompt}\n\nTexto do usuário:\n${text}`,
-          );
+        const result = await this.model.generateContent(
+          `${prompt}\n\nTexto do usuário:\n${text}`,
+        );
 
-          const responseText = result.response.text();
-          const cleaned = this.cleanModelJson(responseText);
-          const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+        const responseText = result.response.text();
+        const cleaned = this.cleanModelJson(responseText);
+        const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-          return this.mapParsedObjectToShoppingResult(parsed, groupsList);
-        } catch (error) {
-          if (
-            error instanceof TextRecognitionException ||
-            error instanceof ApiQuotaException
-          ) {
-            throw error;
-          }
-          throw new TextRecognitionException(
-            `Erro ao analisar texto: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
+        return this.mapParsedObjectToShoppingResult(parsed, groupsList);
       },
     );
   }
@@ -188,71 +173,54 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
     text: string,
     options?: TextRecognitionAnalyzeOptions,
   ): Promise<ShoppingListItemTextAiResultArray> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'text_recognition',
       this.name,
       async () => {
-        try {
-          await this.apiQuotaService.checkAndIncrementQuota(
-            this.name,
-            this.dailyLimit,
-          );
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
 
-          const groupsList = options?.groups?.filter(Boolean) ?? [];
-          const groupsCsv =
-            groupsList.length > 0
-              ? groupsList.join(', ')
-              : '(nenhuma categoria cadastrada ainda)';
+        const groupsList = options?.groups?.filter(Boolean) ?? [];
+        const groupsCsv =
+          groupsList.length > 0
+            ? groupsList.join(', ')
+            : '(nenhuma categoria cadastrada ainda)';
 
-          const allowedUnits = ALLOWED_UNITS.join(', ');
+        const allowedUnits = ALLOWED_UNITS.join(', ');
 
-          const prompt = buildShoppingListBulkPrompt(groupsCsv, allowedUnits);
+        const prompt = buildShoppingListBulkPrompt(groupsCsv, allowedUnits);
 
-          const result = await this.model.generateContent(
-            `${prompt}\n\nTexto do usuário:\n${text}`,
-          );
+        const result = await this.model.generateContent(
+          `${prompt}\n\nTexto do usuário:\n${text}`,
+        );
 
-          const responseText = result.response.text();
-          const cleaned = this.cleanModelJson(responseText);
-          const root = JSON.parse(cleaned) as Record<string, unknown>;
+        const responseText = result.response.text();
+        const cleaned = this.cleanModelJson(responseText);
+        const root = JSON.parse(cleaned) as Record<string, unknown>;
 
-          const rawItems = root.items;
-          if (!Array.isArray(rawItems) || rawItems.length === 0) {
-            throw new TextRecognitionException(
-              'Resposta da IA sem lista de itens válida.',
-            );
+        const rawItems = root.items;
+        if (!Array.isArray(rawItems) || rawItems.length === 0) {
+          throw new AiProviderException();
+        }
+
+        const items: ShoppingListItemTextAiResult[] = [];
+        for (let i = 0; i < rawItems.length; i++) {
+          const el = rawItems[i];
+          if (!el || typeof el !== 'object' || Array.isArray(el)) {
+            throw new AiProviderException();
           }
-
-          const items: ShoppingListItemTextAiResult[] = [];
-          for (let i = 0; i < rawItems.length; i++) {
-            const el = rawItems[i];
-            if (!el || typeof el !== 'object' || Array.isArray(el)) {
-              throw new TextRecognitionException(
-                `Resposta da IA com item inválido na posição ${i}.`,
-              );
-            }
-            items.push(
-              this.mapParsedObjectToShoppingResult(
-                el as Record<string, unknown>,
-                groupsList,
-              ),
-            );
-          }
-
-          return { items };
-        } catch (error) {
-          if (
-            error instanceof TextRecognitionException ||
-            error instanceof ApiQuotaException
-          ) {
-            throw error;
-          }
-          throw new TextRecognitionException(
-            `Erro ao analisar lista de compras: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+          items.push(
+            this.mapParsedObjectToShoppingResult(
+              el as Record<string, unknown>,
+              groupsList,
+            ),
           );
         }
+
+        return { items };
       },
     );
   }
@@ -261,67 +229,50 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
     text: string,
     options?: CouponParseOptions,
   ): Promise<CouponTextResult> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'text_recognition',
       this.name,
       async () => {
-        try {
-          await this.apiQuotaService.checkAndIncrementQuota(
-            this.name,
-            this.dailyLimit,
-          );
+        await this.apiQuotaService.checkAndIncrementQuota(
+          this.name,
+          this.dailyLimit,
+        );
 
-          const rawGroups = options?.groups?.filter(Boolean) ?? [];
-          const groupList =
-            rawGroups.length > 0 ? rawGroups : [...DEFAULT_COUPON_GROUP_NAMES];
-          const groups = groupList.join(', ');
-          const payment = options?.defaultPayment || 'Cartão de crédito';
+        const rawGroups = options?.groups?.filter(Boolean) ?? [];
+        const groupList =
+          rawGroups.length > 0 ? rawGroups : [...DEFAULT_COUPON_GROUP_NAMES];
+        const groups = groupList.join(', ');
+        const payment = options?.defaultPayment || 'Cartão de crédito';
 
-          const prompt = buildCouponTextPrompt(text, groups, payment);
+        const prompt = buildCouponTextPrompt(text, groups, payment);
 
-          const result = await this.model.generateContent(prompt);
-          const responseText = result.response.text();
-          const cleaned = this.cleanModelJson(responseText);
-          const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+        const result = await this.model.generateContent(prompt);
+        const responseText = result.response.text();
+        const cleaned = this.cleanModelJson(responseText);
+        const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-          if (typeof parsed.value !== 'number') {
-            throw new TextRecognitionException(
-              'Resposta da IA com valor total inválido.',
-            );
-          }
-          if (!Array.isArray(parsed.items)) {
-            throw new TextRecognitionException(
-              'Resposta da IA sem lista de itens.',
-            );
-          }
-
-          const store = parsed.store as { name?: unknown } | undefined;
-          const aiName = pickCouponStoreName(parsed.name, store?.name);
-          const isNameFallback = aiName === null;
-          const name =
-            aiName ?? buildFallbackCouponStoreName(parsed.items, groupList);
-
-          return {
-            ...(parsed as unknown as CouponTextResult),
-            name,
-            store: { name },
-            isNameFallback,
-            provider: this.name,
-            confidence: isNameFallback ? 0.7 : 0.9,
-          };
-        } catch (error) {
-          if (
-            error instanceof TextRecognitionException ||
-            error instanceof ApiQuotaException
-          ) {
-            throw error;
-          }
-          throw new TextRecognitionException(
-            `Erro ao analisar texto do cupom: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
+        if (typeof parsed.value !== 'number') {
+          throw new AiProviderException();
         }
+        if (!Array.isArray(parsed.items)) {
+          throw new AiProviderException();
+        }
+
+        const store = parsed.store as { name?: unknown } | undefined;
+        const aiName = pickCouponStoreName(parsed.name, store?.name);
+        const isNameFallback = aiName === null;
+        const name =
+          aiName ?? buildFallbackCouponStoreName(parsed.items, groupList);
+
+        return {
+          ...(parsed as unknown as CouponTextResult),
+          name,
+          store: { name },
+          isNameFallback,
+          provider: this.name,
+          confidence: isNameFallback ? 0.7 : 0.9,
+        };
       },
     );
   }
@@ -348,7 +299,8 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
   }
 
   async analyzeHealthExamText(text: string): Promise<ExtractedExamData> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'text_recognition',
       this.name,
       async () => {
@@ -360,17 +312,12 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
         const prompt = buildHealthExamTextExtractionPrompt(text);
 
         if (!this.model) {
-          throw new TextRecognitionException('Modelo de IA não disponível.');
+          throw new AiProviderException();
         }
+
         const result = await this.model.generateContent(prompt);
         const clean = this.cleanModelJson(result.response.text());
-        try {
-          return JSON.parse(clean) as ExtractedExamData;
-        } catch {
-          throw new TextRecognitionException(
-            'Resposta da IA para exame médico não é um JSON válido',
-          );
-        }
+        return JSON.parse(clean) as ExtractedExamData;
       },
     );
   }
@@ -381,7 +328,8 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
   }
 
   async generateHealthOverview(examsContext: string): Promise<string> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'text_recognition',
       this.name,
       async () => {
@@ -393,10 +341,15 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
         const prompt = buildHealthOverviewPrompt(examsContext);
 
         if (!this.model) {
-          throw new TextRecognitionException('Modelo de IA não disponível.');
+          throw new AiProviderException();
         }
+
         const result = await this.model.generateContent(prompt);
-        return result.response.text();
+        const text = result.response.text()?.trim();
+        if (!text) {
+          throw new AiProviderException();
+        }
+        return text;
       },
     );
   }
@@ -404,7 +357,8 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
   async analyzePrescriptionText(
     text: string,
   ): Promise<ExtractedPrescriptionData> {
-    return this.aiCallTelemetry.measure(
+    return measureThenWrapAiCall(
+      this.aiCallTelemetry,
       'text_recognition',
       this.name,
       async () => {
@@ -416,17 +370,12 @@ export class GeminiTextProvider implements ITextRecognitionProvider {
         const prompt = buildPrescriptionTextExtractionPrompt(text);
 
         if (!this.model) {
-          throw new TextRecognitionException('Modelo de IA não disponível.');
+          throw new AiProviderException();
         }
+
         const result = await this.model.generateContent(prompt);
         const clean = this.cleanModelJson(result.response.text());
-        try {
-          return JSON.parse(clean) as ExtractedPrescriptionData;
-        } catch {
-          throw new TextRecognitionException(
-            'Resposta da IA para receituário não é um JSON válido',
-          );
-        }
+        return JSON.parse(clean) as ExtractedPrescriptionData;
       },
     );
   }
