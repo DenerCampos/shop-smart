@@ -135,7 +135,7 @@ Quando o nome é genérico (`isNameFallback: true`), o casamento é **pulado**: 
 
 `CouponReaderResponseDto` é o formato base compartilhado com outros fluxos de análise:
 
-- `AnalyzeExpenseImageResponseDto` — análise de imagem de nota via `/expense/analyze-image`
+- `AnalyzeExpenseImageResponseDto` — análise de imagem de nota via `/expense/analyze-image` (visão Gemini com retry/fallback SP-144)
 - `AnalyzeExpenseAudioResponseDto` — análise de áudio via `/expense/analyze-audio`
 - `AnalyzeImageRecognitionResponseDto` — análise direta via `image-recognition`
 

@@ -342,12 +342,20 @@ describe('ChatToolsService summarize_expenses ignora lastN (SP-139)', () => {
   };
 
   const reportsService = {
-    expenseByGroup: jest.fn().mockResolvedValue([{ name: 'Limpeza', total: 10 }]),
+    expenseByGroup: jest
+      .fn()
+      .mockResolvedValue([{ name: 'Limpeza', total: 10 }]),
     expenseByStore: jest.fn(),
   };
 
   const service = new ChatToolsService(
-    { find: jest.fn(), getReceipt: jest.fn(), mapForResponse: jest.fn(), searchItems: jest.fn(), findAll: jest.fn() } as never,
+    {
+      find: jest.fn(),
+      getReceipt: jest.fn(),
+      mapForResponse: jest.fn(),
+      searchItems: jest.fn(),
+      findAll: jest.fn(),
+    } as never,
     {} as never,
     reportsService as never,
     { getMembers: jest.fn() } as never,
@@ -372,7 +380,10 @@ describe('ChatToolsService summarize_expenses ignora lastN (SP-139)', () => {
       'summarize_expenses',
       { lastN: 20, groupBy: 'category' },
       adminCtx,
-    )) as { period: { scope: string; from: string; to: string }; error?: string };
+    )) as {
+      period: { scope: string; from: string; to: string };
+      error?: string;
+    };
 
     expect(result.error).toBeUndefined();
     expect(result.period.scope).toBe('last_12_months');
