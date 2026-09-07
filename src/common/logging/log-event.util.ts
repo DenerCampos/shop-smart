@@ -9,6 +9,7 @@ export const OBSERVABILITY_CONTEXT = 'Observability';
  * Exemplos LogQL:
  * - `{app="shop-smart-api"} | json | event="http_request"`
  * - `{app="shop-smart-api"} | json | event="ai_provider_call" | ok="false"`
+ * - `{app="shop-smart-api"} | json | event="ai_gemini_vision"`
  * - `{app="shop-smart-api"} | json | event="quota_exceeded"`
  */
 export function logJson(

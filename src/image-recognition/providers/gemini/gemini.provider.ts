@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  GenerateContentResult,
+  GoogleGenerativeAI,
+} from '@google/generative-ai';
 import {
   IImageRecognitionProvider,
   AnalyzeOptions,
@@ -7,10 +10,15 @@ import {
 import { ImageRecognitionResult } from '../../types/imageRecognitionType';
 import { ImageRecognitionException } from '../../exceptions/imageRecognition.exception';
 import { AiProviderException } from 'src/common/ai-provider/ai-provider.exception';
+import {
+  GEMINI_VISION_MODELS,
+  generateWithRetryFallback,
+} from 'src/common/ai-provider/gemini-retry-fallback';
 import { measureThenWrapAiCall } from 'src/common/ai-provider/wrap-ai-call-error';
 import { AppConfig } from 'src/common/app-config/app.config';
 import { ApiQuotaService } from 'src/common/ai-quota/services/apiQuota.service';
 import { AiCallTelemetryService } from 'src/common/logging/ai-call-telemetry.service';
+import { logJson } from 'src/common/logging/log-event.util';
 import {
   ExtractedExamData,
   ExtractedPrescriptionData,
@@ -26,8 +34,8 @@ import {
 @Injectable()
 export class GeminiProvider implements IImageRecognitionProvider {
   name = 'gemini';
+  private readonly logger = new Logger(GeminiProvider.name);
   private readonly genAI: GoogleGenerativeAI;
-  private readonly model: GenerativeModel | null;
   private readonly dailyLimit: number;
 
   constructor(
@@ -36,7 +44,6 @@ export class GeminiProvider implements IImageRecognitionProvider {
     private readonly aiCallTelemetry: AiCallTelemetryService,
   ) {
     this.genAI = new GoogleGenerativeAI(this.appConfig.getGoogleApiKey());
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     this.dailyLimit = this.appConfig.getGeminiDailyLimit();
   }
 
@@ -64,38 +71,21 @@ export class GeminiProvider implements IImageRecognitionProvider {
         const payment = options?.defaultPayment || 'Cartão de crédito';
         const context = options?.context || 'expense';
 
-        let prompt: string;
+        const prompt =
+          context === 'revenue'
+            ? buildImageRevenuePrompt()
+            : buildImageExpensePrompt(groups, payment);
 
-        if (context === 'revenue') {
-          prompt = buildImageRevenuePrompt();
-        } else {
-          prompt = buildImageExpensePrompt(groups, payment);
-        }
-
-        const result = await this.model.generateContent([
+        const result = await this.generateVisionContent(
           prompt,
-          {
-            inlineData: {
-              mimeType: imageData.split(';')[0].split(':')[1],
-              data: imageData.split(',')[1],
-            },
-          },
-        ]);
-        const response = result.response;
-        const responseText = response.text();
+          imageData.split(';')[0].split(':')[1],
+          imageData.split(',')[1],
+          'image_recognition',
+        );
 
-        let cleanedText = responseText.trim();
-        if (cleanedText.startsWith('```json')) {
-          cleanedText = cleanedText
-            .replace(/^```json\s*/, '')
-            .replace(/\s*```$/, '');
-        } else if (cleanedText.startsWith('```')) {
-          cleanedText = cleanedText
-            .replace(/^```\s*/, '')
-            .replace(/\s*```$/, '');
-        }
-
-        const parsedResult = JSON.parse(cleanedText);
+        const parsedResult = this.parseJsonResponse<ImageRecognitionResult>(
+          result.response.text(),
+        );
 
         return {
           ...parsedResult,
@@ -111,11 +101,8 @@ export class GeminiProvider implements IImageRecognitionProvider {
       const apiKey = this.appConfig.getGoogleApiKey();
       if (!apiKey) return false;
 
-      // Verifica se ainda há quota disponível
       const usage = await this.apiQuotaService.getCurrentUsage(this.name);
 
-      // Se não há registro ainda (dailyLimit é 0), considera disponível
-      // Caso contrário, verifica se há quota restante
       return usage.dailyLimit === 0 || usage.remaining > 0;
     } catch {
       return false;
@@ -144,30 +131,16 @@ export class GeminiProvider implements IImageRecognitionProvider {
           this.dailyLimit,
         );
 
-        const prompt = buildHealthExamImageExtractionPrompt();
+        const result = await this.generateVisionContent(
+          buildHealthExamImageExtractionPrompt(),
+          mimeType,
+          base64Data,
+          'health_exam',
+        );
 
-        if (!this.model) {
-          throw new AiProviderException();
-        }
-
-        const result = await this.model.generateContent([
-          prompt,
-          {
-            inlineData: {
-              mimeType,
-              data: base64Data,
-            },
-          },
-        ]);
-
-        let clean = result.response.text().trim();
-        if (clean.startsWith('```json')) {
-          clean = clean.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (clean.startsWith('```')) {
-          clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-
-        return JSON.parse(clean) as ExtractedExamData;
+        return this.parseJsonResponse<ExtractedExamData>(
+          result.response.text(),
+        );
       },
     );
   }
@@ -194,30 +167,16 @@ export class GeminiProvider implements IImageRecognitionProvider {
           this.dailyLimit,
         );
 
-        const prompt = buildHealthImagingImageExtractionPrompt();
+        const result = await this.generateVisionContent(
+          buildHealthImagingImageExtractionPrompt(),
+          mimeType,
+          base64Data,
+          'health_imaging',
+        );
 
-        if (!this.model) {
-          throw new AiProviderException();
-        }
-
-        const result = await this.model.generateContent([
-          prompt,
-          {
-            inlineData: {
-              mimeType,
-              data: base64Data,
-            },
-          },
-        ]);
-
-        let clean = result.response.text().trim();
-        if (clean.startsWith('```json')) {
-          clean = clean.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (clean.startsWith('```')) {
-          clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-
-        return JSON.parse(clean) as ExtractedExamData;
+        return this.parseJsonResponse<ExtractedExamData>(
+          result.response.text(),
+        );
       },
     );
   }
@@ -236,26 +195,97 @@ export class GeminiProvider implements IImageRecognitionProvider {
           this.dailyLimit,
         );
 
-        const prompt = buildPrescriptionImageExtractionPrompt();
+        const result = await this.generateVisionContent(
+          buildPrescriptionImageExtractionPrompt(),
+          mimeType,
+          base64Data,
+          'prescription',
+        );
 
-        if (!this.model) {
-          throw new AiProviderException();
-        }
-
-        const result = await this.model.generateContent([
-          prompt,
-          { inlineData: { mimeType, data: base64Data } },
-        ]);
-
-        let clean = result.response.text().trim();
-        if (clean.startsWith('```json')) {
-          clean = clean.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (clean.startsWith('```')) {
-          clean = clean.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-
-        return JSON.parse(clean) as ExtractedPrescriptionData;
+        return this.parseJsonResponse<ExtractedPrescriptionData>(
+          result.response.text(),
+        );
       },
     );
+  }
+
+  private async generateVisionContent(
+    prompt: string,
+    mimeType: string,
+    data: string,
+    feature: string,
+  ): Promise<GenerateContentResult> {
+    if (!this.appConfig.getGoogleApiKey()) {
+      throw new AiProviderException();
+    }
+
+    let attempts = 0;
+    let lastModel: string | undefined;
+
+    try {
+      const {
+        value,
+        model,
+        attempts: successAttempts,
+      } = await generateWithRetryFallback(GEMINI_VISION_MODELS, (modelName) => {
+        lastModel = modelName;
+        attempts += 1;
+        return this.genAI
+          .getGenerativeModel({ model: modelName })
+          .generateContent([prompt, { inlineData: { mimeType, data } }]);
+      });
+
+      this.logVisionEvent({
+        ok: true,
+        feature,
+        model_used: model,
+        attempts: successAttempts,
+        fallback: model !== GEMINI_VISION_MODELS[0],
+      });
+
+      return value;
+    } catch (err) {
+      this.logVisionEvent(
+        {
+          ok: false,
+          feature,
+          model_used: lastModel,
+          attempts,
+          fallback: lastModel != null && lastModel !== GEMINI_VISION_MODELS[0],
+        },
+        'warn',
+      );
+      throw err;
+    }
+  }
+
+  private logVisionEvent(
+    payload: {
+      ok: boolean;
+      feature: string;
+      model_used?: string;
+      attempts: number;
+      fallback: boolean;
+    },
+    level: 'log' | 'warn' = 'log',
+  ): void {
+    logJson(
+      this.logger,
+      {
+        event: 'ai_gemini_vision',
+        ...payload,
+      },
+      level,
+    );
+  }
+
+  private parseJsonResponse<T>(raw: string): T {
+    let cleaned = raw.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    return JSON.parse(cleaned) as T;
   }
 }

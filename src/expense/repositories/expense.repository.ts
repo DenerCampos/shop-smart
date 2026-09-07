@@ -332,13 +332,10 @@ export class ExpenseRepository implements IExpenseRepository {
       .andWhere('expense.deletedAt IS NULL');
 
     if (filter.from && filter.to) {
-      qb.andWhere(
-        'expense.date >= :from AND expense.date < :toExclusive',
-        {
-          from: filter.from,
-          toExclusive: nextCalendarDateString(filter.to),
-        },
-      );
+      qb.andWhere('expense.date >= :from AND expense.date < :toExclusive', {
+        from: filter.from,
+        toExclusive: nextCalendarDateString(filter.to),
+      });
     }
 
     if (filter.name) {
