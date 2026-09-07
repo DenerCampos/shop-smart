@@ -153,7 +153,7 @@ Permitir que membros de um grupo familiar cadastrem, organizem e visualizem exam
   - Sufixos `(Hemograma)` / `(Urina)` dependem da IA + revisão; o formatter de código **não** adiciona esses sufixos
 - Logs estruturados no parse: `pdf_parse_start`, `pdf_parse_ok`, `pdf_parse_failed`
 - Máx. 3 arquivos por execução do cron (a cada 2 min) — `HEALTH_PROCESSING_BATCH_SIZE`
-- Falhas registradas com `errorMessage`, `failedAt` e `retryCount`; status `FAILED` visível na fila de pendentes. Falha do Gemini nas rotas síncronas (`/ai-overview`, `/prescriptions/analyze`) → 502 `AI_PROVIDER_ERROR` (SP-142; ver `erros-ia.md`).
+- Falhas registradas com `errorMessage`, `failedAt` e `retryCount`; status `FAILED` visível na fila de pendentes. Falha do Gemini nas rotas síncronas (`/ai-overview`, `/prescriptions/analyze`) → 502 `AI_PROVIDER_ERROR` (SP-142; ver `erros-ia.md`). Extração por **imagem** tenta retry + fallback de modelo (SP-144) antes do 502.
 - **Retry automático:** após **2 horas** (`HEALTH_PROCESSING_AUTO_RETRY_AFTER_MS` em `health-processing.constants.ts`), o cron reenfileira e tenta de novo
 - Ordenação dos `FAILED` elegíveis: `failedAt ASC`, depois `updatedAt ASC` (evita `orderBy` com `COALESCE(...)`, que o TypeORM rejeita e derrubava o cron inteiro — SP-126)
 - **Retry manual:** `POST /health/processing/:id/retry` — reenfileira imediatamente (somente `FAILED`); o cron processa na próxima execução

@@ -194,7 +194,7 @@ REST: plural em recursos; paginação em listagens; status 201 em POST; 204 em D
 - **WebSockets**: `@nestjs/websockets` + `socket.io` (ex.: shopping-list).
 - **Arquivos**: `file-storage` + `supabase-storage`; ver `.cursor/docs/file-storage.md`.
 - **Logging**: Winston + Loki opcional (`LOKI_*`); `RequestLoggingMiddleware`; `logJson` com contexto `Observability`.
-- **IA**: providers Gemini com factory; telemetria `ai_provider_call`; **prompts centralizados** em `src/common/prompts/` (ver [Prompts Gemini](#prompts-gemini-ia)); falha do modelo → 502 `AI_PROVIDER_ERROR` (`AiProviderException`, SP-142).
+- **IA**: providers Gemini com factory; telemetria `ai_provider_call`; visão com retry/fallback de modelo (SP-144, `ai_gemini_vision`); **prompts centralizados** em `src/common/prompts/` (ver [Prompts Gemini](#prompts-gemini-ia)); falha do modelo → 502 `AI_PROVIDER_ERROR` (`AiProviderException`, SP-142).
 
 ---
 
@@ -277,7 +277,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, exclusão e recuperação de conta (SP-136), recuperação de senha (SP-91)
 - `email.md` — e-mail transacional (Brevo/noop, templates, reset/recuperação de conta/boas-vindas/convite; SP-91 / SP-136)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
-- `erros-ia.md` — contrato 502 `AI_PROVIDER_ERROR` nas rotas Gemini (SP-142)
+- `erros-ia.md` — contrato 502 `AI_PROVIDER_ERROR` nas rotas Gemini (SP-142); retry + fallback de modelo na visão (SP-144)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL, recorte de período (SP-117 / SP-139) e obrigação de tools em novos módulos
 - `notificacoes.md` — notificações internas, canais in-app + e-mail e evento de convite familiar (SP-101 / SP-91)
 - `deploy.md` — deploy VPS (`deploy.sh` / `ci_deploy.sh`), prune de imagens após containers no ar (SP-132)
