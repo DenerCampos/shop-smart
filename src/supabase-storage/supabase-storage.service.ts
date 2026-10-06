@@ -128,4 +128,22 @@ export class SupabaseStorageService implements IFileStorageService {
   extractFileIdFromUrl(url: string): string | null {
     return extractSupabaseStoragePathFromUrl(url);
   }
+
+  /**
+   * Leitura leve no Storage para manter o projeto Supabase (plano free) ativo.
+   * Não cria, altera nem apaga arquivos.
+   */
+  async ping(): Promise<void> {
+    const supabase = this.getSupabaseClient();
+    const { error } = await supabase.storage
+      .from(this.bucket)
+      .list('', { limit: 1 });
+
+    if (error) {
+      this.logger.error('Falha no ping do Supabase Storage', error.message);
+      throw new InternalServerErrorException(
+        'Falha ao verificar Supabase Storage.',
+      );
+    }
+  }
 }

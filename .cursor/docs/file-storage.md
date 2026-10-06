@@ -48,9 +48,11 @@ ProfileModule / RecipeModule / ChoreModule
 | `src/file-storage/interfaces/file-storage.interface.ts` | Contrato `IFileStorageService` |
 | `src/file-storage/file-storage.constants.ts` | Token `FILE_STORAGE` |
 | `src/file-storage/utils/file-storage-url.util.ts` | Parsing de URLs Supabase e Drive |
-| `src/supabase-storage/supabase-storage.service.ts` | Implementação Supabase |
+| `src/supabase-storage/supabase-storage.service.ts` | Implementação Supabase (`upload` / `delete` / `ping` keepalive SP-145) |
 | `src/google-drive/google-drive.service.ts` | Implementação Google Drive |
 | `src/common/app-config/app.config.ts` | `getFileStorageProvider()`, `getSupabaseStorage()`, `normalizeSupabaseUrl()` |
+
+Keepalive do plano free: `SupabaseStorageService.ping()` (listagem `limit: 1`) é chamado pelo cron em `src/status/` somente com `FILE_STORAGE_PROVIDER=supabase` e URL/key/bucket preenchidos — ver [status-e-keepalive.md](./status-e-keepalive.md).
 
 ### Contrato `IFileStorageService`
 
