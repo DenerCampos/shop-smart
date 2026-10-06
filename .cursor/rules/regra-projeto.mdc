@@ -79,6 +79,7 @@ Módulos registrados em `src/app.module.ts` (atualizar ao adicionar domínio):
 | chat-agent | `chat-agent/` | Assistente Familiar — chat Gemini + tools read-only (SP-117); recorte de período 12 meses / lastN / `period.label` (SP-139) |
 | notification | `notification/` | Notificações internas (canais in-app + e-mail; SP-101 / SP-91) |
 | alexa | `alexa/` | Integração Alexa |
+| status | `status/` | Liveness `GET /status` + keepalive Supabase a cada 5 dias (SP-145) |
 
 **Infraestrutura** (não expor como REST principal; usar via services):
 
@@ -177,6 +178,7 @@ Prefixos atuais (atualizar ao criar controller):
 | `/recipes` | recipe |
 | `missions` | mission |
 | `/health` | health — `POST/GET /exams`, `PUT/DELETE /exams/:id`, `GET /exam-items/names`, `GET /exam-items/evolution`, `POST /upload`, `GET/DELETE /processing`, `POST /processing/:id/approve`, `GET /patient-context`, `GET /patient-context/latest`, `POST /patient-context`, `POST /ai-overview`, `GET /ai-overview`, `GET /ai-overview/latest`, `GET /ai-overview/:id`, `POST/GET /prescriptions`, `PUT/DELETE /prescriptions/:id` (SP-123/SP-124) |
+| `/status` | status — `GET /status` liveness público `{ status: "ok" }` (SP-145; não confundir com `/health` de exames) |
 | `/chat-agent` | chat-agent — `POST/GET /sessions`, `GET /sessions/:id/messages` paginado `{ data, meta }` (20/pág.), `POST /sessions/:id/messages`, `DELETE /sessions/:id` (SP-117) |
 | `/notifications` | notification — `GET /`, `GET /unread-count`, `PATCH /read` (SP-101) |
 | `alexa` | alexa |
@@ -277,6 +279,7 @@ Referenciar ao implementar (criar arquivo se não existir):
 - `autenticacao.md` — validação login/cadastro, UNIQUE e-mail, códigos 409, exclusão e recuperação de conta (SP-136), recuperação de senha (SP-91)
 - `email.md` — e-mail transacional (Brevo/noop, templates, reset/recuperação de conta/boas-vindas/convite; SP-91 / SP-136)
 - `saude.md` — módulo de saúde: exames, processamento IA (padronização `itemName` SP-125), evolução laboratorial, receituário, visão geral (SP-123/SP-124/SP-125)
+- `status-e-keepalive.md` — liveness `GET /status` e keepalive Supabase (plano free, SP-145)
 - `erros-ia.md` — contrato 502 `AI_PROVIDER_ERROR` nas rotas Gemini (SP-142); retry + fallback de modelo na visão (SP-144)
 - `assistente-familiar.md` — Assistente Familiar / chat agent, tools Gemini, ACL, recorte de período (SP-117 / SP-139) e obrigação de tools em novos módulos
 - `notificacoes.md` — notificações internas, canais in-app + e-mail e evento de convite familiar (SP-101 / SP-91)

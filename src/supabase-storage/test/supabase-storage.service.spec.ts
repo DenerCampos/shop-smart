@@ -2,6 +2,7 @@ let supabaseMocks: {
   upload: jest.Mock;
   getPublicUrl: jest.Mock;
   remove: jest.Mock;
+  list: jest.Mock;
 };
 
 jest.mock('@supabase/supabase-js', () => {
@@ -9,6 +10,7 @@ jest.mock('@supabase/supabase-js', () => {
     upload: jest.fn(),
     getPublicUrl: jest.fn(),
     remove: jest.fn(),
+    list: jest.fn(),
   };
 
   const storageMock = {
@@ -16,6 +18,7 @@ jest.mock('@supabase/supabase-js', () => {
       upload: (...args: unknown[]) => supabaseMocks.upload(...args),
       getPublicUrl: (...args: unknown[]) => supabaseMocks.getPublicUrl(...args),
       remove: (...args: unknown[]) => supabaseMocks.remove(...args),
+      list: (...args: unknown[]) => supabaseMocks.list(...args),
     }),
   };
 
@@ -47,6 +50,7 @@ describe('SupabaseStorageService', () => {
       },
     });
     supabaseMocks.remove.mockResolvedValue({ error: null });
+    supabaseMocks.list.mockResolvedValue({ data: [], error: null });
 
     const appConfigMock = createSupabaseStorageAppConfigMock();
 
@@ -123,6 +127,24 @@ describe('SupabaseStorageService', () => {
     it('chama storage.remove com o path recebido', async () => {
       await service.deleteFile('recipe/foto.png');
       expect(supabaseMocks.remove).toHaveBeenCalledWith(['recipe/foto.png']);
+    });
+  });
+
+  describe('ping', () => {
+    it('lista o bucket com limit 1', async () => {
+      await service.ping();
+      expect(supabaseMocks.list).toHaveBeenCalledWith('', { limit: 1 });
+    });
+
+    it('lança quando o Storage retorna erro', async () => {
+      supabaseMocks.list.mockResolvedValue({
+        data: null,
+        error: { message: 'bucket unavailable' },
+      });
+
+      await expect(service.ping()).rejects.toBeInstanceOf(
+        InternalServerErrorException,
+      );
     });
   });
 });
